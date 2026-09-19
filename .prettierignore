@@ -1,0 +1,11 @@
+.next
+out
+build
+node_modules
+coverage
+next-env.d.ts
+pnpm-lock.yaml
+# Pre-existing specification documents keep their own formatting.
+specs/
+# Generated Supabase types — never hand-edit (see pnpm db:types).
+src/types/database.ts
