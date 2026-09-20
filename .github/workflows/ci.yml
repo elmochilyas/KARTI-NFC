@@ -1,0 +1,85 @@
+# Karti CI — offline quality gates. No production secrets, no live database.
+# Live Supabase verification lives in integration.yml (manual dispatch only).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Avoid wasting runners on stale pushes to the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Tests (incl. security regression)
+        run: pnpm test
+
+      - name: Dependency audit (high and above fail)
+        run: pnpm audit --audit-level=high
+
+  build:
+    name: build
+    needs: test
+    runs-on: ubuntu-latest
+    # Shape-only placeholders: the build never contacts a real backend.
+    # Dashboard routes are dynamic; misconfigured server reads fail closed
+    # to 404/redirects, so no service-role key is required here.
+    env:
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-shape-only
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Production build
+        run: pnpm build

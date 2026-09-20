@@ -1,0 +1,46 @@
+# Karti live integration — MANUAL dispatch only. Never runs on PRs.
+# Uses least-privilege anon credentials against the DEVELOPMENT project.
+# The matrix performs reads that must return nothing and writes that must be
+# rejected, so a passing run creates zero rows/objects (no cleanup needed).
+# Never point this at production: SUPABASE_URL_DEV / SUPABASE_ANON_KEY_DEV
+# must reference the development project (post-launch follow-up), and
+# scripts/live-anon-matrix.mjs additionally refuses the production host.
+name: Live integration (manual)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: live-integration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  anon-matrix:
+    name: anon-matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Anonymous attack matrix (development project)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_DEV }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_DEV }}
+        run: node scripts/live-anon-matrix.mjs
