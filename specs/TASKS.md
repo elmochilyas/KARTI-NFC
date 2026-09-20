@@ -753,6 +753,13 @@ A task is DONE only when:
 > (iPhone Safari / Android Chrome / Samsung Internet) still needs the
 > operator — no devices here.
 >
+> 2026-09-20 (share activation warming, ADR-040): the `(S)` code proved
+> share() rejected with no UI after awaiting a cold fetch — user-activation
+> expiry. Fetch now warms on pointerdown/focus; tap awaits the running
+> request. No copy/helper/endpoint changes; suite stays 334 green pending
+> re-verification. Next read: repeat `(S)` → intent-first pivot; `(I)` →
+> intent leg at fault.
+>
 > 2026-09-20 (Save Contact Android reliability, ADR-039): on-device retest
 > still showed Opening… → apparent refresh, nothing saved, with the vCard
 > endpoint itself healthy (live 200). Root causes: `intent://` declared
