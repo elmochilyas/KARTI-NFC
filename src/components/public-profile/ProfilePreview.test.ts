@@ -17,6 +17,18 @@ describe("contact href helpers", () => {
   it("builds mailto: links", () => {
     expect(mailHref("a@x.com")).toBe("mailto:a@x.com");
   });
+
+  it("omits hostile contact values instead of rendering them", () => {
+    expect(telHref("javascript:alert(1)")).toBeNull();
+    expect(telHref('"+onclick="alert(1)')).toBeNull();
+    expect(telHref("123")).toBeNull();
+    expect(whatsappHref("javascript:alert(1)")).toBeNull();
+    expect(whatsappHref("https://user:pass@evil.example/")).toBeNull();
+    expect(whatsappHref("abc")).toBeNull();
+    expect(mailHref("a@x.com\nBcc:evil@x.com")).toBeNull();
+    expect(mailHref('a"x@x.com')).toBeNull();
+    expect(mailHref("not-an-email")).toBeNull();
+  });
 });
 
 describe("foregroundOnAccent", () => {

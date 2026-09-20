@@ -96,10 +96,13 @@ export function ErrorState({
   title = "Something went wrong.",
   description = "Please try again.",
   onRetry,
+  action,
 }: {
   title?: string;
   description?: string;
   onRetry?: () => void;
+  /** Server-rendered retry/navigation action (e.g. a link). */
+  action?: ReactNode;
 }) {
   return (
     <StateShell title={title} description={description}>
@@ -108,6 +111,7 @@ export function ErrorState({
           Try again
         </Button>
       ) : null}
+      {action}
     </StateShell>
   );
 }

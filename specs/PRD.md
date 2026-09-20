@@ -751,11 +751,20 @@ Profiles
 Direct-Link Cards
 ```
 
+"Active Cards" is operationalized as Configured Cards: clients whose primary
+card (existing primary-card rule) is ACTIVE. LOST/REPLACED history never
+counts. The direct-link count covers ACTIVE cards opening an external URL.
+
 Primary action:
 
 ```text
 + New Client
 ```
+
+The home page additionally guides the operator with Quick Actions, a Needs
+Attention list (one direct next step per client, in human language), and
+recent clients with profile/NFC status. An ACTIVE profile without a card is
+shown as optional setup, never as an error.
 
 Optional recent activity:
 

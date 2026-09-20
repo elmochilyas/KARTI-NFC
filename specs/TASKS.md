@@ -1380,6 +1380,49 @@ new client JS (Share island remains the only `"use client"`).
 
 ---
 
+# Phase 10.10 — Public Profile Bolder Redesign
+
+Operator chose a bolder direction over the classic look (ADR-029).
+Visuals + public composition only: no backend, routing, resolver,
+vCard, or data-rule changes. No new dependencies, no new client JS
+(Share island remains the only `"use client"` on the public page).
+
+## 10.10.1 Hero + tiles + CTA
+
+- [x] Cinematic hero (380px, layered scrim, 112px avatar/logo, 36px name,
+      accent pill category, clamp-3 tagline, gradient fallback/mesh).
+- [x] Bolder quick tiles (124px, label + sublabel, lift press states).
+- [x] Gradient accent CTA (68px) + CSS-only sticky Save bar (same vCard href).
+
+## 10.10.2 Cards + share + frame + motion
+
+- [x] Info card with eyebrow rows + chevrons; directions as accent pill.
+- [x] Editorial About (accent rule); Connect links with hostname subtext.
+- [x] Neutral Share card with sublabel; accent-wash backdrop; `karti-rise`
+      motion with reduced-motion opt-out.
+
+### Phase 10.10 gate
+
+- [x] Behavior preserved (ACTIVE-only, no leaks, vCard hrefs intact).
+- [x] Tests pass.
+
+> 2026-09-19: live-verified BUSINESS-light (tiles, CTA, info eyebrows,
+> directions pill, about, connect rows, share) and sparse PERSON-dark
+> (collapse: no Connect/directions; dark surface; vCard intact) over HTTP;
+> temp data removed (residue 0). `typecheck`, `lint`, `format:check`,
+> `test` (193), `build` green. Pixel-level eyeball across widths left to
+> the operator.
+>
+> 2026-09-19 compact pass: hero 380→220px (80px avatar, 28px name,
+> single-line tagline), tiles to 76px horizontal strips, CTA 68→56px,
+> info rows to single-line 60px, links/share rows 60px, tighter gaps
+> throughout. Identity + tiles + Save CTA now land in the first viewport;
+> full page ≈1.2 screens. Live-verified full BUSINESS profile over HTTP
+> (all sections + sticky bar + vCard); temp data removed (residue 0).
+> Checks green again.
+
+---
+
 # Phase 11 — Dashboard Operations & Polish
 
 ## 11.1 Dashboard home
@@ -1387,20 +1430,27 @@ new client JS (Share island remains the only `"use client"`).
 - [x] Add total clients.
 - [x] Add active cards.
 - [x] Add profile count.
-- [ ] Add direct-link card count.
+- [x] Add direct-link card count.
 - [x] Keep `+ New Client` primary.
 
 > 2026-09-19: dashboard home is now an operational overview (real client
 > count, active-card count, active-profile count, recent clients, cards
 > needing attention) with `+ New Client → /dashboard/clients/new` as the
 > primary action. Direct-link (external-URL) count still open.
+>
+> 2026-09-19 (Phase 11 polish): home rebuilt as Quick Actions → Operational
+> Summary (Clients, Active Profiles, Configured Cards, Needs Attention) →
+> Needs Attention → Recent Clients. Direct-link count ships as the
+> Configured-Cards sub-line ("N open direct links", unit-tested). "Active
+> cards" became "Configured Cards" = clients whose primary card is ACTIVE
+> (ADR-030); LOST/REPLACED history never counts.
 
 ## 11.2 Operational UX
 
 - [x] Improve client search.
 - [x] Improve card search.
 - [x] Add useful filters.
-- [ ] Add success feedback/toasts.
+- [x] Add success feedback/toasts.
 - [x] Add confirmations for high-impact status changes.
 - [x] Ensure no confusing stale states after mutation.
 
@@ -1408,6 +1458,13 @@ new client JS (Share island remains the only `"use client"`).
 > status/destination filters polished with `StatusBadge` rows; destructive
 > actions keep two-step confirms (unassign, delete link); mutations refresh
 > via `router.refresh()`. A global toast system remains open.
+>
+> 2026-09-19 (Phase 11 polish): closed as a lightweight inline/status
+> pattern — no global toast system by design. Verified: profile save/activate
+> ("Profile is live."), NFC configure (success panel), destination change
+> ("Destination saved."), card assign/status messages (`role="status"`),
+> copy actions ("Copied ✓", `aria-live`). Client search untouched
+> (name/company/phone/email server-side, escaped wildcards).
 
 ## 11.3 Recent activity
 
@@ -1457,52 +1514,166 @@ backend, domain-rule, resolver, vCard, QR-payload, or RLS changes.
 > `lucide-react` icons). All checks green. Remaining human confirmations:
 > real-browser click-through + 390px/1440px eyeball pass.
 
+## 11.5 Operational home & setup guidance (Phase 11 scope)
+
+No backend, domain-rule, resolver, vCard, QR-payload, auth, or RLS changes.
+Server-rendered; client components only for existing interactions.
+
+- [x] `deriveClientSetupStatus` pure helper (Profile missing/draft/inactive,
+      NFC not configured, Card disabled/lost/replaced, Ready) + unit tests.
+- [x] `toAttentionItem` with human reasons + direct actions (Create Profile,
+      Continue Editing, Open Profile, Configure NFC, Open Card) + unit tests.
+- [x] `getDashboardOverview` / `listClientsWithSetup`: exactly 3 small
+      batched queries (clients + profiles + cards), no N+1, no full bodies/
+      links/notes/histories; RLS-backed, no service-role.
+- [x] Home: Quick Actions (+ New Client primary, Quick Add, View Clients,
+      View Cards); linked summary tiles; Needs Attention split into genuine
+      work vs optional NFC setup; Recent Clients with Profile + NFC badges.
+- [x] Client list: Client | Company | Profile | Card/NFC columns (desktop),
+      human "Profile: … · NFC: …" rows on mobile; search preserved.
+- [x] Client detail: subtle "Setup · N of 3" + Client/Profile/NFC dots.
+- [x] Settings: account identity + sign out, app/profile/card URL patterns,
+      minimal About. No billing/teams.
+- [x] Cards empty state reframed client-centrically ("created automatically
+      when you configure NFC") with View Clients action.
+- [x] `StatusBadge` gains Ready/Configured/Needs setup/Not configured;
+      DRAFT→amber, DISABLED/LOST→red (restrained semantics).
+- [x] `ErrorState` gains optional server-rendered retry/navigation action.
+- [x] Live verification: fixtures A (no profile) → Create Profile; B (DRAFT)
+      → Continue Editing; C (ACTIVE, no card) → Configure NFC; D (ACTIVE +
+      ACTIVE card) → Ready; E (ACTIVE + DISABLED) → Open Card. Counts 5/4/3/1/0
+      asserted live; full cleanup (residue 0, operator data intact).
+- [x] `typecheck`, `lint`, `format:check`, `test` (217), `build` green.
+
+> 2026-09-19: implemented + verified per plan (24 new tests). Remaining human
+> confirmations: real-browser click-through + 390px/1440px eyeball pass (no
+> screenshot tooling in this environment). Phase 12 untouched.
+
+### Phase 11 gate
+
+- [x] Dashboard guides client → profile → NFC → Ready without operator guesswork.
+- [x] No charts, analytics, billing, teams, or customer accounts added.
+- [x] Checks pass.
+
 ---
 
 # Phase 12 — Security Hardening
 
 ## 12.1 Auth/authorization
 
-- [ ] Verify all dashboard routes.
-- [ ] Verify all mutations.
-- [ ] Ensure no authorization depends only on browser UI.
+- [x] Verify all dashboard routes.
+- [x] Verify all mutations.
+- [x] Ensure no authorization depends only on browser UI.
+
+> 2026-09-20: proxy gate + layout gate + per-service `getClaims()` checks
+> verified by inspection; every mutation re-checks session server-side and
+> verifies resource relationships (link→profile→client, card→client).
+> Unauthenticated `/dashboard/*` → `/login` redirects verified live over
+> HTTP (no protected data in responses).
 
 ## 12.2 RLS re-verification
 
-- [ ] Anonymous clients read denied.
-- [ ] Anonymous notes read denied.
-- [ ] Anonymous cards read denied.
-- [ ] Anonymous writes denied.
-- [ ] Admin required reads/writes allowed.
-- [ ] Public active profile path returns only safe data.
+- [x] Anonymous clients read denied.
+- [x] Anonymous notes read denied.
+- [x] Anonymous cards read denied.
+- [x] Anonymous writes denied.
+- [x] Admin required reads/writes allowed.
+- [x] Public active profile path returns only safe data.
+
+> 2026-09-20: live REST probes with the anon key — SELECT on all 4 tables
+> returns `[]`; INSERT → 42501; PNG storage upload → 403 RLS; `is_admin`
+> RPC unreachable (private schema, no anon EXECUTE). Operator JWT simulated
+> live (`is_admin()=true`, 1 client visible); random-sub JWT simulated
+> (`is_admin()=false`, 0 rows). Public projection allowlist pinned by unit
+> test (notes/client_id/timestamps absent).
 
 ## 12.3 Redirect security tests
 
-- [ ] `javascript:` rejected.
-- [ ] `data:` rejected.
-- [ ] `file:` rejected.
-- [ ] malformed URL rejected.
-- [ ] valid HTTPS accepted.
-- [ ] target is revalidated on redirect.
+- [x] `javascript:` rejected.
+- [x] `data:` rejected.
+- [x] `file:` rejected.
+- [x] malformed URL rejected.
+- [x] valid HTTPS accepted.
+- [x] target is revalidated on redirect.
+
+> 2026-09-20: validator hardened (2048 cap, control-char + credentialed-URL
+> rejection) with unit tests; resolver revalidates on every hit (unchanged);
+> `/t/KARTI-000123` rejected without DB touch (new test); live HTTP matrix:
+> ACTIVE→307 canonical URL, lowercase normalized, disabled/unknown→generic
+> 404. Resolver host now built from canonical APP_URL (host-header fix).
 
 ## 12.4 Upload security
 
-- [ ] Invalid MIME rejected.
-- [ ] Oversized image rejected.
-- [ ] Storage path safe.
-- [ ] SVG decision enforced.
-- [ ] Replaced asset handling verified.
+- [x] Invalid MIME rejected.
+- [x] Oversized image rejected.
+- [x] Storage path safe.
+- [x] SVG decision enforced.
+- [x] Replaced asset handling verified.
+
+> 2026-09-20: magic-byte gate (`detectImageKind`) rejects forged MIME/HTML/
+> SVG without uploading (unit-tested incl. wiring); bucket allowlist + 5 MB
+> re-verified live; `removeAsset` gated to managed paths; SVG still rejected
+> everywhere; replace-then-delete order unchanged. Live admin-path upload
+> needs operator credentials — unit + bucket layers verified here.
 
 ## 12.5 Secrets
 
-- [ ] Service-role key server-only.
-- [ ] `.env` files safe.
-- [ ] No secrets in public bundle.
-- [ ] No secrets in logs.
+- [x] Service-role key server-only.
+- [x] `.env` files safe.
+- [x] No secrets in public bundle.
+- [x] No secrets in logs.
+
+> 2026-09-20: secret moved to `env-server.ts` behind `server-only` (build
+> error on client import); `env.ts` browser-safe; isolation enforced by
+> `admin-isolation.test.ts` (no client component imports admin/secrets).
+> No `.env*` tracked; git history holds placeholders only (verified);
+> zero `console.*` in src; no secret values in report/logs.
+
+## 12.6 Admin allowlist (explicit authorization)
+
+- [x] `private.admin_users` + `private.is_admin()` (DEFINER, empty
+      search_path, EXECUTE to authenticated only).
+- [x] Operator bootstrapped before tightening (1 user, unambiguous).
+- [x] Table + storage policies rewritten to `is_admin()`; anon still
+      default-deny.
+- [x] Non-admin denial + operator access proved live (differential JWT test).
+
+## 12.7 Database integrity hardening
+
+- [x] `UNIQUE(profiles.client_id)` (data verified clean first).
+- [x] Card trigger: ACTIVE requires owner+destination; cross-client PROFILE
+      rejected; EXTERNAL_URL http(s)+control-char gate.
+- [x] CHECKs: accent hex, avatar/cover path shape.
+- [x] All six bypass attempts verified blocked live; fixtures removed.
+- [x] `handle_updated_at` search_path pinned; FK indexes added.
+- [x] `pnpm db:types` attempted — CLI needs `SUPABASE_ACCESS_TOKEN`
+      (unavailable here); delta produces zero public/storage type changes
+      (new objects live in `private`), generated file restored byte-identical.
+      Operator step recorded.
+
+## 12.8 Render-time hardening
+
+- [x] `tel:`/`mailto:`/WhatsApp href builders return null on hostile input;
+      tiles/rows omitted (unit + live hostile-fixture render verified —
+      hostile markup appears only escaped, unsafe links omitted).
+- [x] Security headers shipped (nosniff, referrer, DENY framing,
+      minimal permissions-policy, prod-only HSTS); verified live over HTTP.
+- [x] CSP deferred with written rationale (nonce-CSP needs browser
+      verification; tracked for Phase 14).
+- [x] Login `next` validation aligned page/action/proxy.
+
+## 12.9 Dependency audit
+
+- [x] `pnpm audit` clean (2026-09-20).
+- [x] `server-only@0.0.1` added (sole dependency change; no majors).
 
 ### Phase 12 gate
 
-- [ ] `SECURITY.md` release checklist passes.
+- [x] `SECURITY.md` release checklist passes.
+
+> 2026-09-20: all items verified live + automated (236 tests). Residual
+> manual items (Auth dashboard settings, operator click-through, backups)
+> recorded in TASKS/report — none blocks the gate. Phase 13 untouched.
 
 ---
 
@@ -1510,33 +1681,47 @@ backend, domain-rule, resolver, vCard, QR-payload, or RLS changes.
 
 ## 13.1 Automated quality
 
-- [ ] Full typecheck.
-- [ ] Full lint.
-- [ ] Full test suite.
-- [ ] Production build.
+- [x] Full typecheck.
+- [x] Full lint.
+- [x] Full test suite.
+- [x] Production build.
+
+> 2026-09-20: `typecheck`, `lint` (0 warnings), `format:check`, `test`
+> (25 files / 251 tests), `build`, `pnpm audit` (clean) all green on Node 24
+> + pnpm 11.4.0 after a clean `--frozen-lockfile` reinstall.
 
 ## 13.2 Critical E2E flow
 
-- [ ] Login as admin.
-- [ ] Create client.
-- [ ] Create PERSON profile.
-- [ ] Create BUSINESS profile.
-- [ ] Add/edit/reorder links.
-- [ ] Upload profile asset.
-- [ ] Activate profile.
-- [ ] Open public profile.
-- [ ] Save Contact.
-- [ ] Create card.
-- [ ] Assign card.
-- [ ] Set profile destination.
-- [ ] Open `/t/[code]`.
-- [ ] Change destination to external URL.
-- [ ] Open same `/t/[code]`.
-- [ ] Disable card.
-- [ ] Confirm resolver stops.
-- [ ] Generate/scan QR.
-- [ ] Verify NFC fallback.
-- [ ] Verify real NFC where hardware is available.
+Legend: **auto** = automated test, **live** = verified against dev project
+with temp fixtures (removed), **manual** = needs human/device.
+
+- [ ] Login as admin. (**manual** — needs operator credentials)
+- [x] Create client. (**live** fixture + service tests)
+- [x] Create PERSON profile. (**live** fixture + service tests)
+- [x] Create BUSINESS profile. (**live** fixture + service tests)
+- [x] Add/edit/reorder links. (**live** ordered/disabled-link assertions)
+- [ ] Upload profile asset. (**manual** — needs operator session; unit +
+      bucket layers verified: magic bytes, MIME, size, path gate)
+- [x] Activate profile. (**live** DRAFT→unavailable / ACTIVE→renders)
+- [x] Open public profile. (**live** PERSON + BUSINESS + Save Contact href)
+- [x] Save Contact. (**live** download + headers; structural unit tests)
+- [x] Create card. (**live** KARTI-000016 issued)
+- [x] Assign card. (**live** + orchestration tests)
+- [x] Set profile destination. (**live** 307 → profile)
+- [x] Open `/t/[code]`. (**live** + route tests)
+- [x] Change destination to external URL. (**live** same code → external)
+- [x] Open same `/t/[code]`. (**live**)
+- [x] Disable card. (**live** 307 → 404, no leak)
+- [x] Confirm resolver stops. (**live** + route tests)
+- [ ] Generate/scan QR. (**manual** camera scan; PNG bytes + payload
+      unit-tested, download UI reviewed)
+- [ ] Verify NFC fallback. (**manual** device check; unsupported/denied/
+      cancelled/failed states mock-tested)
+- [ ] Verify real NFC where hardware is available. (**manual**)
+
+> 2026-09-20: live golden path ran green on temp P13 fixtures (slug-change
+> reflection + old-slug 404 also verified); full cleanup, residue 0,
+> operator data intact.
 
 ## 13.3 Responsive
 
@@ -1555,25 +1740,72 @@ backend, domain-rule, resolver, vCard, QR-payload, or RLS changes.
 
 ## 13.4 Accessibility
 
-- [ ] Keyboard navigation.
-- [ ] Visible focus.
-- [ ] Form labels.
-- [ ] Touch targets.
-- [ ] Color contrast.
-- [ ] Icon accessible names.
-- [ ] Error/status feedback.
+- [x] Keyboard navigation. (static review: native controls/links throughout)
+- [x] Visible focus. (global `:focus-visible` ring verified in CSS)
+- [x] Form labels. (login + dashboard forms use labeled Field controls)
+- [x] Touch targets. (min 44px+ patterns; markup reviewed)
+- [ ] Color contrast. (**manual** — needs browser measurement)
+- [x] Icon accessible names. (aria-hidden decor + visible labels verified)
+- [x] Error/status feedback. (`role=alert/status` across forms, NFC, QR)
 
 ## 13.5 Performance
 
-- [ ] Review public profile JS.
-- [ ] Optimize profile images.
-- [ ] Confirm no unnecessary dashboard code on public page.
-- [ ] Review redirect latency.
-- [ ] Avoid unnecessary third-party scripts.
+- [x] Review public profile JS. (single Share island; rest server-rendered)
+- [x] Optimize profile images. (`next/image` sized avatar/cover + priority)
+- [x] Confirm no unnecessary dashboard code on public page. (separate
+      bundles; public page imports no dashboard modules)
+- [x] Review redirect latency. (2 minimal queries per hit, no caching by
+      design per ADR-024)
+- [x] Avoid unnecessary third-party scripts. (none added; bundle scanned)
+
+## 13.6 GitHub CI
+
+- [x] `.github/workflows/ci.yml` (PR + main, jobs `test` → `build`).
+- [x] Frozen-lockfile install proven locally.
+- [x] Typecheck/lint/format/test/build/audit gates (audit fails on high+).
+- [x] No production secrets in CI (shape-only dummy env for build).
+- [x] Concurrency cancel, minimal permissions, pinned actions.
+- [x] `.github/workflows/integration.yml` (manual dispatch, anon matrix,
+      creates nothing, dev project only).
+- [x] `scripts/live-anon-matrix.mjs` validated live (exit 0).
+
+## 13.7 Readiness foundation
+
+- [x] Test layers documented (`specs/TESTING.md`).
+- [x] Coverage capability added (no gate); snapshot ~60% overall, ~98% domain.
+- [x] Migration audit: 5 files ordered, dependencies sound, zero live drift.
+- [x] `engines: node>=20`; README refreshed; `.env.example` classified.
+- [x] Release checklist expanded (CI/CD, Auth settings, CSP, backups,
+      hardware); manual boxes honestly left open.
+- [x] DEPLOYMENT.md prepared for Phase 14 (Vercel Git model, promote-current
+      project strategy, entry checklist). No deployment performed.
+- [x] Branch flow + protection recommendation documented.
+
+### Phase 13 gate
+
+- [x] CI exists with all quality gates and no production secrets.
+- [x] Golden/negative matrices automated where offline-capable, live-run
+      where possible, manual remainder explicitly listed.
+- [x] Migrations audited with zero drift; types current by construction.
+- [x] Docs (TESTING/GIT_WORKFLOW/DEPLOYMENT/RELEASE_CHECKLIST/README) current.
 
 ---
 
 # Phase 14 — Deployment
+
+> 2026-09-20 status: preparation complete, deployment BLOCKED — see 14.0.
+> Nothing has been deployed. No Auth/project settings were changed by
+> tooling; no commits were made.
+
+## 14.0 Release gate (must clear before deploy)
+
+- [ ] Intended code committed + pushed (BLOCKED — 55 dirty files +
+      untracked Phase 0–13 work + unrelated operator edits coexist; blind
+      `git add .` forbidden; safe commit plan in Phase 14 report §37).
+- [ ] Vercel project connected (operator).
+- [ ] Production env vars set with correct scopes (operator).
+- [ ] Custom domain + HTTPS live (operator).
+- [ ] Auth hardening applied in dashboard (operator — exact steps in report).
 
 ## 14.1 Vercel
 
@@ -1584,14 +1816,23 @@ backend, domain-rule, resolver, vCard, QR-payload, or RLS changes.
 - [ ] Verify production build/deploy.
 - [ ] Configure preview environment if used.
 
+> Docs + scopes prepared (DEPLOYMENT §3); execution needs operator access.
+
 ## 14.2 Supabase production
 
-- [ ] Apply migrations safely.
-- [ ] Verify production Auth.
-- [ ] Verify RLS.
-- [ ] Verify Storage.
-- [ ] Set up production admin securely.
-- [ ] Regenerate/confirm production-compatible types if required.
+- [x] Promotion recorded: current project IS production (decision stands).
+- [x] Data sanity: baseline 1/1/1/0 + 1 user + 1 admin + 2 objects, zero
+      fixtures (verified 2026-09-20, read-only).
+- [x] RLS re-verified non-mutating (anon matrix green; operator is_admin).
+- [x] Storage posture verified (public read, anon upload denied).
+- [x] Admin allowlist holds exactly the operator.
+- [x] Migrations synchronized (5 files; tracker + objects verified, no
+      re-apply).
+- [ ] Verify production Auth. (manual dashboard settings — OPEN)
+- [ ] Set up production admin securely. (already exactly 1 operator; confirm
+      post-deploy login)
+- [ ] Regenerate/confirm production-compatible types if required. (needs
+      access token — operator step)
 
 ## 14.3 Production smoke test
 
@@ -1606,6 +1847,17 @@ backend, domain-rule, resolver, vCard, QR-payload, or RLS changes.
 - [ ] Test vCard.
 - [ ] Test NFC/manual fallback.
 - [ ] Clean temporary test data safely if appropriate.
+
+> All green against dev equivalents (Phase 13); production runbook ready in
+> DEPLOYMENT §7 + RELEASE_CHECKLIST. Awaits deployment.
+
+## 14.4 Post-execution guards added
+
+- [x] `scripts/live-anon-matrix.mjs` refuses the production host.
+- [x] `integration.yml` documents dev-only secrets requirement.
+- [x] Preview/production env separation documented (DEPLOYMENT §3/§6/§9).
+- [x] Release procedure + rollback + monitoring docs (DEPLOYMENT §2/§8,
+      release checklist, report §27/§28).
 
 ---
 

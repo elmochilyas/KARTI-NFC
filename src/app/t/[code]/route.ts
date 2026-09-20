@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { notFound } from "next/navigation";
 import { resolveCardDestination } from "@/features/cards/resolver";
+import { getAppUrl } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ResolverRouteContext = {
@@ -16,7 +17,7 @@ type ResolverRouteContext = {
  * feature. `no-store` keeps dashboard edits effective immediately.
  * Every failure collapses to the branded unavailable page (no leaks).
  */
-export async function GET(request: Request, { params }: ResolverRouteContext) {
+export async function GET(_request: Request, { params }: ResolverRouteContext) {
   const { code } = await params;
 
   let supabase;
@@ -31,9 +32,11 @@ export async function GET(request: Request, { params }: ResolverRouteContext) {
     notFound();
   }
 
+  // PROFILE targets are same-origin paths; resolve them against the canonical
+  // APP_URL, never the incoming Host header (host-header poisoning).
   const target =
     resolution.kind === "PROFILE"
-      ? new URL(resolution.target, request.url).toString()
+      ? new URL(resolution.target, `${getAppUrl()}/`).toString()
       : resolution.target;
 
   const response = NextResponse.redirect(target, { status: 307 });

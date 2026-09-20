@@ -44,7 +44,9 @@ describe("writeUrl payload", () => {
     };
     const shortCode = "K7DX29P4";
     await createNfcWriter(() => reader).writeUrl(permanentCardUrl(shortCode));
+    // Triple parity: QR payload === NFC payload === permanent card URL.
     expect(seen).toEqual([qrPayloadForCard(shortCode)]);
+    expect(seen).toEqual([permanentCardUrl(shortCode)]);
   });
 
   it("never writes profile, destination, or secret payloads", async () => {

@@ -1,5 +1,7 @@
+import "server-only";
 import { createClient as createJsClient } from "@supabase/supabase-js";
-import { getServiceRoleKey, getSupabasePublicConfig } from "@/lib/env";
+import { getSupabasePublicConfig } from "@/lib/env";
+import { getServiceRoleKey } from "@/lib/env-server";
 import type { Database } from "@/types/database";
 
 if (typeof window !== "undefined") {

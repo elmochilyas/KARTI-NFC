@@ -154,29 +154,32 @@ export function pickQuickActions(input: QuickActionInput): {
     });
     consumedIds.add(instagramLink.id);
   }
-  if (input.whatsapp?.trim()) {
+  const whatsappHrefValue = input.whatsapp?.trim() ? whatsappHref(input.whatsapp) : null;
+  if (whatsappHrefValue) {
     candidates.push({
       id: "field:whatsapp",
       label: "WhatsApp",
-      href: whatsappHref(input.whatsapp),
+      href: whatsappHrefValue,
       external: false,
       brand: "whatsapp",
     });
   }
-  if (input.phone?.trim()) {
+  const telHrefValue = input.phone?.trim() ? telHref(input.phone) : null;
+  if (telHrefValue) {
     candidates.push({
       id: "field:phone",
       label: "Call",
-      href: telHref(input.phone),
+      href: telHrefValue,
       external: false,
       brand: "call",
     });
   }
-  if (input.email?.trim()) {
+  const mailHrefValue = input.email?.trim() ? mailHref(input.email) : null;
+  if (mailHrefValue) {
     candidates.push({
       id: "field:email",
       label: "Email",
-      href: mailHref(input.email),
+      href: mailHrefValue,
       external: false,
       brand: "email",
     });

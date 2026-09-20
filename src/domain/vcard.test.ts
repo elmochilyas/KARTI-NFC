@@ -1,6 +1,49 @@
 import { describe, expect, it } from "vitest";
 import { buildVCard, escapeVCardText, pickTelNumber } from "./vcard";
 
+/**
+ * Independent structural validator for .vcf output (no vCard dependency):
+ * CRLF-only line endings, required document envelope in order, known
+ * property names only, URL values restricted to http(s).
+ */
+function assertWellFormedVCard(
+  vcf: string,
+  opts: { expectTel: boolean; expectUrls: number },
+): void {
+  expect(vcf).not.toMatch(/[^\r]\n/);
+  expect(vcf.endsWith("\r\n")).toBe(true);
+  const lines = vcf.split("\r\n").filter((l) => l !== "");
+  expect(lines[0]).toBe("BEGIN:VCARD");
+  expect(lines[1]).toBe("VERSION:3.0");
+  expect(lines[lines.length - 1]).toBe("END:VCARD");
+  const names = lines.map((l) => l.split(/[;:]/, 1)[0]);
+  for (const name of ["BEGIN", "VERSION", "N", "FN", "END"]) {
+    expect(names).toContain(name);
+  }
+  const allowed = new Set([
+    "BEGIN",
+    "VERSION",
+    "N",
+    "FN",
+    "ORG",
+    "TITLE",
+    "TEL",
+    "EMAIL",
+    "URL",
+    "ADR",
+    "END",
+  ]);
+  for (const name of names) {
+    expect(allowed.has(name ?? "")).toBe(true);
+  }
+  expect(names.includes("TEL")).toBe(opts.expectTel);
+  const urls = lines.filter((l) => l.startsWith("URL:"));
+  expect(urls).toHaveLength(opts.expectUrls);
+  for (const url of urls) {
+    expect(url.slice(4)).toMatch(/^https?:\/\//);
+  }
+}
+
 describe("escapeVCardText", () => {
   it("escapes backslash, comma, semicolon, and newlines", () => {
     expect(escapeVCardText("a\\b,c;d")).toBe("a\\\\b\\,c\\;d");
@@ -96,6 +139,62 @@ describe("buildVCard", () => {
     const vcf = buildVCard({ displayName: "Alice\nTEL:+123" });
     expect(vcf).toContain("FN:Alice\\nTEL:+123\r\n");
     expect(vcf.match(/^TEL;/gm)?.length ?? 0).toBe(0);
+  });
+
+  it("neutralizes hostile stored values (URL/newline/property shapes)", () => {
+    const vcf = buildVCard({
+      displayName: "<script>alert(1)</script>",
+      jobTitle: '"><img src=x onerror=alert(1)>',
+      companyName: "Evil\r\nTEL:+1999",
+      website: "javascript:alert(1)",
+      profileUrl: "data:text/html,<h1>x</h1>",
+      email: "a@x.com\r\nBcc:evil@x.com",
+    });
+    // Markup-looking text stays inert data (downloaded .vcf, never HTML) —
+    // what must never happen: executable URLs, injected properties, or raw
+    // newlines that would break the line structure.
+    expect(vcf).not.toContain("javascript:");
+    expect(vcf).not.toContain("data:text/html");
+    expect(vcf).not.toContain("URL:");
+    // No raw newlines inside values: every \n is part of a CRLF separator.
+    expect(vcf).not.toMatch(/[^\r]\n/);
+    expect(vcf.match(/^TEL;/gm)?.length ?? 0).toBe(0);
+    expect(vcf).toContain("FN:<script>alert(1)</script>\r\n");
+    expect(vcf).toContain("ORG:Evil\\nTEL:+1999\r\n");
+  });
+
+  it("preserves Arabic and French content with punctuation intact", () => {
+    const vcf = buildVCard({
+      displayName: "أحمد بن علي",
+      jobTitle: "Développeur — café & crème",
+      companyName: "Atlas Sàrl",
+      phone: "+212 6 12 34 56 78",
+      email: "ahmed@atlas.ma",
+      website: "https://atlas.ma/café",
+      address: "12, Rue de l'Église; Marrakech",
+    });
+    expect(vcf).toContain("FN:أحمد بن علي\r\n");
+    expect(vcf).toContain("TITLE:Développeur — café & crème\r\n");
+    expect(vcf).toContain("ORG:Atlas Sàrl\r\n");
+    // Comma/semicolon are data-escaped; the text survives.
+    expect(vcf).toContain("ADR;TYPE=HOME:;;12\\, Rue de l'Église\\; Marrakech;;;;\r\n");
+    expect(vcf).not.toMatch(/[^\r]\n/);
+  });
+
+  it("satisfies an independent structural check of the .vcf document", () => {
+    const vcf = buildVCard({
+      displayName: "Marie Dupont",
+      jobTitle: "Avocate",
+      companyName: "Cabinet Dupont",
+      phone: "+33612345678",
+      email: "marie@dupont.fr",
+      website: "https://dupont.fr",
+      address: "Paris",
+      profileUrl: "https://karti.app/marie-dupont",
+    });
+    assertWellFormedVCard(vcf, { expectTel: true, expectUrls: 2 });
+    const minimal = buildVCard({ displayName: "Solo" });
+    assertWellFormedVCard(minimal, { expectTel: false, expectUrls: 0 });
   });
 
   it("omits missing optional fields without undefined/null literals", () => {

@@ -12,7 +12,11 @@ type LoginPageProps = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
-  const next = params.next && params.next.startsWith("/") ? params.next : "/dashboard";
+  // Same rule as loginAction + proxy: same-origin path only, never `//host`.
+  const next =
+    params.next && params.next.startsWith("/") && !params.next.startsWith("//")
+      ? params.next
+      : "/dashboard";
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">

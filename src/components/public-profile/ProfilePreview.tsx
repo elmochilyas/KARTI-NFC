@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { validateSafeExternalUrl } from "@/domain/urls";
 import type { ProfileTheme } from "@/features/profiles/schema";
 
 /**
@@ -21,18 +22,35 @@ export type PreviewLink = {
   url: string;
 };
 
-export function telHref(phone: string): string {
-  return `tel:${phone.replace(/[\s()\-]/g, "")}`;
+/**
+ * Contact href builders. Each returns null when the stored value is not a
+ * safe action target — callers omit the tile/row instead of rendering a
+ * hostile href. Stored data is never trusted: direct DB writes bypass the
+ * dashboard Zod validation, so render-time gating is the last line of
+ * defense (specs/SECURITY.md).
+ */
+export function telHref(phone: string): string | null {
+  const digits = phone.replace(/[\s().-]/g, "");
+  if (!/^\+?\d{4,32}$/.test(digits)) return null;
+  return `tel:${digits}`;
 }
 
-export function whatsappHref(value: string): string {
+export function whatsappHref(value: string): string | null {
   const trimmed = value.trim();
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://wa.me/${trimmed.replace(/\D/g, "")}`;
+  if (/^https?:\/\//i.test(trimmed)) {
+    // Stored wa.me links pass through the full external-URL validator.
+    return validateSafeExternalUrl(trimmed);
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 20) return null;
+  return `https://wa.me/${digits}`;
 }
 
-export function mailHref(email: string): string {
-  return `mailto:${email}`;
+export function mailHref(email: string): string | null {
+  const trimmed = email.trim();
+  if (/[\u0000-\u001f\u007f"(),;:\\[\]<>]/.test(trimmed)) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return null;
+  return `mailto:${trimmed}`;
 }
 
 /** Derive a readable foreground color for an accent background (WCAG-ish). */

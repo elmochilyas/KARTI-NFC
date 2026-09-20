@@ -23,7 +23,7 @@ Do not:
 
 ## 3. Branches
 
-If branch workflow is used, prefer feature branches such as:
+Work happens on feature branches, never directly on `main`:
 
 ```text
 feature/client-management
@@ -31,7 +31,22 @@ feature/public-profile
 feature/card-routing
 ```
 
+Flow:
+
+```text
+feature branch
+→ pull request
+→ CI green (jobs: test, build)
+→ review
+→ merge to main
+→ Vercel production deployment (Phase 14 CD)
+```
+
 Follow existing repository conventions if already defined.
+
+Recommended branch protection on `main` (configure manually — no API
+access here): require PR, require status checks `test` and `build`,
+prevent direct pushes.
 
 ## 4. Commits
 

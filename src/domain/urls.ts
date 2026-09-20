@@ -9,14 +9,22 @@
 
 const ALLOWED_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
 
+/** Upper bound for stored/redirected external URLs (header-injection hygiene). */
+export const MAX_EXTERNAL_URL_LENGTH = 2048;
+
 /**
  * Returns the normalized URL string when `input` is a safe external URL,
  * otherwise null. Accepts only absolute http(s) URLs.
+ *
+ * Defense-in-depth beyond the scheme check: rejects control characters
+ * (CR/LF/NULL → header-injection hygiene), over-long values, and URLs
+ * carrying credentials (`user:pass@host` is a phishing vector).
  */
 export function validateSafeExternalUrl(input: unknown): string | null {
   if (typeof input !== "string") return null;
   const trimmed = input.trim();
-  if (!trimmed) return null;
+  if (!trimmed || trimmed.length > MAX_EXTERNAL_URL_LENGTH) return null;
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return null;
 
   let parsed: URL;
   try {
@@ -27,5 +35,6 @@ export function validateSafeExternalUrl(input: unknown): string | null {
 
   if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return null;
   if (!parsed.hostname) return null;
+  if (parsed.username !== "" || parsed.password !== "") return null;
   return parsed.toString();
 }

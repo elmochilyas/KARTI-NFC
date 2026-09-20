@@ -18,14 +18,14 @@ behind that URL without rewriting the tag.
 
 ## Prerequisites
 
-- Node.js 20+ (developed with Node 24)
-- pnpm 10+
+- Node.js 20+ (developed with Node 24; see `engines` in `package.json`)
+- pnpm 11 (`packageManager` pins `pnpm@11.4.0`)
 - A Supabase project (for live auth/data; the UI compiles without it)
 
 ## Local setup
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 cp .env.example .env.local   # then fill in Supabase keys
 pnpm dev                     # http://localhost:3000
 ```
@@ -40,8 +40,7 @@ pnpm dev                     # http://localhost:3000
 | `NEXT_PUBLIC_APP_URL`           | public          | canonical base URL for card/profile/vCard links                        |
 
 Without Supabase keys the app still builds; `/dashboard/**` redirects to
-`/login` with a setup notice. Live sign-in requires a provisioned project
-(currently **BLOCKED** — no Supabase project yet).
+`/login` with a setup notice. Live sign-in requires a provisioned project.
 
 ## Commands
 
@@ -52,19 +51,27 @@ pnpm typecheck      # tsc --noEmit
 pnpm lint           # eslint (use lint:fix to autofix)
 pnpm format         # prettier write (format:check to verify)
 pnpm test           # vitest run (test:watch for watch mode)
+pnpm audit          # dependency vulnerability audit
 ```
+
+CI (`.github/workflows/ci.yml`) runs frozen-install, typecheck, lint,
+format-check, tests, build, and audit on every PR and push to `main`.
 
 ## Supabase status
 
-- App-side clients exist: `src/lib/supabase/browser.ts` (browser),
-  `src/lib/supabase/server.ts` (user-scoped server). No privileged
-  `admin.ts` — not needed yet; add it server-only only when justified.
-- Schema lives in `supabase/migrations/` (applied to the dev project).
-  RLS enabled on all app tables; `profile-assets` bucket configured.
+- App-side clients: `src/lib/supabase/browser.ts` (browser),
+  `src/lib/supabase/server.ts` (user-scoped server),
+  `src/lib/supabase/admin.ts` (privileged server-only reads for the
+  anonymous public/resolver/vCard paths; guarded by `server-only`).
+- Authorization: explicit `private.admin_users` allowlist + RLS
+  (`private.is_admin()`); anonymous has no policies (default deny).
+- Schema lives in `supabase/migrations/` (applied to the dev project, drift
+  verified zero). RLS enabled on all app tables; `profile-assets` bucket
+  configured (public read, admin writes, 5 MB raster-only).
 - Database types: `src/types/database.ts` is **generated — never hand-edit**.
   Regenerate after every migration with `pnpm db:types` (needs
-  `SUPABASE_ACCESS_TOKEN`; the MCP OAuth token works). On Windows
-  PowerShell, re-save the output as UTF-8 if the redirect writes UTF-16.
+  `SUPABASE_ACCESS_TOKEN`). On Windows PowerShell, re-save the output as
+  UTF-8 if the redirect writes UTF-16.
 
 ## Specs (source of truth)
 

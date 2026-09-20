@@ -16,6 +16,42 @@ export type AssetKind = "avatar" | "cover";
 
 export type AssetResult = { ok: true; path: string } | { ok: false; message: string };
 
+export type DetectedImageKind = "jpg" | "png" | "webp";
+
+/**
+ * Detect the real image kind from magic bytes (first 12 bytes suffice for
+ * JPEG/PNG/WebP). Pure — unit-tested. Browser-provided `file.type` is never
+ * trusted on its own: a forged type on an HTML/JS payload must not reach
+ * the public bucket.
+ */
+export function detectImageKind(header: Uint8Array): DetectedImageKind | null {
+  const startsWith = (sig: number[]): boolean => sig.every((byte, i) => header[i] === byte);
+  if (startsWith([0xff, 0xd8, 0xff])) return "jpg";
+  if (startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "png";
+  if (
+    startsWith([0x52, 0x49, 0x46, 0x46]) &&
+    header[8] === 0x57 &&
+    header[9] === 0x45 &&
+    header[10] === 0x42 &&
+    header[11] === 0x50
+  ) {
+    return "webp";
+  }
+  return null;
+}
+
+/**
+ * Managed-object gate for deletes: only server-generated asset paths may be
+ * removed (mirrors `assetPath` + the `assetPathField` schema shape). The
+ * previous path arrives via FormData and must never become an arbitrary
+ * bucket-wide delete.
+ */
+export function isManagedAssetPath(path: string): boolean {
+  return /^profiles\/([0-9a-f-]{1,64}|pending)\/(avatar|cover)\/[0-9a-f]{16}\.(jpg|png|webp)$/.test(
+    path,
+  );
+}
+
 async function requireAdmin(supabase: StorageDb): Promise<boolean> {
   try {
     const { data } = await supabase.auth.getClaims();
@@ -60,6 +96,17 @@ export async function uploadAsset(
   if (file.size === 0) {
     return { ok: false, message: "The selected file is empty." };
   }
+  // Magic-byte check: the declared type must match the actual content.
+  // Reads only the 12-byte header — no full-file buffering, no new dependency.
+  let header: Uint8Array;
+  try {
+    header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  } catch {
+    return { ok: false, message: "Could not read the image. Please try again." };
+  }
+  if (detectImageKind(header) !== extension) {
+    return { ok: false, message: "That file is not a valid JPEG, PNG, or WebP image." };
+  }
 
   const path = assetPath(profileId, kind, extension);
   const { error } = await supabase.storage
@@ -79,6 +126,9 @@ export async function removeAsset(
 ): Promise<{ ok: boolean; message?: string }> {
   if (!(await requireAdmin(supabase))) {
     return { ok: false, message: "Sign in to manage images." };
+  }
+  if (!isManagedAssetPath(path)) {
+    return { ok: false, message: "Invalid image reference." };
   }
   const { error } = await supabase.storage.from(PROFILE_ASSETS_BUCKET).remove([path]);
   if (error) {

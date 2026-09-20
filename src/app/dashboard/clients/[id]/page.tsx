@@ -10,6 +10,9 @@ import { getClientById } from "@/features/clients/service";
 import { ProfileLinkPanel } from "@/features/profiles/components/ProfileLinkPanel";
 import { ClientCardsSection } from "@/features/cards/components/ClientCardsSection";
 import { NfcCardSection } from "@/features/cards/components/NfcCardSection";
+import { getCardsByClientId } from "@/features/cards/service";
+import { pickPrimaryCard } from "@/features/cards/orchestrate";
+import { deriveClientSetupStatus, type ClientSetupStatus } from "@/features/dashboard/setupStatus";
 import { getProfileByClientId } from "@/features/profiles/service";
 import { activateProfile, deactivateProfile } from "./profile/actions";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -32,6 +35,32 @@ function formatDateTime(value: string): string {
 type ClientDetailPageProps = {
   params: Promise<{ id: string }>;
 };
+
+/** Subtle setup progression: Client → Profile → NFC. Supports the existing flow, no wizard. */
+function SetupProgress({ setup }: { setup: ClientSetupStatus }) {
+  const steps = [
+    { label: "Client", done: true },
+    { label: "Profile", done: setup.stepsCompleted >= 2 },
+    { label: "NFC", done: setup.stepsCompleted >= 3 },
+  ];
+  return (
+    <p
+      className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted"
+      aria-label={`Setup ${setup.stepsCompleted} of 3 complete: ${setup.label}`}
+    >
+      <span className="font-medium text-text">Setup · {setup.stepsCompleted} of 3</span>
+      {steps.map((step) => (
+        <span key={step.label} className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full ${step.done ? "bg-success" : "bg-border"}`}
+          />
+          {step.label}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 export default async function ClientDetailPage({ params }: ClientDetailPageProps) {
   const { id } = await params;
@@ -58,6 +87,13 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
 
   const profileResult = await getProfileByClientId(id, supabase);
   const profile = profileResult.ok ? profileResult.data : null;
+
+  const cardsResult = await getCardsByClientId(id, supabase);
+  const primaryCard = cardsResult.ok ? pickPrimaryCard(cardsResult.data) : null;
+  const setup = deriveClientSetupStatus({
+    profileStatus: profile?.status ?? null,
+    primaryCardStatus: primaryCard?.status ?? null,
+  });
 
   const primaryAction = !profile ? (
     <Link
@@ -98,11 +134,10 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
               </>
             }
           />
-          {profile ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <StatusBadge status={profile.status} />
-            </div>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <SetupProgress setup={setup} />
+            {profile ? <StatusBadge status={profile.status} /> : null}
+          </div>
         </div>
       </div>
 

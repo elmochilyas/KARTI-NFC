@@ -1,8 +1,8 @@
 /**
- * Environment validation.
+ * Browser-safe environment validation (NEXT_PUBLIC_* only).
  *
- * Browser code may only read NEXT_PUBLIC_* values. The service-role key is
- * strictly server-only — importing it from client code is forbidden.
+ * The service-role key lives in `./env-server`, guarded by the `server-only`
+ * package — never move secret access into this module.
  *
  * Missing Supabase configuration must fail clearly at the point of use, not
  * crash unrelated pages at import time (the Supabase project is not
@@ -40,16 +40,7 @@ export function getSupabasePublicConfig(): SupabasePublicConfig {
 }
 
 /**
- * Server-only. Never import from client components or browser modules —
- * the service-role key bypasses RLS.
+ * Server-only secret access lives in `./env-server` (guarded by the
+ * `server-only` package, which fails the build if pulled into client code).
+ * This module stays browser-safe: only NEXT_PUBLIC_* values here.
  */
-export function getServiceRoleKey(): string {
-  if (typeof window !== "undefined") {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY must never be read in the browser.");
-  }
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!key) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set (see .env.example).");
-  }
-  return key;
-}

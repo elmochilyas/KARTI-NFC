@@ -728,3 +728,177 @@ asked for a full admin refactor: clean, easy, everything in its place.
 One visual language across the dashboard; no new data model or route
 changes; public profile, resolver, vCard, QR payload, and RLS untouched.
 A global toast system and direct-link counts remain open (Phase 11).
+
+---
+
+## ADR-029 — Bolder public-profile redesign
+
+**Status:** Accepted
+**Date:** 2026-09-19
+
+### Context
+
+The operator asked for improved public-profile UI and explicitly chose
+a bolder redesign over refining the classic look (ADR-027).
+
+### Decision
+
+Cinematic hero, sublabel quick tiles, gradient Save CTA with a CSS-only
+sticky duplicate (same vCard href, zero JS — revisits ADR-026's removal),
+eyebrow info rows, editorial About, Connect links with hostname subtext,
+neutral Share card, accent-wash backdrop, one reduced-motion-aware
+entrance animation. No backend, routing, resolver, vCard, or data-rule
+changes; Share island stays the only client JS.
+
+### Consequences
+
+Classic-look pixel matching (ADR-027) no longer constrains the public
+page; future public polish builds on this composition instead.
+
+---
+
+## ADR-030 — Dashboard setup semantics (pure derivation, no status changes)
+
+**Status:** Accepted
+**Date:** 2026-09-19
+
+### Context
+
+The dashboard must summarize each client in one human phrase (Ready, NFC
+not configured, …) without touching domain statuses or adding new ones.
+Two questions needed pinning: what counts as a "configured card", and how
+severe a missing NFC card is for a client whose profile is already live.
+
+### Decision
+
+- One pure helper, `deriveClientSetupStatus` (`src/features/dashboard/
+  setupStatus.ts`), maps profile status + primary-card status (the existing
+  `pickPrimaryCard` rule, ADR-023) to a single setup summary. Database
+  statuses are never altered for dashboard labels.
+- "Configured" means the primary card is ACTIVE. LOST/REPLACED history
+  never counts as an active setup.
+- `ACTIVE profile + no card` is an *opportunity* ("Needs setup"), not an
+  error: the client already works on their public profile link.
+- Dashboard counts and attention lists derive from 3 small batched queries
+  (clients + profile statuses + card rows) — no N+1, no service-role, RLS
+  posture unchanged (ADR-011).
+
+### Consequences
+
+Operator-facing copy stays consistent (one badge/label vocabulary shared by
+home, client list, and detail progress). Future analytics must not
+re-interpret these labels as new domain states.
+
+---
+
+## ADR-031 — Explicit admin allowlist (replaces authenticated = admin)
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+RLS granted every authenticated JWT full CRUD (`USING true`), and live
+probing showed public self-signup ENABLED — anyone who confirmed an email
+became a full admin over real customer data.
+
+### Decision
+
+- `private.admin_users(user_id → auth.users)` allowlist, RLS-enabled with
+  zero policies (invisible to API roles).
+- `private.is_admin()`: `SECURITY DEFINER`, `SET search_path = ''`,
+  qualified refs, boolean, no dynamic SQL, `EXECUTE` to `authenticated`
+  only. All app-table and storage-write policies check it; anon keeps
+  default-deny.
+- The single existing operator was bootstrapped before tightening (no
+  lockout possible); rollback statements live as comments in migration
+  `20260920000000`.
+- App services keep their session check; RLS is authoritative. No layout
+  RPC check: `private.*` is outside PostgREST schemas, and RLS already
+  denies non-admin data.
+
+### Consequences
+
+New accounts are non-admin by default and see zero rows (proved live via
+differential JWT test). Adding an admin = one explicit INSERT. Any future
+non-operator account type must extend this table, never loosen policies.
+
+---
+
+## ADR-032 — Keep server-only service-role public reads (no RPC rewrite)
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+Public profile/resolver/vCard use a privileged client to bypass RLS.
+Options: keep + prove isolation, or narrow SECURITY DEFINER RPCs + anon
+client (least runtime privilege, but new function surface + anon EXECUTE
+grants to audit).
+
+### Decision
+
+Keep the service-role pattern: 3 routes, projected public-safe columns
+(pinned by allowlist unit test), no writes. Harden the boundary instead —
+`server-only` package enforcement, `env.ts`/`env-server.ts` split, static
+`admin-isolation.test.ts`, canonical-host resolver fix.
+
+### Consequences
+
+Smallest safe change; no new DB surface. Revisit only if public traffic or
+threat posture demands anon-path reads.
+
+---
+
+## ADR-033 — Public asset bucket threat model
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+`profile-assets` is a public bucket holding avatar/cover media, including
+for DRAFT profiles whose page is not public.
+
+### Decision
+
+Public-by-design for public-facing media only. A DRAFT asset URL is
+reachable if known — acceptable because assets are classified
+non-sensitive; identity documents, contracts, notes, and private files must
+never be uploaded there. Writes are allowlist-gated; reads stay public.
+Uploads additionally pass magic-byte validation; SVG stays rejected.
+
+### Consequences
+
+No signed-URL plumbing. If per-profile private media is ever needed, it
+requires a separate private bucket + policy design.
+
+---
+
+## ADR-034 — Database-enforced card/profile invariants
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+Card activation gates, cross-client destination rejection, and
+one-profile-per-client were application-only (check-then-act races, direct
+API bypass).
+
+### Decision
+
+- `UNIQUE(profiles.client_id)` (data verified clean first).
+- `BEFORE INSERT OR UPDATE` trigger `trg_cards_integrity` (DEFINER, empty
+  search_path): ACTIVE requires owner + destination; PROFILE destinations
+  must belong to the assigned client; EXTERNAL_URL must be http(s) without
+  control characters.
+- CHECKs: accent `#RRGGBB`, server-shaped asset paths.
+- Six live bypass attempts verified blocked; app validation stays
+  authoritative for UX/normalization.
+
+### Consequences
+
+Integrity holds regardless of caller path. Future destination types must
+extend the trigger deliberately.

@@ -1,168 +1,155 @@
 # Karti — Security Specification
 
-## Goals
-
-Protect:
-
-- admin access;
-- client/profile data;
-- card-routing integrity;
-- uploads/storage;
-- redirect behavior;
-- Supabase secrets.
-
-Public profiles are intentionally public, but only explicitly public fields should be exposed.
+Implemented controls as of Phase 12 (2026-09-20). Nothing below is
+aspirational: every claim is backed by migration, code, test, or live
+verification recorded in `specs/TASKS.md` §12.
 
 ## Authentication
 
-- `/dashboard/**` requires Supabase authentication.
-- Server-side enforcement is mandatory.
-- Public profiles do not require auth.
-- Logout must invalidate the local session correctly.
+- Operator sign-in is email + password via Supabase Auth (`/login`).
+- Session refresh + verification uses `getClaims()` (signature-verified) in
+  `src/proxy.ts`; dashboard layout re-checks server-side.
+- Login errors are generic ("Invalid email or password") — no enumeration.
+- `next` redirect targets are same-origin-only (`/` but never `//`), aligned
+  across login page, login action, and proxy.
+- Finding (2026-09-20): public self-signup is ENABLED with email confirmation
+  required. Harmless since Phase 12 (see Authorization), but the operator
+  should disable it in the Auth dashboard (manual checklist in report).
 
-Hiding UI is not authorization.
+## Authorization (explicit admin model, ADR-031)
 
-## Authorization
+- `private.admin_users(user_id → auth.users)` is the allowlist; RLS-enabled
+  with zero policies (default deny, invisible to API roles).
+- `private.is_admin()` — `SECURITY DEFINER`, `SET search_path = ''`,
+  fully-qualified refs, boolean return, no dynamic SQL, `EXECUTE` granted to
+  `authenticated` only (evaluated during RLS checks; unreachable via REST —
+  it lives outside PostgREST-exposed schemas).
+- All four app tables: `FOR ALL TO authenticated USING/WITH CHECK
+  (private.is_admin())`. Anonymous has no policies (default deny).
+- Storage writes on `profile-assets` require `is_admin()`; public read kept.
+- Layers: proxy gate → layout gate → per-service session check → RLS
+  (authoritative). An authenticated non-admin reaches the shell but every
+  query denies them — no protected data renders.
+- Operator was bootstrapped before tightening (single user, unambiguous);
+  rollback statements are commented in the migration.
 
-Every write operation must be authorized server-side and/or by RLS.
+## RLS (verified live 2026-09-20)
 
-Do not trust IDs from the browser merely because the session is authenticated.
+- Anon REST: SELECT on clients/profiles/profile_links/cards → `[]`;
+  INSERT → 42501; allowed-MIME PNG upload → 403 RLS.
+- Differential JWT simulation: random sub → `is_admin()=false`, 0 rows;
+  operator sub → `is_admin()=true`, operator rows visible.
 
-## RLS
+## Service role
 
-RLS remains enabled on exposed tables.
+- Used only in three server routes (`/[slug]`, `/t/[code]`,
+  `/api/vcard/[slug]`) with explicit public-safe projections; no writes.
+- Secret lives in `src/lib/env-server.ts` behind the `server-only` package
+  (client import = build error). `src/lib/env.ts` is browser-safe.
+- `admin-isolation.test.ts` statically forbids client-component imports of
+  privileged modules. No secrets in repo/history/logs (verified).
 
-Anonymous users must not read:
+## Public access (ADR-032)
 
-- client notes;
-- full administrative client records;
-- card inventory;
-- admin metadata;
-- draft/inactive profiles.
+- Public profile: ACTIVE-only, projected columns pinned by allowlist test
+  (no notes, no client_id, no timestamps, no cards). DRAFT/INACTIVE/unknown
+  share one generic 404 (identical visible text + metadata; only the
+  request-echoed path differs, which the requester already knows).
+- Resolver: format-gated codes (card numbers rejected pre-DB), ACTIVE-only,
+  per-hit destination revalidation, 307 + `no-store`, canonical APP_URL host
+  (no Host-header trust).
+- vCard: ACTIVE-only, escaped builder, http(s)-gated URLs, slug-derived
+  filename, `text/vcard`, attachment disposition, `no-store`.
+- Render-time href gates: stored links/website/maps revalidated http(s);
+  `tel:`/`mailto:`/WhatsApp builders return null on hostile input and the
+  tile/row is omitted. Live hostile-fixture render verified: hostile markup
+  appears only escaped, `javascript:` links omitted.
 
-Anonymous users must not mutate data.
+## External URLs
 
-## Redirect safety
+- `validateSafeExternalUrl`: real URL parser, http(s) only, 2048-char cap,
+  control-char/CRLF rejection, credentialed-URL rejection, normalization.
+- DB trigger backstops stored values (`^https?://`, no control chars).
+- Open-redirect posture: only admin-configured http(s) targets, 307
+  temporary, no query-param redirector.
 
-`/t/[code]` is security-sensitive.
+## Database integrity (ADR-034)
 
-Allow only:
+- `UNIQUE(profiles.client_id)` (race-safe one-profile-per-client).
+- Trigger `trg_cards_integrity`: ACTIVE requires owner + destination;
+  PROFILE destinations must belong to the assigned client; URL class gate.
+- CHECKs: destination shape (pre-existing), accent hex, asset-path shape.
+- Six live bypass attempts (dup profile, ownerless ACTIVE, mixed
+  destination, cross-client, `javascript:` URL, CSS-injection accent) all
+  blocked; fixtures removed.
 
-```text
-https:
-http:
-```
+## File uploads
 
-Reject at minimum:
+- Allowlist JPEG/PNG/WebP, ≤5 MB, non-empty; magic-byte gate rejects forged
+  MIME/HTML/SVG before upload (no new dependency; 12-byte header read).
+- SVG/HTML/executables rejected at app layer and bucket layer (live bucket:
+  5 MB, jpeg/png/webp only).
+- Generated paths only (`profiles/{uuid}/…/{hex}.{ext}`); deletes gated to
+  managed paths; replace-then-delete order preserved.
+- Bucket `profile-assets` is public by design (ADR-033): only
+  public-facing media belongs there. A DRAFT profile's asset URL is
+  technically reachable if known — classified acceptable (non-sensitive
+  media only; never identity documents/contracts/notes).
 
-```text
-javascript:
-data:
-file:
-vbscript:
-```
+## Slugs / short codes
 
-Use `URL` parsing, not simple string-prefix checks.
+- Slugs: normalized `[a-z0-9-]` (≤120), reserved routes blocked, traversal
+  collapses onto reserved names, unique (DB + app retry).
+- Short codes: crypto-random, 8-char 32-symbol alphabet, uppercase
+  normalized, unique + collision retry; card numbers can never resolve.
 
-Revalidate external destinations at redirect time, not only when saved.
+## XSS / injection
 
-## Slugs
+- No `dangerouslySetInnerHTML`; React escaping verified live (attributes,
+  metadata, flight payload all escaped).
+- Accent constrained to `#RRGGBB` (Zod + DB CHECK); theme is a fixed enum.
+- Search: LIKE wildcards escaped; commas safe via client URL-encoding;
+  hostile inputs fail closed (unit-tested).
+- No `console.*` in src; public errors generic; admin errors human-readable
+  without internals.
 
-Validate:
+## Headers / transport
 
-- allowed chars;
-- length;
-- reserved routes;
-- uniqueness.
+- `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  `X-Frame-Options: DENY`, minimal `Permissions-Policy` (clipboard, share,
+  NFC deliberately unrestricted), production-only HSTS (`VERCEL_ENV`).
+- Full nonce-CSP deferred to Phase 14 with rationale (needs browser
+  verification; a naive CSP breaks Next.js hydration).
+- HTTPS/HSTS production behavior belongs to deployment; localhost untouched.
 
-Slugs are public IDs, not secrets.
+## CSRF
 
-## Card codes
+- Mutations are Server Actions / authenticated POSTs; no state-changing GET
+  routes exist. Browser SameSite defaults + server-side session checks
+  apply; no custom token scheme (would be weaker than the framework path).
 
-- random;
-- non-sequential;
-- public but not authorization secrets;
-- must never contain privileged data.
+## Caching
 
-Possessing a card code must not grant dashboard access.
+- Dashboard is dynamic (no static cache of protected pages). Resolver stays
+  307 + `no-store`. Public profiles uncached (correctness first; no new
+  caching introduced).
 
-## Uploads
+## Dependencies
 
-For avatars/covers:
+- `pnpm audit` clean (2026-09-20). Only addition: `server-only@0.0.1`.
 
-- restrict file size;
-- restrict safe image MIME types;
-- validate on trusted boundary;
-- generate safe storage names/paths;
-- avoid executable uploads;
-- do not trust extension alone.
+## Known remaining risks (see report §30)
 
-Prefer disallowing SVG in MVP unless intentionally secured.
-
-## Secrets
-
-Never expose:
-
-```text
-SUPABASE_SERVICE_ROLE_KEY
-DB password
-private API keys
-auth tokens
-```
-
-Do not commit secrets.
-
-## Input validation
-
-Validate:
-
-- form fields;
-- slugs;
-- URLs;
-- UUIDs;
-- short codes;
-- statuses;
-- uploaded files.
-
-Client validation is for UX; server/database validation is authoritative.
-
-## XSS
-
-Do not render arbitrary HTML from:
-
-- bio;
-- labels;
-- company name;
-- notes.
-
-Use plain text unless sanitized rich text is explicitly introduced later.
-
-## Errors/logging
-
-Do not return stack traces or DB internals to public users.
-
-Never log passwords, tokens, service keys, or complete secret payloads.
-
-## NFC
-
-NFC payload contains only the public permanent URL.
-
-Never write:
-
-- admin tokens;
-- privileged URLs;
-- secrets;
-- service keys.
+- Auth dashboard settings need manual review (signup disable, leaked-password
+  protection, redirect allowlist, backups/PITR status).
+- Live admin-path upload + operator click-through need operator credentials.
+- Non-admin end-to-end REST proof needs a confirmable temp user (rate-limit
+  blocked probe creation); policy logic proved differentially.
+- CSP, WAF/rate-limiting, and backup verification belong to Phase 13/14.
 
 ## Production security gate
 
-Before release verify:
-
-- dashboard auth;
-- mutation authorization;
-- RLS matrix;
-- unsafe redirects rejected;
-- uploads restricted;
-- private data absent from public output;
-- service-role key absent from browser bundle;
-- disabled cards stop resolving.
+Before release verify: dashboard auth; mutation authorization; RLS matrix;
+unsafe redirects rejected; uploads restricted; private data absent from
+public output; service-role absent from browser bundle; disabled cards stop
+resolving. Phase 12 evidence for each lives in `specs/TASKS.md` §12.

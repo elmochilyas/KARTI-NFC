@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getPublicProfileBySlug,
   hasContactData,
+  PUBLIC_LINK_COLUMNS,
+  PUBLIC_PROFILE_COLUMNS,
   publicProfileDescription,
   publicProfileTitle,
 } from "./public";
@@ -113,6 +115,36 @@ describe("getPublicProfileBySlug", () => {
       fakeDb({ ...ACTIVE_ROW, theme: "neon" }),
     );
     expect(weird?.profile.theme).toBe("light");
+  });
+});
+
+describe("public projection allowlist", () => {
+  it("selects exactly the public-safe columns (notes/ids/timestamps excluded)", () => {
+    expect(new Set(PUBLIC_PROFILE_COLUMNS.split(",").map((c) => c.trim()))).toEqual(
+      new Set([
+        "id",
+        "profile_type",
+        "slug",
+        "display_name",
+        "job_title",
+        "company_name",
+        "bio",
+        "avatar_path",
+        "cover_path",
+        "phone",
+        "whatsapp",
+        "email",
+        "website",
+        "address",
+        "maps_url",
+        "accent_color",
+        "theme",
+        "status",
+      ]),
+    );
+    expect(new Set(PUBLIC_LINK_COLUMNS.split(",").map((c) => c.trim()))).toEqual(
+      new Set(["id", "type", "label", "url", "sort_order"]),
+    );
   });
 });
 

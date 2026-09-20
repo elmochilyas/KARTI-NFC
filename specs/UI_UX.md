@@ -143,18 +143,44 @@ Settings
 
 ## Dashboard home
 
-Primary CTA:
+The dashboard home is an operational control center, not a metrics wall.
+Order:
 
 ```text
-+ New Client
+Page heading (+ New Client primary)
+Quick Actions
+Operational Summary
+Needs Attention
+Recent Clients
 ```
 
-Useful metrics:
+Quick Actions (client-centric — never "Create Card" as primary):
 
-- total clients;
-- active cards;
-- profiles;
-- direct-link cards.
+```text
++ New Client (primary)
+Quick Add Client
+View Clients
+View Cards
+```
+
+Operational Summary (small counts, linked where useful):
+
+- Clients → client list;
+- Active Profiles (public and tappable);
+- Configured Cards → active-cards inventory, with a direct-link sub-count;
+- Needs Attention → attention list anchor.
+
+"Configured" means the client's primary card (existing primary-card rule)
+is ACTIVE; LOST/REPLACED history never counts. No charts, no analytics.
+
+Needs Attention uses human language with one direct action per item
+(Create Profile, Continue Editing, Open Profile, Configure NFC, Open Card).
+Genuine setup work lists first; `ACTIVE profile + no card` appears under
+"Optional setup" — those clients already work on their public profile link,
+so missing NFC is never shown as an error.
+
+Recent Clients show name, company, profile status, and NFC status; each row
+opens the client detail.
 
 Do not create decorative metrics with no operational value.
 
@@ -163,10 +189,16 @@ Do not create decorative metrics with no operational value.
 Show useful scanning info:
 
 ```text
-Client | Business | Card | Destination | Status
+Client | Company | Profile | Card/NFC
 ```
 
-Support search and good empty/loading/error states.
+Desktop renders one status badge per setup column (Active/Draft/Inactive,
+Configured/Not configured/Disabled/…); mobile stacks each client as name,
+company, and a human "Profile: … · NFC: …" line. Search stays server-side
+across name, company, phone, and email.
+
+The primary row behavior is opening the client detail; advanced actions stay
+inside the detail page. Support good empty/loading/error states.
 
 Mobile must not become an unusable wide table.
 
@@ -183,6 +215,11 @@ Card(s)
 Destination
 Status
 ```
+
+A subtle "Setup · N of 3" indicator (Client → Profile → NFC) sits under the
+header; it supports the existing flow and is not a wizard. When incomplete,
+the next action is the page's primary CTA (Create Profile, Configure NFC
+Card, …).
 
 Primary actions remain visible:
 

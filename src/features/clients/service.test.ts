@@ -87,3 +87,38 @@ describe("listClients authorization", () => {
     if (!result.ok) expect(result.error.code).toBe("UNAUTHORIZED");
   });
 });
+
+describe("listClients hostile search input", () => {
+  it("escapes LIKE wildcards and quoting without breaking the query", async () => {
+    const seen: { or?: string } = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain: any = {};
+    chain.select = () => chain;
+    chain.order = () => chain;
+    chain.limit = () => chain;
+    chain.or = (pattern: string) => {
+      seen.or = pattern;
+      return chain;
+    };
+    chain.then = (resolve: (v: unknown) => void) => resolve({ data: [], error: null });
+    const db = {
+      auth: { getClaims: async () => ({ data: { claims: { sub: "admin" } }, error: null }) },
+      from: () => chain,
+    } as unknown as ClientDb;
+
+    const cases: [string, string][] = [
+      ["100%_x\\y", "100\\%\\_x\\\\y"],
+      // Commas are not LIKE wildcards; the JS client URL-encodes them so
+      // the PostgREST or-split never sees them. Only %, _, \ are escaped.
+      ["_,%", "\\_,\\%"],
+      ["'; DROP TABLE clients; --", "'; DROP TABLE clients; --"],
+    ];
+    for (const [hostile, escaped] of cases) {
+      const result = await listClients({ query: hostile }, db);
+      expect(result).toEqual({ ok: true, data: [] });
+      // The escaped literal (wrapped in %…%) reaches the filter; unescaped
+      // wildcards never do.
+      expect(seen.or).toContain(`%${escaped}%`);
+    }
+  });
+});

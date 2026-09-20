@@ -46,6 +46,15 @@ describe("resolveCardDestination", () => {
     expect(from).not.toHaveBeenCalled();
   });
 
+  it("rejects sequential card numbers as resolver input (short codes only)", async () => {
+    const from = vi.fn();
+    const db = { from } as unknown as ResolverDb;
+    for (const code of ["KARTI-000123", "karti-000123", "KARTI-1", "000123"]) {
+      expect(await resolveCardDestination(code, db)).toEqual({ ok: false, reason: "NOT_FOUND" });
+    }
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it("normalizes case", async () => {
     const db = fakeDb(ACTIVE_PROFILE_CARD, ACTIVE_PROFILE);
     const result = await resolveCardDestination("abcdefgh", db);

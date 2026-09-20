@@ -32,6 +32,18 @@ describe("validateSafeExternalUrl", () => {
     expect(validateSafeExternalUrl("https://")).toBeNull();
   });
 
+  it("rejects control characters and header-injection shapes", () => {
+    expect(validateSafeExternalUrl("https://example.com/a\r\nB: evil")).toBeNull();
+    expect(validateSafeExternalUrl("https://example.com/\u0000")).toBeNull();
+    expect(validateSafeExternalUrl("https://example.com/\u007f")).toBeNull();
+  });
+
+  it("rejects credentialed URLs and over-long values", () => {
+    expect(validateSafeExternalUrl("https://user:pass@example.com/")).toBeNull();
+    expect(validateSafeExternalUrl(`https://example.com/${"a".repeat(2048)}`)).toBeNull();
+    expect(validateSafeExternalUrl(`https://example.com/${"a".repeat(2000)}`)).not.toBeNull();
+  });
+
   it("rejects empty and non-string input", () => {
     expect(validateSafeExternalUrl("")).toBeNull();
     expect(validateSafeExternalUrl("   ")).toBeNull();

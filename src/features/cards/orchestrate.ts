@@ -45,10 +45,14 @@ function fail(code: ConfigureErrorCode, message: string): ConfigureResult {
 /**
  * Primary-card rule: ACTIVE first (newest created), else newest usable
  * (excluding LOST/REPLACED), else newest overall. Pure — unit-tested.
+ * Generic over the row shape so dashboard summaries can reuse the exact
+ * same rule with lightweight projections.
  */
-export function pickPrimaryCard(cards: CardSummary[]): CardSummary | null {
+export function pickPrimaryCard<T extends Pick<CardSummary, "status" | "created_at">>(
+  cards: T[],
+): T | null {
   if (cards.length === 0) return null;
-  const byNewest = (a: CardSummary, b: CardSummary) =>
+  const byNewest = (a: T, b: T) =>
     a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0;
   const active = cards.filter((c) => c.status === "ACTIVE").sort(byNewest);
   if (active[0]) return active[0];

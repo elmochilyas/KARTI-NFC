@@ -241,6 +241,17 @@ export async function createProfile(
 
   if (error || !data) {
     if (error?.code === "23505") {
+      // The one-profile-per-client UNIQUE constraint (not the slug) fired —
+      // a concurrent create won the race the app-level check could not see.
+      if (error.message.includes("profiles_client_id_unique")) {
+        return {
+          ok: false,
+          error: {
+            code: "CONFLICT",
+            message: "This client already has a profile. Edit it instead.",
+          },
+        };
+      }
       return {
         ok: false,
         error: {

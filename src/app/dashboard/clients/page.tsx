@@ -2,32 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Search, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
+import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { QuickAddForm } from "@/features/clients/components/QuickAddForm";
-import { listClients } from "@/features/clients/service";
-import type { ClientSummary } from "@/features/clients/types";
+import { listClientsWithSetup, type ClientWithSetup } from "@/features/dashboard/overview";
+import { humanNfcLabel, humanProfileLabel, nfcBadgeStatus } from "@/features/dashboard/setupStatus";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Clients" };
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
+function ProfileCell({ client }: { client: ClientWithSetup }) {
+  if (!client.profileStatus) {
+    return <span className="text-sm text-muted">No profile</span>;
+  }
+  return <StatusBadge status={client.profileStatus} />;
 }
 
-function contactLine(client: ClientSummary): string {
-  return (
-    [client.company, client.phone, client.email].filter(Boolean).join(" · ") || "No details yet"
-  );
+function NfcCell({ client }: { client: ClientWithSetup }) {
+  return <StatusBadge status={nfcBadgeStatus(client.setup, client.primaryCardStatus)} />;
 }
 
-function ClientRows({ clients }: { clients: ClientSummary[] }) {
+function ClientRows({ clients }: { clients: ClientWithSetup[] }) {
   return (
     <>
       <table className="hidden w-full border-collapse md:table">
@@ -38,10 +36,13 @@ function ClientRows({ clients }: { clients: ClientSummary[] }) {
               Client
             </th>
             <th scope="col" className="py-2 pr-4 font-medium">
-              Contact
+              Company
             </th>
             <th scope="col" className="py-2 pr-4 font-medium">
-              Added
+              Profile
+            </th>
+            <th scope="col" className="py-2 pr-4 font-medium">
+              Card/NFC
             </th>
             <th scope="col" className="py-2 font-medium">
               <span className="sr-only">Open</span>
@@ -51,14 +52,14 @@ function ClientRows({ clients }: { clients: ClientSummary[] }) {
         <tbody>
           {clients.map((client) => (
             <tr key={client.id} className="border-b border-border last:border-0">
+              <td className="py-3 pr-4 font-medium text-text">{client.name}</td>
+              <td className="py-3 pr-4 text-sm text-muted">{client.company || "—"}</td>
               <td className="py-3 pr-4">
-                <p className="font-medium text-text">{client.name}</p>
-                {client.company ? <p className="text-sm text-muted">{client.company}</p> : null}
+                <ProfileCell client={client} />
               </td>
-              <td className="py-3 pr-4 text-sm text-muted">
-                {[client.phone, client.email].filter(Boolean).join(" · ") || "—"}
+              <td className="py-3 pr-4">
+                <NfcCell client={client} />
               </td>
-              <td className="py-3 pr-4 text-sm text-muted">{formatDate(client.created_at)}</td>
               <td className="py-3 text-right">
                 <Link
                   href={`/dashboard/clients/${client.id}`}
@@ -80,7 +81,13 @@ function ClientRows({ clients }: { clients: ClientSummary[] }) {
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium text-text">{client.name}</span>
-                <span className="block truncate text-sm text-muted">{contactLine(client)}</span>
+                <span className="block truncate text-sm text-muted">
+                  {client.company || "No company yet"}
+                </span>
+                <span className="mt-1 block truncate text-sm text-muted">
+                  Profile: {humanProfileLabel(client.profileStatus)} · NFC:{" "}
+                  {humanNfcLabel(client.setup, client.primaryCardStatus)}
+                </span>
               </span>
               <span aria-hidden="true" className="shrink-0 text-muted">
                 ›
@@ -114,7 +121,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   }
 
   const supabase = await createClient();
-  const result = await listClients({ query: q }, supabase);
+  const result = await listClientsWithSetup({ query: q }, supabase);
 
   if (!result.ok) {
     return (
@@ -132,7 +139,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
             </Link>
           }
         />
-        <ErrorState title="Could not load clients." description={result.error.message} />
+        <ErrorState title="We couldn't load your clients." description={result.error.message} />
       </div>
     );
   }
@@ -228,7 +235,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
         </section>
       ) : null}
 
-      <QuickAddForm />
+      <div id="quick-add" className="scroll-mt-6">
+        <QuickAddForm />
+      </div>
     </div>
   );
 }

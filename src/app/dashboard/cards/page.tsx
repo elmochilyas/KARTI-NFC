@@ -258,12 +258,15 @@ export default async function CardsPage({ searchParams }: CardsPageProps) {
 
       {cards.length === 0 && !searching ? (
         <EmptyState
-          title="No Karti cards yet"
-          description="Create the first physical card record."
+          title="No card records yet"
+          description="Cards are usually created automatically when you configure NFC for a client — you rarely need to create one by hand."
           action={
-            <form action={createCardAction}>
-              <Button type="submit">Create Card</Button>
-            </form>
+            <Link
+              href="/dashboard/clients"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-4 font-medium text-accent-contrast hover:bg-accent-strong"
+            >
+              View Clients
+            </Link>
           }
         />
       ) : null}

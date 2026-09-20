@@ -5,13 +5,51 @@
 Use the repository's actual scripts, with equivalent checks for:
 
 ```text
-typecheck
-lint
-test
-build
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm test
+pnpm build
+pnpm audit --audit-level=high
 ```
 
+CI (`.github/workflows/ci.yml`) runs exactly this gate on every PR and
+push to `main` (jobs `test` → `build`; stable names for branch protection).
 User-facing work also requires visual/interaction verification.
+
+## Test layers (smallest effective layer wins)
+
+```text
+Unit (src/domain, pure helpers)
+  → slugs, URLs, short codes, vCard builder, QR/NFC payloads, setup status
+Service/domain with fakes (features/*/service, orchestration, resolver)
+  → clients/profiles/links/cards CRUD paths, activation gates, cross-client
+  guards, storage validation, dashboard overview — no live DB
+Route/HTTP (src/app/**/route.test.ts, page.test.ts, vi.mocked admin client)
+  → /t/[code] status/Location/no-store, /api/vcard/[slug] headers/body,
+  /[slug] metadata + view props + fail-closed paths
+Component helpers (brandIcons, contact href builders)
+  → tiles, brand detection, hostile-input omission
+Security regression (admin isolation, projections, hostile fixtures)
+  → runs inside `pnpm test`; never a separate manual-only suite
+Live Supabase (scripts/live-anon-matrix.mjs + manual dispatch workflow)
+  → anonymous attack matrix against the development project; creates nothing
+Manual hardware/browser
+  → QR scans, NFC writes/taps, responsive eyeball, contact imports
+```
+
+Do not convert everything into browser E2E. Dashboard pages (auth-gated)
+are covered by service tests + live redirect checks, not component renders.
+
+## Coverage
+
+`@vitest/coverage-v8` is available (`pnpm vitest run --coverage`).
+Snapshot 2026-09-20: ~60% statements overall; domain ~98%, resolver/public
+paths ~90%+, services lower (DB-write paths need live auth and are covered
+by the live matrix instead). No threshold gate — coverage informs, the suite
+protects. Focus areas: cards/orchestration, resolver, URL validation, vCard,
+storage validation, admin authorization, setup status, QR/NFC payload.
 
 ## High-value unit tests
 

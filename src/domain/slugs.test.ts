@@ -50,4 +50,15 @@ describe("isReservedSlug", () => {
     expect(isReservedSlug("younes-barrag")).toBe(false);
     expect(isReservedSlug("cafe-atlas")).toBe(false);
   });
+
+  it("cannot be turned into path traversal or route hijack", () => {
+    // Dots and slashes never survive normalization; traversal collapses
+    // onto reserved names, which are rejected.
+    expect(normalizeSlug("../admin")).toBe("admin");
+    expect(isReservedSlug(normalizeSlug("../admin"))).toBe(true);
+    expect(normalizeSlug("..\\dashboard")).toBe("dashboard");
+    expect(normalizeSlug("t")).toBe("t");
+    expect(isReservedSlug("t")).toBe(true);
+    expect(normalizeSlug("API/v1")).toBe("apiv1");
+  });
 });

@@ -83,33 +83,36 @@ function Hero({
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(155deg, #0a1a30 0%, color-mix(in srgb, var(--karti-accent) 45%, #0a1a30) 100%)",
+              "radial-gradient(130% 80% at 50% -10%, color-mix(in srgb, var(--karti-accent) 60%, transparent) 0%, transparent 55%), linear-gradient(165deg, #0b1c33 0%, #060d18 70%)",
           }}
         />
       )}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/65"
+        className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/75"
       />
-      <div className="relative flex flex-col items-center px-6 pt-20 pb-22 text-center">
+      <div className="relative flex min-h-[220px] flex-col items-center justify-end px-6 pt-14 pb-16 text-center">
         {isBusiness ? (
           avatarUrl ? (
-            <span className="flex h-24 w-24 items-center justify-center rounded-[26px] bg-white p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
+            <span className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-white p-1 shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-1 ring-white/40">
               <Image
                 src={avatarUrl}
                 alt={`${profile.display_name} logo`}
-                width={192}
-                height={192}
-                sizes="96px"
+                width={160}
+                height={160}
+                sizes="80px"
                 priority
-                className="h-full w-full rounded-[20px] object-cover"
+                className="h-full w-full rounded-[19px] object-cover"
               />
             </span>
           ) : (
             <span
               aria-hidden="true"
-              className="flex h-24 w-24 items-center justify-center rounded-[26px] text-2xl font-extrabold text-white shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
-              style={{ backgroundColor: "var(--karti-accent)" }}
+              className="flex h-20 w-20 items-center justify-center rounded-[24px] text-2xl font-extrabold text-white shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-1 ring-white/40"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 55%, black))",
+              }}
             >
               {initialsOf(profile.display_name)}
             </span>
@@ -118,31 +121,41 @@ function Hero({
           <Image
             src={avatarUrl}
             alt={`${profile.display_name} profile photo`}
-            width={192}
-            height={192}
-            sizes="96px"
+            width={160}
+            height={160}
+            sizes="80px"
             priority
-            className="h-24 w-24 rounded-full object-cover shadow-[0_16px_40px_rgba(0,0,0,0.35)] ring-4 ring-white/90"
+            className="h-20 w-20 rounded-full object-cover shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-[3px] ring-white"
           />
         ) : (
           <span
             aria-hidden="true"
-            className="flex h-24 w-24 items-center justify-center rounded-full text-3xl font-extrabold text-white shadow-[0_16px_40px_rgba(0,0,0,0.35)] ring-4 ring-white/90"
-            style={{ backgroundColor: "var(--karti-accent)" }}
+            className="flex h-20 w-20 items-center justify-center rounded-full text-3xl font-extrabold text-white shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-[3px] ring-white"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 55%, black))",
+            }}
           >
             {initialsOf(profile.display_name)}
           </span>
         )}
-        <h1 className="mt-4 max-w-full text-[32px] leading-[1.1] font-extrabold tracking-tight break-words text-white">
+        <h1
+          className="mt-3 max-w-full text-[28px] leading-[1.05] font-extrabold tracking-tight break-words text-white"
+          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.55)" }}
+        >
           {profile.display_name}
         </h1>
         {category ? (
-          <p className="mt-2 max-w-full text-xs font-bold tracking-[0.18em] break-words text-white/80 uppercase">
+          <p className="mt-2 inline-flex max-w-full items-center truncate rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-bold tracking-[0.14em] text-white uppercase backdrop-blur-sm">
             {category}
           </p>
         ) : null}
         {tagline ? (
-          <p className="mt-2 max-w-[26rem] text-[16px] leading-relaxed break-words text-white/90 line-clamp-2">
+          <p
+            className="mt-2 max-w-[26rem] truncate text-[14px] leading-snug break-words text-white/90"
+            style={{ textShadow: "0 1px 12px rgba(0,0,0,0.5)" }}
+            title={tagline}
+          >
             {tagline}
           </p>
         ) : null}
@@ -155,44 +168,70 @@ function Hero({
 /* Quick action tiles                                                  */
 /* ------------------------------------------------------------------ */
 
+function tileSublabel(action: QuickAction): string | null {
+  switch (action.brand) {
+    case "call":
+      return "Tap to call";
+    case "email":
+      return "Send mail";
+    case "whatsapp":
+      return "Chat instantly";
+    case "instagram":
+      return "View profile";
+    case "website":
+      return prettyWebsite(action.href);
+    default:
+      return "Open";
+  }
+}
+
 function QuickTiles({ actions, dark }: { actions: QuickAction[]; dark: boolean }) {
   if (actions.length === 0) return null;
   const tileClass = dark
-    ? "border-white/15 bg-[#0e2238]/95 text-white shadow-[0_8px_24px_rgba(7,20,35,0.4)] backdrop-blur hover:bg-[#14304f]"
-    : "border-[#E7EDF4] bg-white text-text shadow-[0_8px_24px_rgba(15,35,60,0.1)] hover:bg-[#F8FAFD]";
+    ? "border-white/15 bg-[#0e2238]/95 text-white shadow-[0_12px_32px_rgba(7,20,35,0.5)] backdrop-blur hover:bg-[#14304f]"
+    : "border-[#E7EDF4] bg-white text-text shadow-[0_12px_32px_rgba(15,35,60,0.14)] hover:bg-[#F8FAFD]";
+  const subClass = dark ? "text-white/60" : "text-muted";
   return (
     <nav
       aria-label="Quick actions"
-      className="relative z-10 -mt-10 grid gap-3"
+      className="karti-rise relative z-10 -mt-10 grid gap-2.5"
       style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}
     >
-      {actions.map((action) =>
-        action.external ? (
+      {actions.map((action) => {
+        const sub = tileSublabel(action);
+        const body = (
+          <>
+            <QuickTileIcon brand={action.brand} dark={dark} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-left text-[14px] leading-tight font-bold">
+                {action.label}
+              </span>
+              {sub ? (
+                <span className={`block truncate text-left text-[11px] font-medium ${subClass}`}>
+                  {sub}
+                </span>
+              ) : null}
+            </span>
+          </>
+        );
+        const classes = `flex min-h-[76px] items-center gap-2.5 rounded-[18px] border px-3 py-2.5 transition hover:-translate-y-0.5 active:scale-[0.97] ${tileClass}`;
+        return action.external ? (
           <a
             key={action.id}
             href={action.href}
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-[20px] border px-2 py-4 transition active:scale-[0.97] ${tileClass}`}
+            className={classes}
+            title={sub ? `${action.label} — ${sub}` : action.label}
           >
-            <QuickTileIcon brand={action.brand} dark={dark} />
-            <span className="max-w-full text-center text-sm leading-tight font-semibold break-words">
-              {action.label}
-            </span>
+            {body}
           </a>
         ) : (
-          <a
-            key={action.id}
-            href={action.href}
-            className={`flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-[20px] border px-2 py-4 transition active:scale-[0.97] ${tileClass}`}
-          >
-            <QuickTileIcon brand={action.brand} dark={dark} />
-            <span className="max-w-full text-center text-sm leading-tight font-semibold break-words">
-              {action.label}
-            </span>
+          <a key={action.id} href={action.href} className={classes} title={action.label}>
+            {body}
           </a>
-        ),
-      )}
+        );
+      })}
     </nav>
   );
 }
@@ -234,6 +273,8 @@ export function PublicProfileView({
 
   const phone = profile.phone?.trim() || null;
   const email = profile.email?.trim() || null;
+  const phoneHref = phone ? telHref(phone) : null;
+  const emailHref = email ? mailHref(email) : null;
   const website = profile.website?.trim() || null;
   const websiteHref = website && isHttpUrl(website) ? website : null;
   const address = profile.address?.trim() || null;
@@ -254,68 +295,91 @@ export function PublicProfileView({
   const vcardHref = `/api/vcard/${profile.slug}`;
 
   return (
-    <main className={dark ? "min-h-dvh bg-black" : "min-h-dvh bg-[#D8E2EC]"}>
+    <main
+      className={`relative min-h-dvh ${dark ? "bg-black" : "bg-[#D8E2EC]"}`}
+      style={{ "--karti-accent": accent ?? "#0e7c5b" } as CSSProperties}
+    >
       <div
-        className={`mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-hidden ring-1 sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-[32px] ${
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[420px]"
+        style={{
+          background:
+            "radial-gradient(65% 100% at 50% 0%, color-mix(in srgb, var(--karti-accent) 22%, transparent) 0%, transparent 70%)",
+        }}
+      />
+      <div
+        className={`relative mx-auto flex min-h-dvh w-full max-w-[480px] flex-col overflow-hidden ring-1 sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-[32px] ${
           dark
-            ? "bg-neutral-950 shadow-[0_32px_80px_-32px_rgba(0,0,0,0.8)] ring-white/10"
-            : "bg-[#F4F8FC] shadow-[0_32px_80px_-32px_rgba(15,35,60,0.35)] ring-black/5"
+            ? "bg-neutral-950 shadow-[0_40px_100px_-32px_rgba(0,0,0,0.85)] ring-white/10"
+            : "bg-[#F4F8FC] shadow-[0_40px_100px_-32px_rgba(15,35,60,0.4)] ring-black/5"
         }`}
-        style={{ "--karti-accent": accent ?? "#0e7c5b" } as CSSProperties}
       >
         <Hero profile={profile} avatarUrl={avatarUrl} coverUrl={coverUrl} isBusiness={isBusiness} />
 
         <div
-          className={`relative rounded-t-[30px] px-5 pt-5 pb-12 ${
+          className={`relative rounded-t-[28px] px-4 pt-4 pb-8 ${
             dark ? "bg-neutral-950" : "bg-[#F4F8FC]"
           }`}
         >
           <QuickTiles actions={quickActions} dark={dark} />
 
-          <div className="mt-5 flex flex-col gap-5">
+          <div className="mt-4 flex flex-col gap-4">
             <a
               href={vcardHref}
-              className="flex min-h-16 w-full items-center justify-center gap-3 rounded-[20px] px-6 text-[17px] font-bold transition hover:brightness-110 active:scale-[0.99]"
+              className="karti-rise flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-[18px] px-6 text-[16px] font-extrabold transition hover:brightness-110 active:scale-[0.99]"
               style={{
-                backgroundColor: accent ?? "#0e7c5b",
+                animationDelay: "60ms",
+                backgroundImage:
+                  "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 58%, black))",
                 color: foregroundOnAccent(accent),
                 boxShadow:
-                  "0 14px 30px -12px color-mix(in srgb, var(--karti-accent) 55%, transparent)",
+                  "0 14px 28px -12px color-mix(in srgb, var(--karti-accent) 65%, transparent)",
               }}
             >
-              <LuUserPlus size={24} aria-hidden="true" className="shrink-0" />
+              <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
               Save Contact
             </a>
 
             {hasInfo ? (
               <section
                 aria-label={isBusiness ? "Business information" : "Contact information"}
-                className={`rounded-[20px] border p-5 ${cardClass}`}
+                className={`karti-rise rounded-[20px] border px-4 py-3 ${cardClass}`}
+                style={{ animationDelay: "120ms" }}
               >
-                <h2 className="px-1 text-[20px] font-extrabold tracking-tight">
+                <h2 className={`px-1 text-xs font-bold tracking-[0.18em] uppercase ${mutedClass}`}>
                   {isBusiness ? "Business Information" : "Contact Information"}
                 </h2>
-                <div className={`mt-2 divide-y ${dividerClass}`}>
-                  {phone ? (
+                <div className={`mt-1 divide-y ${dividerClass}`}>
+                  {phone && phoneHref ? (
                     <a
-                      href={telHref(phone)}
-                      className="flex min-h-[68px] items-center gap-4 rounded-xl py-3 transition hover:opacity-80 active:scale-[0.99]"
+                      href={phoneHref}
+                      aria-label={`Call ${phone}`}
+                      className="flex min-h-[60px] items-center gap-3.5 rounded-xl py-2 transition hover:opacity-80 active:scale-[0.99]"
                     >
                       <RowBrandIcon brand="call" dark={dark} />
-                      <span className="min-w-0 flex-1 text-[15px] font-semibold break-words">
-                        {phone}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{phone}</span>
+                      <LuChevronRight
+                        size={18}
+                        aria-hidden="true"
+                        className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
+                      />
                     </a>
                   ) : null}
-                  {email ? (
+                  {email && emailHref ? (
                     <a
-                      href={mailHref(email)}
-                      className="flex min-h-[68px] items-center gap-4 rounded-xl py-3 transition hover:opacity-80 active:scale-[0.99]"
+                      href={emailHref}
+                      aria-label={`Email ${email}`}
+                      className="flex min-h-[60px] items-center gap-3.5 rounded-xl py-2 transition hover:opacity-80 active:scale-[0.99]"
                     >
                       <RowBrandIcon brand="email" dark={dark} />
-                      <span className="min-w-0 flex-1 text-[15px] font-semibold break-all">
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-bold" title={email}>
                         {email}
                       </span>
+                      <LuChevronRight
+                        size={18}
+                        aria-hidden="true"
+                        className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
+                      />
                     </a>
                   ) : null}
                   {websiteHref ? (
@@ -323,29 +387,37 @@ export function PublicProfileView({
                       href={websiteHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex min-h-[68px] items-center gap-4 rounded-xl py-3 transition hover:opacity-80 active:scale-[0.99]"
+                      aria-label={`Open website ${prettyWebsite(websiteHref)}`}
+                      className="flex min-h-[60px] items-center gap-3.5 rounded-xl py-2 transition hover:opacity-80 active:scale-[0.99]"
                     >
                       <RowBrandIcon brand="website" dark={dark} />
-                      <span className="min-w-0 flex-1 text-[15px] font-semibold break-words">
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-bold">
                         {prettyWebsite(websiteHref)}
                       </span>
+                      <LuChevronRight
+                        size={18}
+                        aria-hidden="true"
+                        className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
+                      />
                     </a>
                   ) : null}
                   {address ? (
-                    <div className="flex min-h-[68px] items-center gap-4 py-3">
+                    <div className="flex min-h-[60px] items-center gap-3.5 py-2">
                       <RowBrandIcon brand="maps" dark={dark} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[15px] leading-snug font-semibold break-words">
-                          {address}
-                        </p>
+                        <p className="text-[15px] leading-snug font-bold break-words">{address}</p>
                         {mapsHref ? (
-                          <p className="mt-1">
+                          <p className="mt-1.5">
                             <a
                               href={mapsHref}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex min-h-9 items-center gap-1 text-[13px] font-bold underline underline-offset-2"
-                              style={{ color: "var(--karti-accent)" }}
+                              className="inline-flex min-h-11 items-center gap-1 rounded-full px-3.5 text-[13px] font-bold"
+                              style={{
+                                backgroundColor:
+                                  "color-mix(in srgb, var(--karti-accent) 12%, transparent)",
+                                color: "var(--karti-accent)",
+                              }}
                             >
                               Get Directions
                               <LuChevronRight size={15} aria-hidden="true" />
@@ -362,46 +434,83 @@ export function PublicProfileView({
             {bio ? (
               <section
                 aria-label={aboutTitle}
-                className={`rounded-[20px] border p-5 sm:p-6 ${cardClass}`}
+                className={`karti-rise rounded-[20px] border p-4 ${cardClass}`}
+                style={{ animationDelay: "160ms" }}
               >
-                <h2 className="px-1 text-[20px] font-extrabold tracking-tight">{aboutTitle}</h2>
-                <p className={`mt-2 px-1 text-[15px] leading-relaxed break-words ${mutedClass}`}>
+                <h2 className={`px-1 text-xs font-bold tracking-[0.18em] uppercase ${mutedClass}`}>
+                  {aboutTitle}
+                </h2>
+                <p
+                  className={`mt-2 border-l-[3px] pl-3 text-[15px] leading-[1.65] break-words ${
+                    dark ? "text-neutral-200" : "text-[#334155]"
+                  }`}
+                  style={{ borderColor: "var(--karti-accent)" }}
+                >
                   {bio}
                 </p>
               </section>
             ) : null}
 
             {moreLinks.length > 0 ? (
-              <nav aria-label="More links" className="flex flex-col gap-2.5">
-                {moreLinks.map((link) => (
-                  <a
-                    key={link.id}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-3 rounded-[20px] border px-4 py-3.5 transition hover:-translate-y-px active:scale-[0.99] ${cardClass}`}
-                  >
-                    <RowBrandIcon brand={detectBrand(link)} dark={dark} />
-                    <span className="min-w-0 flex-1 truncate text-left text-[15px] font-semibold">
-                      {link.label}
-                    </span>
-                    <LuChevronRight
-                      size={18}
-                      aria-hidden="true"
-                      className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
-                    />
-                  </a>
-                ))}
-              </nav>
+              <section
+                aria-label="Connect"
+                className="karti-rise"
+                style={{ animationDelay: "200ms" }}
+              >
+                <h2 className={`px-1 text-xs font-bold tracking-[0.18em] uppercase ${mutedClass}`}>
+                  Connect
+                </h2>
+                <nav aria-label="More links" className="mt-2.5 flex flex-col gap-2">
+                  {moreLinks.map((link) => (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex min-h-[60px] items-center gap-3 rounded-[18px] border px-3.5 py-2 transition hover:-translate-y-px active:scale-[0.99] ${cardClass}`}
+                    >
+                      <RowBrandIcon brand={detectBrand(link)} dark={dark} />
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-[15px] font-bold">{link.label}</span>
+                        <span className={`block truncate text-xs font-medium ${mutedClass}`}>
+                          {prettyWebsite(link.url)}
+                        </span>
+                      </span>
+                      <LuChevronRight
+                        size={18}
+                        aria-hidden="true"
+                        className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
+                      />
+                    </a>
+                  ))}
+                </nav>
+              </section>
             ) : null}
 
-            <ShareProfileButton title={profile.display_name} dark={dark} />
+            <div className="karti-rise" style={{ animationDelay: "240ms" }}>
+              <ShareProfileButton title={profile.display_name} dark={dark} />
+            </div>
 
             <div className="pt-1 text-center">
               <KartiAttribution dark={dark} />
             </div>
           </div>
         </div>
+      </div>
+      <div className="pointer-events-none sticky bottom-0 z-20 mx-auto w-full max-w-[480px] px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <a
+          href={vcardHref}
+          aria-label="Save contact"
+          className="pointer-events-auto flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl px-6 text-[16px] font-extrabold shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] transition hover:brightness-110 active:scale-[0.99]"
+          style={{
+            backgroundImage:
+              "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 58%, black))",
+            color: foregroundOnAccent(accent),
+          }}
+        >
+          <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
+          Save Contact
+        </a>
       </div>
     </main>
   );
