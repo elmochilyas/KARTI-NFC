@@ -998,3 +998,48 @@ mental model on iOS Safari / Android Chrome. The endpoint also ignored
 iOS/Android receive a real vCard response the OS can preview and import;
 the final user confirmation stays with the OS (unbypassable by design).
 No second contact system exists — vCard remains the single canonical path.
+
+---
+
+## ADR-038 — Save Contact direct-open (share-first + gated intent + `.vcf` alias)
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+ADR-037 fixed delivery (`inline` vCard, no `download` attribute), but Android
+Chrome still routes many `text/vcard` navigations through Downloads, and
+iOS versions that sniff the URL extension don't always recognize the
+extension-less `/api/vcard/{slug}` as a contact. No website can insert a
+contact silently — the OS confirmation sheet is unbypassable — so “directly”
+means one tap to the native sheet instead of a Files/Downloads detour.
+
+### Decision
+
+- **Share-first:** `SaveContactAction` attempts Web Share Level 2 with a
+  `.vcf` `File` fetched from the same canonical endpoint. The OS share sheet
+  offers “Save to Contacts / Create New Contact” directly. Share success or
+  user dismissal resets quietly — the 4s fallback never fires for it.
+- **Gated Android intent:** only when share is unavailable, and only for
+  Chrome on Android (Samsung Internet, Firefox, Opera, Edge excluded via
+  `shouldAttemptAndroidIntent`), navigate an `intent:// … VIEW
+  text/x-vcard` URL with `S.browser_fallback_url` back to the profile page.
+  Never the default; never on iOS/desktop.
+- **Classic fallback preserved:** same-tab navigation to the `inline` vCard
+  (the iOS preview path, works with JS disabled), then the existing
+  same-endpoint “Download contact” fallback if still visible after 4s.
+- **`.vcf` alias:** `/api/vcard/{slug}.vcf` serves the byte-identical
+  response (suffix stripped before the normalized-slug lookup; disposition
+  filename comes from the stored slug). Both Save anchors point at the
+  alias to help OS sniffers. No second data path, no new query.
+- Share/intent helpers (`vcardShareFilename`, `buildVCardIntentUrl`,
+  `shouldAttemptAndroidIntent`, `supportsVCardFileShare`) are pure and
+  unit-tested; the island stays the only client JS on the public page.
+
+### Consequences
+
+Supporting phones skip the Downloads folder entirely; elsewhere behavior is
+unchanged. The final save confirmation still belongs to the OS Contacts app
+by design. On-device verification (iPhone Safari + Android Chrome) remains
+with the operator — no devices here.

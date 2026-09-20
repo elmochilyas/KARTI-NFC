@@ -54,6 +54,11 @@ take effect immediately (ADR-024). Short codes are case-normalized.
 
 Loads active profile, builds `.vcf`, returns appropriate download/content headers.
 
+Alias `GET /api/vcard/[slug].vcf` (ADR-038) serves the byte-identical
+`inline` `text/vcard` response so OS sniffers that key off the extension
+hand it to Contacts; the suffix is stripped before the normalized-slug
+lookup and the disposition filename comes from the stored slug.
+
 No private client notes/admin data.
 
 ## Dashboard routes

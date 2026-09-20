@@ -752,6 +752,18 @@ A task is DONE only when:
 > unknown/reserved → 404, deployed host unknown → 404. On-device tap
 > (iPhone Safari / Android Chrome / Samsung Internet) still needs the
 > operator — no devices here.
+>
+> 2026-09-20 (Save Contact direct-open, ADR-038): tap now tries Web Share
+> Level 2 with a `.vcf` File first (share sheet offers Save to Contacts,
+> no Downloads detour), then a UA-gated Chrome-Android `intent://`
+> `VIEW text/x-vcard` fast-path, then classic same-tab navigation to the
+> `inline` vCard. New `.vcf`-suffixed alias (`/api/vcard/{slug}.vcf`,
+> byte-identical) helps OS sniffers; both Save anchors point at it.
+> Share success/dismiss resets quietly; the 4s fallback only fires when a
+> navigation/intent genuinely went nowhere. Verified: 332 tests green,
+> `typecheck` + `lint` + `build` green (`format:check` fails repo-wide on
+> HEAD too — pre-existing CRLF baseline, untouched). On-device tap
+> (iPhone Safari + Android Chrome) still needs the operator.
 
 ## 6.4 Tests
 
@@ -766,8 +778,8 @@ A task is DONE only when:
 ### Phase 6 gate
 
 - [ ] Save Contact works on representative Android/iOS.
-- [x] Tests pass (319: vCard builder/headers/BUSINESS/injection, endpoint
-  matrix, button wiring + fallback).
+- [x] Tests pass (332: vCard builder/headers/BUSINESS/injection, endpoint
+  matrix + `.vcf` alias, button wiring + share/intent helpers + fallback).
 
 > 2026-09-19: endpoint + body + headers + gating verified live (temp data
 > removed); regression checks (Call/WhatsApp/Email/links/location/notes)

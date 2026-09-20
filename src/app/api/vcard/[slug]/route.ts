@@ -9,16 +9,30 @@ type VCardRouteContext = {
 };
 
 /**
+ * Strip a trailing `.vcf` extension (case-insensitive) so the alias route
+ * `/api/vcard/{slug}.vcf` resolves the same profile as the canonical
+ * `/api/vcard/{slug}`. Extension-less URLs keep working; the lookup below
+ * still goes through the normalized slug layer, and the disposition helper
+ * re-sanitizes defensively. Exported for unit tests.
+ */
+export function stripVcfExtension(rawSlug: string): string {
+  return /\.vcf$/i.test(rawSlug) ? rawSlug.slice(0, -".vcf".length) : rawSlug;
+}
+
+/**
  * GET /api/vcard/[slug] — Save Contact for ACTIVE profiles only.
  * Same privileged read path as the public page (ADR-018); profile-only
  * projection (no links query — the vCard body needs contact columns, never
  * link rows). Served `inline` as `text/vcard` so iOS Safari / Android
  * Chrome open the native contact/import preview instead of a Files/
- * Downloads detour (ADR-036). No caching (fresh data beats stale
+ * Downloads detour (ADR-036). The `.vcf`-suffixed alias (ADR-038) serves
+ * the byte-identical response so OS sniffers that key off the extension
+ * also hand the response to Contacts. No caching (fresh data beats stale
  * contacts). DRAFT/INACTIVE/unknown → plain 404 without revealing which.
  */
 export async function GET(_request: Request, { params }: VCardRouteContext) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = stripVcfExtension(rawSlug);
 
   let supabase;
   try {

@@ -311,7 +311,7 @@ export function SaveContactButton({
   };
   if (mode === "public" && slug) {
     return (
-      <a href={`/api/vcard/${slug}`} className={className} style={style}>
+      <a href={`/api/vcard/${slug}.vcf`} className={className} style={style}>
         <IconDownload className="h-[18px] w-[18px]" />
         Save Contact
       </a>

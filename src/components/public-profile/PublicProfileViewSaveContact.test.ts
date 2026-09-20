@@ -40,8 +40,8 @@ describe("PublicProfileView Save Contact wiring", () => {
         coverUrl: null,
       }),
     );
-    // In-flow CTA + sticky bar share one href.
-    expect(html.split('href="/api/vcard/ahmed-benali"')).toHaveLength(3);
+    // In-flow CTA + sticky bar share one href (`.vcf` alias for OS sniffers).
+    expect(html.split('href="/api/vcard/ahmed-benali.vcf"')).toHaveLength(3);
     expect(html).toContain(">Save Contact<");
     // Direct navigation for the Save anchors: no forced-download and no
     // new-tab attributes on them. (External website rows elsewhere on the
