@@ -1929,6 +1929,89 @@ proxy, dashboard, card, profile, resolver, QR, NFC, or env changes.
 
 ---
 
+# Phase 15 — Admin Save Performance
+
+> 2026-09-20 perf bundle (Tracks A–E, ADR-035). Phase stays OPEN until the
+> orchestrator verifies each box live. No src/ changes in Track E.
+
+## 15.1 Track A — Single auth per action
+
+- [x] One session/auth check per server action (RLS stays enforcement).
+- [x] Text-only profile save is DB-speed (no per-row/per-link auth round-trips).
+
+> 2026-09-20: implemented — `*Internal(skipAuth)` variants in `service.ts`,
+> single `getClaims()` in `save/setStatus`, `after()`+`Promise.all` deletes,
+> single `revalidatePath`, parallel page fetches. `service.test.ts` 23/23.
+
+## 15.2 Track B — Dual image pipeline
+
+- [x] Client canvas downscale before upload + server sharp normalize (~200KB).
+- [x] Immutable cache headers on normalized assets; replace-then-delete order kept.
+
+> 2026-09-20: implemented — new `image.ts` (512 avatar/1600 cover, WebP 0.82),
+> `ProfileEditor` uploads resized file, `storage.ts` sharp normalize +
+> immutable cache, `next.config` avif/webp + long TTL. `image+storage` 18 tests.
+
+## 15.3 Track C — Batched links/cards
+
+- [x] Links/cards read in batched queries (no N+1 on save or reorder).
+- [x] Reorder uses exact-set validation without per-row round-trips.
+- [x] Single `revalidatePath` per save.
+
+> 2026-09-20: implemented — `getOwnedLink` join (2→1), create 3→2 waves,
+> reorder N serial→parallel batch, card row threading (~13→~8 RTTs
+> orchestration), client-detail prop-drill, card-detail skips 100-row fetch
+> when assigned. `links` 11 new + `cards` 3 new tests.
+
+## 15.4 Track D — Public read fast path
+
+- [x] Public profile is a single `cache()`d fetch (profile + enabled links).
+- [x] `next/image` priority on LCP (avatar/cover); no dashboard code on public bundle.
+
+> 2026-09-20: implemented — `cache()` loader shared by metadata+page
+> (4→2 queries), vCard profile-only (2→1), cover keeps priority,
+> avatar/logo eager. `brandIcons` kept (named ESM tree-shaken; inline
+> rejected as unsafe). Resolver join evaluated and deliberately not applied.
+
+## 15.5 Track E — RLS select-wrap migration (this track)
+
+- [ ] `supabase/migrations/20260921_perf_admin_rls_select_wrap.sql` applied.
+- [ ] Admin policies on `clients` / `profiles` / `profile_links` / `cards` use
+      `((select private.is_admin()))` in USING + WITH CHECK.
+- [ ] Storage write policies (`insert` / `update` / `delete`) use
+      `(select private.is_admin())` with `bucket_id = 'profile-assets'` unchanged.
+- [ ] RLS stays enabled; anon default-deny; `private.admin_users` unchanged;
+      no service-role in browser.
+
+### Phase 15 acceptance criteria
+
+- [x] Text save latency is DB-speed (no auth-per-row regression).
+- [x] Uploaded/normalized images ~200KB with immutable cache.
+- [x] Single revalidate per save.
+- [x] No N+1 on reorder.
+- [x] Public profile renders from 1 fetch.
+- [ ] RLS select-wrap applied with zero behavior change (admin allowed,
+      non-admin denied, anon denied). **BLOCKED:** migration file-only,
+      needs operator apply + live JWT matrix.
+
+> 2026-09-20: code tracks verified locally — `pnpm typecheck`, `pnpm lint`,
+> `pnpm test` (28 files / 296 tests), `pnpm build` all green. Live prod
+> waterfall + migration apply left to operator.
+
+### Phase 15 verification
+
+```text
+pnpm typecheck
+pnpm lint
+pnpm test
+supabase db push --dry-run   # or apply via MCP migration tool
+# live: anon SELECT [] on all tables; non-admin JWT 0 rows; operator CRUD OK
+```
+
+> Track E applied as file-only here; orchestrator to apply + verify live.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

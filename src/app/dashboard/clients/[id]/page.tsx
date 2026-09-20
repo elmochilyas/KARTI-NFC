@@ -10,7 +10,8 @@ import { getClientById } from "@/features/clients/service";
 import { ProfileLinkPanel } from "@/features/profiles/components/ProfileLinkPanel";
 import { ClientCardsSection } from "@/features/cards/components/ClientCardsSection";
 import { NfcCardSection } from "@/features/cards/components/NfcCardSection";
-import { getCardsByClientId } from "@/features/cards/service";
+import { getCardsByClientId, listUnassignedCards } from "@/features/cards/service";
+import type { CardSummary } from "@/features/cards/types";
 import { pickPrimaryCard } from "@/features/cards/orchestrate";
 import { deriveClientSetupStatus, type ClientSetupStatus } from "@/features/dashboard/setupStatus";
 import { getProfileByClientId } from "@/features/profiles/service";
@@ -88,7 +89,15 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const profileResult = await getProfileByClientId(id, supabase);
   const profile = profileResult.ok ? profileResult.data : null;
 
-  const cardsResult = await getCardsByClientId(id, supabase);
+  // Single fetch wave for this client's cards + attachable inventory.
+  // Both card sections below receive the rows as props instead of
+  // re-fetching getCardsByClientId per section (was 3× + 1 unassigned list).
+  const [cardsResult, unassignedResult] = await Promise.all([
+    getCardsByClientId(id, supabase),
+    listUnassignedCards(supabase),
+  ]);
+  const cards: CardSummary[] = cardsResult.ok ? cardsResult.data : [];
+  const inventory: CardSummary[] = unassignedResult.ok ? unassignedResult.data : [];
   const primaryCard = cardsResult.ok ? pickPrimaryCard(cardsResult.data) : null;
   const setup = deriveClientSetupStatus({
     profileStatus: profile?.status ?? null,
@@ -270,8 +279,8 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         )}
       </Section>
 
-      <NfcCardSection clientId={client.id} />
-      <ClientCardsSection clientId={client.id} />
+      <NfcCardSection clientId={client.id} cards={cards} />
+      <ClientCardsSection clientId={client.id} cards={cards} inventory={inventory} />
 
       {client.notes ? (
         <Section title="Notes" description="Admin-only. Never shown on public pages.">

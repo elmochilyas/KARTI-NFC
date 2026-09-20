@@ -54,6 +54,12 @@ function validationFailed(issues: readonly { path: PropertyKey[]; message: strin
 /**
  * Every privileged operation re-verifies the session server-side.
  * Page-level protection and RLS are additional layers, not the check.
+ *
+ * Latency path: server actions verify once via `getClaims()` and pass
+ * `{ skipAuth: true }` into the `*Internal` variants below. RLS remains
+ * the enforcement layer — `skipAuth` only skips the redundant in-process
+ * re-verification, never authorization itself. `skipAuth` must only be
+ * set server-side by an already-verified caller.
  */
 async function requireAdmin(supabase: ProfileDb): Promise<boolean> {
   try {
@@ -62,6 +68,19 @@ async function requireAdmin(supabase: ProfileDb): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Pre-verified caller flag — skips the redundant `requireAdmin()` round-trip. */
+export type ProfileAuthOptions = {
+  skipAuth?: boolean;
+};
+
+async function ensureAdmin(
+  supabase: ProfileDb,
+  options?: ProfileAuthOptions,
+): Promise<boolean> {
+  if (options?.skipAuth) return true;
+  return requireAdmin(supabase);
 }
 
 const UNAUTHORIZED = {
@@ -104,16 +123,17 @@ export async function ensureUniqueSlug(
   return `${clean}-${Date.now().toString(36)}`;
 }
 
-export async function checkSlugAvailability(
+export async function checkSlugAvailabilityInternal(
   rawSlug: string,
   supabase: ProfileDb,
   excludeId?: string,
+  options?: ProfileAuthOptions,
 ): Promise<ProfileResult<{ slug: string; available: boolean; suggestion: string | null }>> {
   const slug = normalizeSlug(rawSlug);
   if (slug === "" || isReservedSlug(slug)) {
     return { ok: true, data: { slug, available: false, suggestion: null } };
   }
-  if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
   let query = supabase.from("profiles").select("id").eq("slug", slug).limit(1);
   if (excludeId) query = query.neq("id", excludeId);
   const { data, error } = await query;
@@ -134,12 +154,22 @@ export async function checkSlugAvailability(
   };
 }
 
-export async function getProfileByClientId(
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function checkSlugAvailability(
+  rawSlug: string,
+  supabase: ProfileDb,
+  excludeId?: string,
+): Promise<ProfileResult<{ slug: string; available: boolean; suggestion: string | null }>> {
+  return checkSlugAvailabilityInternal(rawSlug, supabase, excludeId);
+}
+
+export async function getProfileByClientIdInternal(
   clientId: string,
   supabase: ProfileDb,
+  options?: ProfileAuthOptions,
 ): Promise<ProfileResult<ProfileRow | null>> {
   if (!UUID_PATTERN.test(clientId)) return notFound("Client");
-  if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
   const { data, error } = await supabase
     .from("profiles")
     .select(PROFILE_DETAIL_COLUMNS)
@@ -156,12 +186,21 @@ export async function getProfileByClientId(
   return { ok: true, data: data ?? null };
 }
 
-export async function getProfileById(
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function getProfileByClientId(
+  clientId: string,
+  supabase: ProfileDb,
+): Promise<ProfileResult<ProfileRow | null>> {
+  return getProfileByClientIdInternal(clientId, supabase);
+}
+
+export async function getProfileByIdInternal(
   profileId: string,
   supabase: ProfileDb,
+  options?: ProfileAuthOptions,
 ): Promise<ProfileResult<ProfileRow>> {
   if (!UUID_PATTERN.test(profileId)) return notFound("Profile");
-  if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
   const { data, error } = await supabase
     .from("profiles")
     .select(PROFILE_DETAIL_COLUMNS)
@@ -177,19 +216,28 @@ export async function getProfileById(
   return { ok: true, data };
 }
 
-export async function createProfile(
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function getProfileById(
+  profileId: string,
+  supabase: ProfileDb,
+): Promise<ProfileResult<ProfileRow>> {
+  return getProfileByIdInternal(profileId, supabase);
+}
+
+export async function createProfileInternal(
   clientId: string,
   rawInput: unknown,
   supabase: ProfileDb,
   explicitId?: string,
+  options?: ProfileAuthOptions,
 ): Promise<ProfileResult<ProfileRow>> {
   if (!UUID_PATTERN.test(clientId)) return notFound("Client");
   const parsed = profileSchema.safeParse(rawInput);
   if (!parsed.success) return validationFailed(parsed.error.issues);
-  if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
 
   // MVP: one primary profile per client (enforced here, not by DB constraint).
-  const existing = await getProfileByClientId(clientId, supabase);
+  const existing = await getProfileByClientIdInternal(clientId, supabase, options);
   if (!existing.ok) return existing;
   if (existing.data) {
     return {
@@ -198,7 +246,7 @@ export async function createProfile(
     };
   }
 
-  const availability = await checkSlugAvailability(parsed.data.slug, supabase);
+  const availability = await checkSlugAvailabilityInternal(parsed.data.slug, supabase, undefined, options);
   if (!availability.ok) return availability;
   if (!availability.data.available) {
     return {
@@ -270,26 +318,43 @@ export async function createProfile(
   return { ok: true, data };
 }
 
-export async function updateProfile(
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function createProfile(
+  clientId: string,
+  rawInput: unknown,
+  supabase: ProfileDb,
+  explicitId?: string,
+): Promise<ProfileResult<ProfileRow>> {
+  return createProfileInternal(clientId, rawInput, supabase, explicitId);
+}
+
+export async function updateProfileInternal(
   profileId: string,
   clientId: string,
   rawInput: unknown,
   supabase: ProfileDb,
+  options?: ProfileAuthOptions,
 ): Promise<ProfileResult<ProfileRow>> {
   if (!UUID_PATTERN.test(profileId) || !UUID_PATTERN.test(clientId)) {
     return notFound("Profile");
   }
   const parsed = profileSchema.safeParse(rawInput);
   if (!parsed.success) return validationFailed(parsed.error.issues);
-  if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
 
   // Never trust the URL: the row must belong to the route's client.
-  const current = await getProfileById(profileId, supabase);
+  const current = await getProfileByIdInternal(profileId, supabase, options);
   if (!current.ok) return current;
   if (current.data.client_id !== clientId) return notFound("Profile");
 
+  // Slug fast path: when unchanged, skip the availability query entirely.
   if (parsed.data.slug !== current.data.slug) {
-    const availability = await checkSlugAvailability(parsed.data.slug, supabase, profileId);
+    const availability = await checkSlugAvailabilityInternal(
+      parsed.data.slug,
+      supabase,
+      profileId,
+      options,
+    );
     if (!availability.ok) return availability;
     if (!availability.data.available) {
       return {
@@ -349,11 +414,22 @@ export async function updateProfile(
   return { ok: true, data };
 }
 
-export async function setProfileStatus(
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function updateProfile(
+  profileId: string,
+  clientId: string,
+  rawInput: unknown,
+  supabase: ProfileDb,
+): Promise<ProfileResult<ProfileRow>> {
+  return updateProfileInternal(profileId, clientId, rawInput, supabase);
+}
+
+export async function setProfileStatusInternal(
   profileId: string,
   clientId: string,
   rawStatus: unknown,
   supabase: ProfileDb,
+  options?: ProfileAuthOptions,
 ): Promise<ProfileResult<ProfileRow>> {
   if (!UUID_PATTERN.test(profileId) || !UUID_PATTERN.test(clientId)) {
     return notFound("Profile");
@@ -365,9 +441,9 @@ export async function setProfileStatus(
       error: { code: "VALIDATION_ERROR", message: "Invalid status." },
     };
   }
-  if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
 
-  const current = await getProfileById(profileId, supabase);
+  const current = await getProfileByIdInternal(profileId, supabase, options);
   if (!current.ok) return current;
   if (current.data.client_id !== clientId) return notFound("Profile");
 
@@ -400,4 +476,14 @@ export async function setProfileStatus(
   }
   if (!data) return notFound("Profile");
   return { ok: true, data };
+}
+
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function setProfileStatus(
+  profileId: string,
+  clientId: string,
+  rawStatus: unknown,
+  supabase: ProfileDb,
+): Promise<ProfileResult<ProfileRow>> {
+  return setProfileStatusInternal(profileId, clientId, rawStatus, supabase);
 }

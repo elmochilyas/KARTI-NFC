@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   getPublicProfileBySlug,
+  getPublicProfileRowBySlug,
   hasContactData,
   PUBLIC_LINK_COLUMNS,
   PUBLIC_PROFILE_COLUMNS,
@@ -115,6 +116,38 @@ describe("getPublicProfileBySlug", () => {
       fakeDb({ ...ACTIVE_ROW, theme: "neon" }),
     );
     expect(weird?.profile.theme).toBe("light");
+  });
+});
+
+describe("getPublicProfileRowBySlug (vCard profile-only loader)", () => {
+  it("returns the ACTIVE profile row without querying links", async () => {
+    const db = fakeDb(ACTIVE_ROW, [
+      { id: "l1", type: "instagram", label: "IG", url: "https://ig.com", sort_order: 0 },
+    ]);
+    const result = await getPublicProfileRowBySlug("Ahmed-Benali", db);
+    expect(result?.slug).toBe("ahmed-benali");
+    expect(result).not.toHaveProperty("links");
+    expect(result).not.toHaveProperty("notes");
+    // Only the profiles table is hit — no profile_links RTT for vCards.
+    const tables = vi
+      .mocked(db.from)
+      .mock.calls.map((call) => call[0] as string);
+    expect(tables).toEqual(["profiles"]);
+  });
+
+  it("returns null for DRAFT, INACTIVE, unknown, reserved, and empty slugs", async () => {
+    for (const row of [
+      { ...ACTIVE_ROW, status: "DRAFT" },
+      { ...ACTIVE_ROW, status: "INACTIVE" },
+      null,
+    ]) {
+      expect(await getPublicProfileRowBySlug("ahmed-benali", fakeDb(row))).toBeNull();
+    }
+    const from = vi.fn();
+    const db = { from } as unknown as PublicDb;
+    expect(await getPublicProfileRowBySlug("login", db)).toBeNull();
+    expect(await getPublicProfileRowBySlug("!!!", db)).toBeNull();
+    expect(from).not.toHaveBeenCalled();
   });
 });
 

@@ -29,10 +29,13 @@ export default async function NewProfilePage({ params }: NewProfilePageProps) {
   }
 
   const supabase = await createClient();
-  const clientResult = await getClientById(clientId, supabase);
+  // Independent fetches in parallel; order of checks preserves notFound/error behavior.
+  const [clientResult, profileResult] = await Promise.all([
+    getClientById(clientId, supabase),
+    getProfileByClientId(clientId, supabase),
+  ]);
   if (!clientResult.ok) notFound();
 
-  const profileResult = await getProfileByClientId(clientId, supabase);
   if (!profileResult.ok) {
     return (
       <ErrorState title="Could not load the profile." description={profileResult.error.message} />
