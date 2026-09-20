@@ -30,6 +30,7 @@ import { displayProfileUrl, publicProfileUrl } from "@/features/profiles/urls";
 import type { ProfileRow, ProfileLinkRow } from "@/features/profiles/types";
 import type { ProfileTheme, ProfileType } from "@/features/profiles/schema";
 import { LinksManager } from "./LinksManager";
+import { ProfileStepperFooter } from "./ProfileStepperFooter";
 
 const SAVE_INITIAL: ProfileFormState = {
   ok: false,
@@ -978,36 +979,16 @@ export function ProfileEditor({
         ) : null}
       </section>
 
-      <div className="sticky bottom-20 flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 shadow-[var(--shadow-card)] md:bottom-6">
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={step === 0 || saving}
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
-          >
-            Back
-          </Button>
-          {step < STEPS.length - 1 ? (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-              className="flex-1"
-            >
-              Continue
-            </Button>
-          ) : null}
-          <Button type="submit" loading={saving} className="flex-1">
-            {saving ? "Saving…" : profile ? "Save profile" : "Create profile"}
-          </Button>
-        </div>
-        <p className="text-center text-sm text-muted" aria-live="polite">
-          Step {step + 1} of {STEPS.length} — {STEPS[step]?.label}
-          {saving ? " · Saving…" : ""}
-        </p>
-      </div>
+      <ProfileStepperFooter
+        step={step}
+        totalSteps={STEPS.length}
+        stepLabel={STEPS[step]?.label ?? ""}
+        nextStepLabel={step < STEPS.length - 1 ? (STEPS[step + 1]?.label ?? null) : null}
+        saveLabel={profile ? "Save draft" : "Create profile"}
+        saving={saving}
+        onPrevious={() => setStep((s) => Math.max(0, s - 1))}
+        onNext={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+      />
     </form>
   );
 
