@@ -933,3 +933,30 @@ without weakening RLS or the service-role isolation (ADR-031/032).
 Saves are DB-speed for text; images stay small and cache-stable; public
 page stays one fetch; authorization posture unchanged (allowlist
 default-deny, no service-role in browser).
+
+---
+
+## ADR-036 — Profile editor stepper-footer labels
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+The profile-editor footer crowded Back / Continue / Save profile into one
+row with weak hierarchy; "Continue" did not say where, and "Save profile"
+read like the step action rather than draft persistence.
+
+### Decision
+
+- Previous (secondary) / Next step (primary, thumb-side) / Save draft
+  (tertiary outline, full-width row); "Create profile" kept until the first
+  save. Aria labels name the step direction ("Go to next step: Contact").
+- On Review, Next hides and Save takes over as the primary.
+- No flow, routing, validation, or backend change; footer extracted to
+  `ProfileStepperFooter`, rendered inside the existing save form.
+
+### Consequences
+
+Clear primary at a glance on mobile; save remains always reachable without
+competing with step navigation.

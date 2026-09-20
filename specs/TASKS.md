@@ -2013,6 +2013,36 @@ supabase db push --dry-run   # or apply via MCP migration tool
 
 ---
 
+# Phase 16 — Profile Editor Stepper Footer (mobile UX)
+
+Mobile-first redesign of the profile-editor bottom action area. No backend,
+routing, step-flow, validation, or save-logic changes. Desktop stays coherent
+via the same component.
+
+## 16.1 Stepper footer
+
+- [x] Extract `ProfileStepperFooter` (`src/features/profiles/components/`).
+- [x] Two-row mobile layout: orientation row (Step X of 5 + label + segments)
+      → nav row (Previous + primary Next) → tertiary Save draft row.
+- [x] Labels: Previous / Next step / Save draft (`Create profile` kept for new).
+- [x] Review step: Next hidden, Save takes over as full-width primary.
+- [x] Sticky + safe-area aware (`env(safe-area-inset-bottom)`), clears bottom nav.
+- [x] Disabled/loading: nav disabled + Save spinner/`Saving…`/`aria-busy`.
+- [x] A11y: native buttons, `aria-label` nav, `aria-live` step status, ≥48px targets.
+- [x] Unit tests (`ProfileStepperFooter.test.ts`).
+- [x] Typecheck/lint/format/test/build pass.
+
+> 2026-09-20: implemented per plan — inline footer in `ProfileEditor`
+> replaced with the shared component; `Button` primitive reused, no new
+> dependencies. Human confirmations: 320/390px eyeball + thumb-reach feel.
+
+### Phase 16 gate
+
+- [x] Hierarchy obvious at a glance; flow and persistence unchanged.
+- [x] Checks pass.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.
