@@ -293,7 +293,9 @@ export function PublicProfileView({
     : "border-[#E7EDF4] bg-white text-text shadow-[0_8px_24px_rgba(15,35,60,0.08)]";
   const mutedClass = dark ? "text-neutral-400" : "text-muted";
   const dividerClass = dark ? "divide-white/10" : "divide-[#EEF2F7]";
-  const vcardHref = `/api/vcard/${profile.slug}`;
+  // `.vcf` suffix helps OS sniffers hand the response to Contacts (ADR-038);
+  // the route serves the byte-identical inline vCard for both URL forms.
+  const vcardHref = `/api/vcard/${profile.slug}.vcf`;
 
   return (
     <main

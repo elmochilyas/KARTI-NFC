@@ -4,7 +4,7 @@ import type { PublicDb } from "@/features/profiles/public";
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
-import { GET } from "./route";
+import { GET, stripVcfExtension } from "./route";
 
 const ACTIVE_ROW = {
   id: "123e4567-e89b-12d3-a456-426614174001",
@@ -197,5 +197,61 @@ describe("GET /api/vcard/[slug]", () => {
     });
     const res = await GET(new Request("http://localhost:3000/api/vcard/x"), ctx("ahmed-benali"));
     expect(res.status).toBe(404);
+  });
+});
+
+describe("stripVcfExtension", () => {
+  it("strips a trailing .vcf suffix case-insensitively", () => {
+    expect(stripVcfExtension("ahmed-benali.vcf")).toBe("ahmed-benali");
+    expect(stripVcfExtension("ahmed-benali.VCF")).toBe("ahmed-benali");
+    expect(stripVcfExtension("ahmed-benali.Vcf")).toBe("ahmed-benali");
+  });
+
+  it("leaves extension-less slugs untouched", () => {
+    expect(stripVcfExtension("ahmed-benali")).toBe("ahmed-benali");
+    expect(stripVcfExtension("")).toBe("");
+    expect(stripVcfExtension(".vcf")).toBe("");
+  });
+});
+
+describe("GET /api/vcard/[slug].vcf alias", () => {
+  it("serves the byte-identical inline vCard for the .vcf-suffixed URL", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(fakeDb(ACTIVE_ROW));
+    const plain = await GET(
+      new Request("http://localhost:3000/api/vcard/ahmed-benali"),
+      ctx("ahmed-benali"),
+    );
+    vi.mocked(createAdminClient).mockReturnValue(fakeDb(ACTIVE_ROW));
+    const aliased = await GET(
+      new Request("http://localhost:3000/api/vcard/ahmed-benali.vcf"),
+      ctx("ahmed-benali.vcf"),
+    );
+    expect(aliased.status).toBe(200);
+    expect(aliased.headers.get("content-type")).toBe("text/vcard; charset=utf-8");
+    // Filename comes from the stored slug, never the raw `.vcf` suffix.
+    expect(aliased.headers.get("content-disposition")).toBe(
+      "inline; filename=\"ahmed-benali.vcf\"; filename*=UTF-8''ahmed-benali.vcf",
+    );
+    expect(aliased.headers.get("cache-control")).toBe("no-store");
+    expect(await aliased.text()).toBe(await plain.text());
+  });
+
+  it("resolves case variations of the suffix without leaking existence", async () => {
+    vi.mocked(createAdminClient).mockReturnValue(fakeDb(ACTIVE_ROW));
+    const res = await GET(
+      new Request("http://localhost:3000/api/vcard/Ahmed-Benali.VCF"),
+      ctx("Ahmed-Benali.VCF"),
+    );
+    expect(res.status).toBe(200);
+
+    for (const slug of [".vcf", "unknown-slug.vcf"]) {
+      vi.mocked(createAdminClient).mockReturnValue(fakeDb(null));
+      const missing = await GET(
+        new Request(`http://localhost:3000/api/vcard/${slug}`),
+        ctx(slug),
+      );
+      expect(missing.status).toBe(404);
+      expect(await missing.text()).toBe("Not found");
+    }
   });
 });
