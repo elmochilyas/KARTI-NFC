@@ -1799,9 +1799,12 @@ with temp fixtures (removed), **manual** = needs human/device.
 
 ## 14.0 Release gate (must clear before deploy)
 
-- [ ] Intended code committed + pushed (BLOCKED — 55 dirty files +
-      untracked Phase 0–13 work + unrelated operator edits coexist; blind
-      `git add .` forbidden; safe commit plan in Phase 14 report §37).
+- [x] Intended code committed + pushed (2026-09-20: branch
+      `release/production-mvp`, one reviewed commit `2a98d49`, 59
+      explicit paths, secret scan clean; merged to main as `881335f`).
+- [x] Post-merge CI green on main (`test` + `build` success).
+- [x] Branch protection active on main (ruleset: PR required, `test` +
+      `build` checks required, no force-push, no deletion).
 - [ ] Vercel project connected (operator).
 - [ ] Production env vars set with correct scopes (operator).
 - [ ] Custom domain + HTTPS live (operator).
@@ -1892,6 +1895,37 @@ Do not call Karti MVP complete until:
 - [ ] Production build passes.
 - [ ] Critical responsive screens verified.
 - [ ] Production smoke test passes.
+
+---
+
+# Phase 14.5 — Production UI Cleanup (public homepage brand)
+
+Public `/` carries no admin entry point and no implementation wording.
+Operator access is by direct `/login` URL/bookmark only. No auth, RLS,
+proxy, dashboard, card, profile, resolver, QR, NFC, or env changes.
+
+- [x] Remove "Admin sign in" CTA/link from `/` (no login/admin/dashboard
+      link anywhere on the homepage; no header/footer/mobile nav added).
+- [x] Remove "One permanent URL per card…" technical sentence from `/`.
+- [x] Redesign `/` as a minimal premium brand page (Karti / Your smart
+      contact card. / consumer message / NFC • QR • Always up to date;
+      generous whitespace, existing design tokens, zero client JS, no
+      signup — no customer self-service accounts yet).
+- [x] Consumer-facing root metadata description (no backend wording).
+- [x] `/login` unchanged — still renders and defaults to `/dashboard`.
+- [x] Dashboard/proxy/authz untouched (layout + proxy gates pinned by test).
+- [x] Tests: `src/app/page.test.ts` (12 cases — no "Admin sign in", no
+      `/login`/`/dashboard` refs or anchors, no implementation wording,
+      brand content present; `/login` renders + honors safe `next`;
+      dashboard redirects anonymous/missing-env, renders for operator,
+      proxy gates intact).
+- [x] `typecheck`, `lint`, `format:check`, `test` (26 files / 263 tests),
+      `build` green; prerendered `/` HTML verified (no admin/login/
+      technical strings, brand content present).
+
+> 2026-09-20: implemented + verified per plan. No Supabase/RLS/Auth,
+> cards, profiles, resolver, QR, NFC, or env changes. Human confirmations:
+> 390px/1440px eyeball pass of the new landing page.
 
 ---
 

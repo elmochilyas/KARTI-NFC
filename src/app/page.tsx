@@ -1,23 +1,26 @@
-import Link from "next/link";
-
-/** Minimal MVP landing page — public profiles arrive in a later phase. */
+/**
+ * Public Karti brand landing page.
+ *
+ * Intentionally minimal: brand + consumer-facing message only. No sign-in,
+ * admin, dashboard, or implementation wording lives here — operator access
+ * stays available at its direct URL and is deliberately not linked.
+ */
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col items-center justify-center px-4 py-16 text-center">
-      <p className="text-4xl font-bold tracking-tight text-text">Karti</p>
-      <p className="mt-3 max-w-md text-base text-muted">
-        Premium NFC digital contact cards. Tap a card, meet the person, take action.
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-20 text-center">
+      <p
+        aria-hidden="true"
+        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-text text-xl font-bold text-background"
+      >
+        K
       </p>
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/login"
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-5 font-medium text-accent-contrast hover:bg-accent-strong"
-        >
-          Admin sign in
-        </Link>
-      </div>
-      <p className="mt-6 text-xs text-muted">
-        One permanent URL per card — the destination can change without rewriting the tag.
+      <h1 className="mt-8 text-4xl font-bold tracking-tight text-text">Karti</h1>
+      <p className="mt-2 text-lg font-medium text-text">Your smart contact card.</p>
+      <p className="mt-4 max-w-xs text-base leading-relaxed text-muted">
+        Share your contact details, social links and business information with one simple tap.
+      </p>
+      <p className="mt-10 text-xs font-medium tracking-[0.18em] text-muted uppercase">
+        NFC&ensp;•&ensp;QR&ensp;•&ensp;Always up to date
       </p>
     </main>
   );

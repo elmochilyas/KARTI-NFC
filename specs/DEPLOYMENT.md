@@ -134,12 +134,13 @@ production data, and no fake fixtures may land in production.
 
 ## 11. Phase 14 deployment status (actual)
 
-- Repository: `main` on `github.com/elmochilyas/KARTI-NFC`, HEAD at an older
-  commit with Phases 0–13 work uncommitted in the working tree. Production
-  CANNOT deploy via Git/Vercel until the intended code is committed and
-  pushed — and blind `git add .` is forbidden (unrelated operator edits
-  coexist). Operator action required; safe commit plan in the Phase 14
-  report §37.
+- Repository: `main` on `github.com/elmochilyas/KARTI-NFC` at `881335f`
+  (PR #1 merged 2026-09-20: release branch `release/production-mvp`,
+  commit `2a98d49`, 59 reviewed paths). Working tree clean.
+- CI: green on PR and post-merge main (`test` + `build`). Branch
+  protection active on main (PR + checks required, no force-push/deletion).
+- Vercel project, env vars, custom domain, Auth hardening: NOT configured —
+  operator items with exact steps in the cutover report.
 - Supabase: current project promoted to production in-record. Baseline
   1/1/1/0 + 1 user + 1 admin + 2 objects; zero fixtures; allowlist holds
   the operator; anon matrix green (non-mutating re-verified 2026-09-20).
