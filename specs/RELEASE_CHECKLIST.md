@@ -88,10 +88,10 @@ checked without evidence.
 
 ## CI/CD
 
-- [ ] `.github/workflows/ci.yml` green on the release PR.
-- [ ] Required checks `test` + `build` enforced on `main`.
-- [ ] Frozen-lockfile install proven.
-- [ ] No production secrets in CI; live matrix runs dispatch-only.
+- [x] `.github/workflows/ci.yml` green on the release PR.
+- [x] Required checks `test` + `build` enforced on `main`.
+- [x] Frozen-lockfile install proven.
+- [x] No production secrets in CI; live matrix runs dispatch-only.
 - [ ] Vercel Git integration: prod on main, previews per PR (Phase 14).
 - [ ] Preview envs use development Supabase, never production.
 

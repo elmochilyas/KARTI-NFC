@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: "%s — Karti",
   },
   description:
-    "Karti is an NFC digital contact-card platform: premium public profiles with remotely configurable card destinations.",
+    "Karti — your smart contact card. Share your contact details, social links and business information with one simple tap.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
