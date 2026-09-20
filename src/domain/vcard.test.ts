@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildVCard, escapeVCardText, pickTelNumber } from "./vcard";
+import {
+  buildVCard,
+  escapeVCardText,
+  pickTelNumber,
+  vcardContentDisposition,
+  vcardFilename,
+  vcardFilenameBase,
+} from "./vcard";
 
 /**
  * Independent structural validator for .vcf output (no vCard dependency):
@@ -202,5 +209,78 @@ describe("buildVCard", () => {
     for (const token of ["ORG:", "TITLE:", "TEL;", "EMAIL:", "URL:", "ADR;", "undefined", "null"]) {
       expect(vcf).not.toContain(token);
     }
+  });
+
+  it("maps BUSINESS profiles: FN is the business name, ORG falls back to it", () => {
+    const withCompany = buildVCard({
+      displayName: "Café Noir",
+      profileType: "BUSINESS",
+      jobTitle: "Restaurant",
+      companyName: "Café Noir SARL",
+      phone: "+212600000001",
+    });
+    expect(withCompany).toContain("FN:Café Noir\r\n");
+    expect(withCompany).toContain("ORG:Café Noir SARL\r\n");
+    expect(withCompany).toContain("TITLE:Restaurant\r\n");
+
+    const withoutCompany = buildVCard({
+      displayName: "Café Noir",
+      profileType: "BUSINESS",
+      jobTitle: "Restaurant",
+    });
+    // Business name still files under an organization for importers.
+    expect(withoutCompany).toContain("FN:Café Noir\r\n");
+    expect(withoutCompany).toContain("ORG:Café Noir\r\n");
+  });
+
+  it("keeps PERSON profiles without inventing an organization", () => {
+    const vcf = buildVCard({ displayName: "Ahmed Benali", profileType: "PERSON" });
+    expect(vcf).toContain("FN:Ahmed Benali\r\n");
+    expect(vcf).not.toContain("ORG:");
+  });
+
+  it("uses WhatsApp as TEL fallback only for valid phone-like values", () => {
+    const fromWa = buildVCard({ displayName: "A", whatsapp: "+212612345678" });
+    expect(fromWa).toContain("TEL;TYPE=CELL,VOICE:+212612345678\r\n");
+    const waUrl = buildVCard({ displayName: "A", whatsapp: "https://wa.me/212612345678" });
+    expect(waUrl).not.toContain("TEL;");
+    expect(waUrl).not.toContain("wa.me");
+  });
+
+  it("emits a proper escaped ADR field", () => {
+    const vcf = buildVCard({
+      displayName: "A",
+      address: "12, Rue de l'Église; Marrakech\nMorocco\\Atlas",
+    });
+    expect(vcf).toContain(
+      "ADR;TYPE=HOME:;;12\\, Rue de l'Église\\; Marrakech\\nMorocco\\\\Atlas;;;;\r\n",
+    );
+    expect(vcf).not.toMatch(/[^\r]\n/);
+  });
+
+  it("builds safe ASCII filenames from slugs", () => {
+    expect(vcardFilename("ahmed-benali")).toBe("ahmed-benali.vcf");
+    expect(vcardFilenameBase("  Ahmed Benali!! ")).toBe("ahmed-benali");
+    expect(vcardFilename("")).toBe("karti-contact.vcf");
+    // Header injection shapes collapse to a safe base.
+    expect(vcardFilename('a"\r\nBcc:evil')).toBe("a-bcc-evil.vcf");
+    expect(vcardFilename("../../etc/passwd")).toBe("etc-passwd.vcf");
+    for (const filename of [
+      vcardFilename("ahmed-benali"),
+      vcardFilename('a"\r\nBcc:evil'),
+      vcardFilename("../../etc/passwd"),
+    ]) {
+      expect(filename).toMatch(/^[a-z0-9-]+\.vcf$/);
+      expect(filename).not.toMatch(/[\r\n"';\\\\/]/);
+    }
+  });
+
+  it("builds an inline disposition for native contact preview", () => {
+    const disposition = vcardContentDisposition("ahmed-benali");
+    expect(disposition.startsWith("inline; ")).toBe(true);
+    expect(disposition).toContain('filename="ahmed-benali.vcf"');
+    expect(disposition).toContain("filename*=UTF-8''ahmed-benali.vcf");
+    expect(disposition).not.toMatch(/[\r\n]/);
+    expect(disposition).not.toContain("attachment");
   });
 });

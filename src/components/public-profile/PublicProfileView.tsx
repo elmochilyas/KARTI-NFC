@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { LuChevronRight, LuUserPlus } from "react-icons/lu";
+import { LuChevronRight } from "react-icons/lu";
 import {
   detectBrand,
   pickQuickActions,
@@ -8,7 +8,8 @@ import {
   RowBrandIcon,
   type QuickAction,
 } from "./brandIcons";
-import { foregroundOnAccent, KartiAttribution, mailHref, telHref } from "./ProfilePreview";
+import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
+import { SaveContactAction } from "./SaveContactAction";
 import { ShareProfileButton } from "./ShareProfileButton";
 import type { PublicLink, PublicProfile } from "@/features/profiles/public";
 
@@ -324,21 +325,7 @@ export function PublicProfileView({
           <QuickTiles actions={quickActions} dark={dark} />
 
           <div className="mt-4 flex flex-col gap-4">
-            <a
-              href={vcardHref}
-              className="karti-rise flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-[18px] px-6 text-[16px] font-extrabold transition hover:brightness-110 active:scale-[0.99]"
-              style={{
-                animationDelay: "60ms",
-                backgroundImage:
-                  "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 58%, black))",
-                color: foregroundOnAccent(accent),
-                boxShadow:
-                  "0 14px 28px -12px color-mix(in srgb, var(--karti-accent) 65%, transparent)",
-              }}
-            >
-              <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
-              Save Contact
-            </a>
+            <SaveContactAction href={vcardHref} accent={accent} variant="cta" />
 
             {hasInfo ? (
               <section
@@ -498,19 +485,7 @@ export function PublicProfileView({
         </div>
       </div>
       <div className="pointer-events-none sticky bottom-0 z-20 mx-auto w-full max-w-[480px] px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <a
-          href={vcardHref}
-          aria-label="Save contact"
-          className="pointer-events-auto flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl px-6 text-[16px] font-extrabold shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] transition hover:brightness-110 active:scale-[0.99]"
-          style={{
-            backgroundImage:
-              "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 58%, black))",
-            color: foregroundOnAccent(accent),
-          }}
-        >
-          <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
-          Save Contact
-        </a>
+        <SaveContactAction href={vcardHref} accent={accent} variant="sticky" />
       </div>
     </main>
   );

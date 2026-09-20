@@ -740,6 +740,18 @@ A task is DONE only when:
 > Live: href present on ACTIVE page. Android/iOS on-device tap → Add
 > Contact left to operator (no devices here); 404 is the only
 > failure surface and is safe by construction.
+>
+> 2026-09-20 (Save Contact mobile fix, ADR-037): root cause was delivery,
+> not data — `Content-Disposition: attachment` forced a Files/Downloads
+> detour instead of the native contact preview. Endpoint now serves
+> `inline` (+ `filename*`, `no-store`, `nosniff`, exact `Content-Length`);
+> BUSINESS maps FN=business name, ORG fallback, TITLE=category; new
+> `SaveContactAction` island adds idle → Opening… → native flow with a
+> same-endpoint fallback (no Blob fetch, no `intent://`, no `download`
+> attr). Verified: 319 tests green, prod build + local prod-server
+> unknown/reserved → 404, deployed host unknown → 404. On-device tap
+> (iPhone Safari / Android Chrome / Samsung Internet) still needs the
+> operator — no devices here.
 
 ## 6.4 Tests
 
@@ -754,7 +766,8 @@ A task is DONE only when:
 ### Phase 6 gate
 
 - [ ] Save Contact works on representative Android/iOS.
-- [x] Tests pass.
+- [x] Tests pass (319: vCard builder/headers/BUSINESS/injection, endpoint
+  matrix, button wiring + fallback).
 
 > 2026-09-19: endpoint + body + headers + gating verified live (temp data
 > removed); regression checks (Call/WhatsApp/Email/links/location/notes)

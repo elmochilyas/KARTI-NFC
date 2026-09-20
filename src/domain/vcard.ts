@@ -11,6 +11,8 @@
 
 export type VCardInput = {
   displayName: string;
+  /** PERSON | BUSINESS — BUSINESS maps display name to FN+ORG, job title to TITLE(category). */
+  profileType?: string | null;
   jobTitle?: string | null;
   companyName?: string | null;
   phone?: string | null;
@@ -65,17 +67,54 @@ export function pickTelNumber(
   return wa;
 }
 
+/**
+ * Safe vCard filename base from a public slug. Slugs are already
+ * `[a-z0-9-]` by the query layer — this is defense-in-depth so a header
+ * value can never carry CRLF, quotes, or path characters.
+ */
+export function vcardFilenameBase(slug: string): string {
+  const base = slug
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+  return base === "" ? "karti-contact" : base;
+}
+
+/** `ahmed-benali.vcf` — ASCII-safe by construction. */
+export function vcardFilename(slug: string): string {
+  return `${vcardFilenameBase(slug)}.vcf`;
+}
+
+/**
+ * Inline disposition for native contact preview on iOS Safari / Android
+ * Chrome. `attachment` forces a Files/Downloads detour; `inline` lets the
+ * browser hand a real `text/vcard` response to Contacts. `filename*`
+ * carries the RFC 6266 UTF-8 form alongside the ASCII fallback.
+ */
+export function vcardContentDisposition(slug: string): string {
+  const filename = vcardFilename(slug);
+  return `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 /** Build a complete vCard 3.0 document with CRLF line endings. */
 export function buildVCard(input: VCardInput): string {
   const name = clean(input.displayName) ?? "Karti Contact";
+  const isBusiness = input.profileType === "BUSINESS";
   const lines = ["BEGIN:VCARD", "VERSION:3.0"];
   // N is structurally required; MVP has no first/last split — never invent one.
   lines.push("N:;;;;");
+  // BUSINESS: FN is the business/display name.
   lines.push(`FN:${escapeVCardText(name)}`);
 
   const company = clean(input.companyName);
-  if (company) lines.push(`ORG:${escapeVCardText(company)}`);
+  // BUSINESS with no separate company still exposes the business name as
+  // ORG so importers file it under an organization.
+  const org = isBusiness ? (company ?? name) : company;
+  if (org) lines.push(`ORG:${escapeVCardText(org)}`);
 
+  // BUSINESS job_title is the category (e.g. "Restaurant").
   const title = clean(input.jobTitle);
   if (title) lines.push(`TITLE:${escapeVCardText(title)}`);
 
