@@ -3,6 +3,7 @@ import { Nfc } from "lucide-react";
 import { Section } from "@/components/dashboard/Section";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { getCardById, getCardsByClientId } from "@/features/cards/service";
+import type { CardSummary } from "@/features/cards/types";
 import { pickPrimaryCard } from "@/features/cards/orchestrate";
 import { qrPayloadForCard } from "@/features/cards/qr";
 import { PhysicalCardPanel } from "./PhysicalCardPanel";
@@ -28,11 +29,25 @@ function destinationLabel(card: {
   return "Not set";
 }
 
-/** Client-centric NFC status: one primary card, human states, no inventory jargon. */
-export async function NfcCardSection({ clientId }: { clientId: string }) {
+/**
+ * Client-centric NFC status: one primary card, human states, no inventory jargon.
+ * Accepts pre-fetched `cards` (client page loads once and prop-drills);
+ * falls back to fetching when used standalone.
+ */
+export async function NfcCardSection({
+  clientId,
+  cards,
+}: {
+  clientId: string;
+  cards?: CardSummary[];
+}) {
   const supabase = await createClient();
-  const listed = await getCardsByClientId(clientId, supabase);
-  const primary = listed.ok ? pickPrimaryCard(listed.data) : null;
+  let listed: CardSummary[] = cards ?? [];
+  if (cards === undefined) {
+    const fetched = await getCardsByClientId(clientId, supabase);
+    listed = fetched.ok ? fetched.data : [];
+  }
+  const primary = pickPrimaryCard(listed);
 
   const detail =
     primary && primary.status !== "UNASSIGNED"

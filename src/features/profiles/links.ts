@@ -83,7 +83,11 @@ function linkNotFound() {
   return { ok: false as const, error: { code: "NOT_FOUND" as const, message: "Link not found." } };
 }
 
-/** Verify the link belongs to the profile, which belongs to the client. */
+/**
+ * Verify the link belongs to the profile, which belongs to the client.
+ * Single join query (profile_links + profiles!inner) instead of two
+ * serial selects; NOT_FOUND semantics are unchanged.
+ */
 async function getOwnedLink(
   linkId: string,
   profileId: string,
@@ -96,28 +100,16 @@ async function getOwnedLink(
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
   const { data: link, error: linkError } = await supabase
     .from("profile_links")
-    .select(PROFILE_LINK_COLUMNS)
+    .select(`${PROFILE_LINK_COLUMNS}, profiles!inner(client_id)`)
     .eq("id", linkId)
-    .maybeSingle();
-  if (linkError || !link || link.profile_id !== profileId) return linkNotFound();
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, client_id")
-    .eq("id", profileId)
-    .maybeSingle();
-  if (profileError || !profile || profile.client_id !== clientId) return linkNotFound();
-  return { ok: true, data: { link } };
-}
-
-async function nextSortOrder(profileId: string, supabase: LinksDb): Promise<number> {
-  const { data } = await supabase
-    .from("profile_links")
-    .select("sort_order")
     .eq("profile_id", profileId)
-    .order("sort_order", { ascending: false })
-    .limit(1)
     .maybeSingle();
-  return (data?.sort_order ?? -1) + 1;
+  if (linkError || !link) return linkNotFound();
+  const { profiles, ...row } = link as unknown as ProfileLinkRow & {
+    profiles: { client_id: string } | null;
+  };
+  if (!profiles || profiles.client_id !== clientId) return linkNotFound();
+  return { ok: true, data: { link: row } };
 }
 
 export async function listProfileLinks(
@@ -158,12 +150,20 @@ export async function createProfileLink(
   if (!parsed.success) return linkValidationFailed(parsed.error.issues);
   if (!UUID_PATTERN.test(profileId) || !UUID_PATTERN.test(clientId)) return linkNotFound();
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, client_id")
-    .eq("id", profileId)
-    .maybeSingle();
+  // Ownership check and current-max sort_order are independent — one batch.
+  const [profileRes, maxRes] = await Promise.all([
+    supabase.from("profiles").select("id, client_id").eq("id", profileId).maybeSingle(),
+    supabase
+      .from("profile_links")
+      .select("sort_order")
+      .eq("profile_id", profileId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const profile = profileRes.data;
   if (!profile || profile.client_id !== clientId) return linkNotFound();
+  const sortOrder = (maxRes.data?.sort_order ?? -1) + 1;
 
   const { data, error } = await supabase
     .from("profile_links")
@@ -173,7 +173,7 @@ export async function createProfileLink(
       label: parsed.data.label,
       url: parsed.data.url,
       icon: parsed.data.icon,
-      sort_order: await nextSortOrder(profileId, supabase),
+      sort_order: sortOrder,
       enabled: true,
     })
     .select(PROFILE_LINK_COLUMNS)
@@ -303,17 +303,36 @@ export async function reorderProfileLinks(
     };
   }
 
-  for (let i = 0; i < orderedIds.length; i += 1) {
-    const { error } = await supabase
+  // Minimal safe batch: one parallel write wave instead of N serial
+  // round-trips. (A single upsert would also work given the exact-set
+  // check above, but partial-row upserts risk NOT NULL violations, so the
+  // parallel update batch is the safer shape.)
+  const writes = orderedIds.map((id, i) =>
+    supabase
       .from("profile_links")
       .update({ sort_order: i })
-      .eq("id", orderedIds[i] as string);
-    if (error) {
-      return {
-        ok: false,
-        error: { code: "UNKNOWN", message: "Could not save the order. Please try again." },
-      };
-    }
+      .eq("id", id as string),
+  );
+  const outcomes = await Promise.all(writes);
+  if (outcomes.some((outcome) => outcome.error)) {
+    return {
+      ok: false,
+      error: { code: "UNKNOWN", message: "Could not save the order. Please try again." },
+    };
   }
-  return listProfileLinks(profileId, clientId, supabase);
+  // Profile ownership was already verified above; read the new order
+  // directly instead of re-running auth + ownership checks.
+  const { data, error } = await supabase
+    .from("profile_links")
+    .select(PROFILE_LINK_COLUMNS)
+    .eq("profile_id", profileId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) {
+    return {
+      ok: false,
+      error: { code: "UNKNOWN", message: "Could not load links. Please try again." },
+    };
+  }
+  return { ok: true, data: data ?? [] };
 }

@@ -10,6 +10,7 @@ import {
   unassignCard,
   type CardDb,
 } from "./service";
+import type { CardRow } from "./types";
 
 const CARD_ID = "123e4567-e89b-12d3-a456-426614174000";
 const CLIENT_ID = "123e4567-e89b-12d3-a456-426614174001";
@@ -337,6 +338,75 @@ describe("destination guards", () => {
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.error.code).toBe("VALIDATION_ERROR");
     }
+  });
+});
+
+describe("row threading (Track C dedupe)", () => {
+  const threaded = {
+    ...BASE_CARD,
+    client_id: CLIENT_ID,
+    destination_type: "PROFILE",
+    destination_profile_id: PROFILE_ID,
+    destination_url: null,
+    status: "ASSIGNED",
+  } as unknown as CardRow;
+
+  function callsTo(db: CardDb, table: string): number {
+    const calls = (db.from as ReturnType<typeof vi.fn>).mock.calls as [string][];
+    return calls.filter(([t]) => t === table).length;
+  }
+
+  it("setCardStatus reuses a threaded row + profile without refetching", async () => {
+    const db = fakeDb({
+      claims: { sub: "admin" },
+      maybeRow: { ...threaded, status: "ACTIVE" },
+    });
+    const result = await setCardStatus(CARD_ID, "ACTIVE", db, {
+      row: threaded,
+      profile: { client_id: CLIENT_ID, status: "ACTIVE" },
+    });
+    expect(result.ok).toBe(true);
+    // Update only: no card re-fetch, no profile re-fetch.
+    expect(callsTo(db, "cards")).toBe(1);
+    expect(callsTo(db, "profiles")).toBe(0);
+  });
+
+  it("ignores a threaded row for a different id and refetches", async () => {
+    const other = { ...threaded, id: OTHER_CLIENT } as unknown as CardRow;
+    const db = fakeDb({
+      claims: { sub: "admin" },
+      maybeRow: { ...threaded, status: "DISABLED" },
+    });
+    const result = await setCardStatus(CARD_ID, "DISABLED", db, { row: other });
+    expect(result.ok).toBe(true);
+    // Fetch + update.
+    expect(callsTo(db, "cards")).toBe(2);
+  });
+
+  it("assignCardToClient reuses a threaded row (skips card fetch)", async () => {
+    const updated = { ...threaded, client_id: CLIENT_ID, status: "ASSIGNED" };
+    const db = fakeDb({ claims: { sub: "admin" } });
+    (db.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === "cards") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn(async () => ({ data: updated, error: null })),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn(async () => ({ data: { id: CLIENT_ID }, error: null })),
+      };
+    });
+    const result = await assignCardToClient(CARD_ID, CLIENT_ID, db, {
+      row: { ...BASE_CARD } as unknown as CardRow,
+    });
+    expect(result.ok).toBe(true);
+    // Update + client check only: no card re-fetch.
+    expect(callsTo(db, "cards")).toBe(1);
   });
 });
 

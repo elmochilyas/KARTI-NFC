@@ -25,6 +25,7 @@ import {
   type UploadFormState,
 } from "@/app/dashboard/clients/[id]/profile/actions";
 import { suggestSlug } from "@/features/profiles/service";
+import { IMAGE_QUALITY, maxDimForKind, resizeImageToWebP } from "@/features/profiles/image";
 import { displayProfileUrl, publicProfileUrl } from "@/features/profiles/urls";
 import type { ProfileRow, ProfileLinkRow } from "@/features/profiles/types";
 import type { ProfileTheme, ProfileType } from "@/features/profiles/schema";
@@ -202,9 +203,30 @@ function UploadControl({
       resetInput();
       return;
     }
-    setPickedName(`${file.name} · ${(file.size / 1024).toFixed(0)} KB`);
-    setLocalPreview(URL.createObjectURL(file));
-    uploadFile(file);
+    const origKb = (file.size / 1024).toFixed(0);
+    setPickedName(`${file.name} · ${origKb} KB`);
+    const originalPreviewUrl = URL.createObjectURL(file);
+    setLocalPreview(originalPreviewUrl);
+    // Client-side optimization (Track B layer 1): downscale + convert to
+    // WebP before upload. The server revalidates + normalizes anyway;
+    // any resize failure falls back to the original file.
+    void (async () => {
+      try {
+        setMessage("Optimizing…");
+        const resized = await resizeImageToWebP(file, {
+          maxDim: maxDimForKind(kind),
+          quality: IMAGE_QUALITY,
+        });
+        if (resized !== file) {
+          URL.revokeObjectURL(originalPreviewUrl);
+          setLocalPreview(URL.createObjectURL(resized));
+          setPickedName(`${file.name} · ${origKb} KB → ${(resized.size / 1024).toFixed(0)} KB`);
+        }
+        uploadFile(resized);
+      } catch {
+        uploadFile(file);
+      }
+    })();
   }
 
   if (!profileId) {

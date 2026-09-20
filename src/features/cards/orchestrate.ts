@@ -77,9 +77,17 @@ export async function configureCardForClient(
     .maybeSingle();
   if (!client) return fail("NOT_FOUND", "Client not found.");
 
-  const profileResult = await getProfileByClientId(clientId, supabase);
+  // Profile + existing cards are independent — load in one batch.
+  // (Each loader re-verifies admin; getClaims is local, not a DB RTT.)
+  const [profileResult, cardsResult] = await Promise.all([
+    getProfileByClientId(clientId, supabase),
+    getCardsByClientId(clientId, supabase),
+  ]);
   if (!profileResult.ok) {
     return fail("UNKNOWN", "Could not load the client profile. Please try again.");
+  }
+  if (!cardsResult.ok) {
+    return fail("UNKNOWN", "Could not load the client cards. Please try again.");
   }
   const profile = profileResult.data;
 
@@ -102,24 +110,27 @@ export async function configureCardForClient(
     destinationUrl = normalized;
   }
 
-  const cardsResult = await getCardsByClientId(clientId, supabase);
-  if (!cardsResult.ok) {
-    return fail("UNKNOWN", "Could not load the client cards. Please try again.");
-  }
   const primary = pickPrimaryCard(cardsResult.data);
 
+  // Thread the fetched row through assign → destination → status so the
+  // same card id is not re-fetched in every step. Each step returns the
+  // fresh row; checks run against the latest values.
   let cardId: string;
   let reused = false;
+  let currentRow: CardRow | null = null;
   if (!primary) {
     const created = await createCard(supabase);
     if (!created.ok) {
       return fail("UNKNOWN", "Could not create the card. Please try again.");
     }
-    const assigned = await assignCardToClient(created.data.id, clientId, supabase);
+    const assigned = await assignCardToClient(created.data.id, clientId, supabase, {
+      row: created.data,
+    });
     if (!assigned.ok) {
       return fail("UNKNOWN", "Could not assign the card. Please try again.");
     }
     cardId = assigned.data.id;
+    currentRow = assigned.data;
   } else {
     reused = true;
     cardId = primary.id;
@@ -128,19 +139,35 @@ export async function configureCardForClient(
       if (!assigned.ok) {
         return fail("UNKNOWN", "Could not assign the card. Please try again.");
       }
+      currentRow = assigned.data;
     }
   }
 
   // Destination (atomic field swap inside each setter; CHECK-guarded).
   if (input.kind === "PROFILE" && profile) {
-    const dest = await setCardDestinationToProfile(cardId, clientId, profile.id, supabase);
+    const dest = await setCardDestinationToProfile(cardId, clientId, profile.id, supabase, {
+      row: currentRow,
+    });
     if (!dest.ok) return fail("UNKNOWN", dest.error.message);
+    currentRow = dest.data;
   } else if (destinationUrl) {
-    const dest = await setCardDestinationToExternalUrl(cardId, destinationUrl, supabase);
+    const dest = await setCardDestinationToExternalUrl(cardId, destinationUrl, supabase, {
+      row: currentRow,
+    });
     if (!dest.ok) return fail("UNKNOWN", dest.error.message);
+    currentRow = dest.data;
   }
 
-  const activated = await setCardStatus(cardId, "ACTIVE", supabase);
+  // The ACTIVE gate needs the destination profile: reuse the already-loaded
+  // client profile for PROFILE destinations instead of re-fetching it.
+  const gateProfile =
+    input.kind === "PROFILE" && profile
+      ? { client_id: profile.client_id, status: profile.status }
+      : undefined;
+  const activated = await setCardStatus(cardId, "ACTIVE", supabase, {
+    row: currentRow,
+    ...(gateProfile ? { profile: gateProfile } : {}),
+  });
   if (!activated.ok) {
     return fail("UNKNOWN", activated.error.message);
   }

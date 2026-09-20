@@ -902,3 +902,34 @@ API bypass).
 
 Integrity holds regardless of caller path. Future destination types must
 extend the trigger deliberately.
+
+---
+
+## ADR-035 — Admin save + public read performance bundle
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+Admin profile saves felt slow (repeated auth checks, full-size image
+uploads, chatty link/card queries); public reads needed to stay fast
+without weakening RLS or the service-role isolation (ADR-031/032).
+
+### Decision
+
+- Single auth check per server action; RLS remains the enforcement layer.
+- Dual image pipeline: client canvas downscale + server sharp normalize
+  (~200KB), immutable cache.
+- Batched links/cards reads; single `revalidatePath` per save; no N+1
+  reorder writes.
+- Public profile: single `cache()`d fetch + `next/image` priority on LCP.
+- RLS select-wrap: admin policies use `(select private.is_admin())` so
+  Postgres lifts the check to one InitPlan per statement, not per row
+  (migration `20260921_perf_admin_rls_select_wrap.sql`; no behavior change).
+
+### Consequences
+
+Saves are DB-speed for text; images stay small and cache-stable; public
+page stays one fetch; authorization posture unchanged (allowlist
+default-deny, no service-role in browser).

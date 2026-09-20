@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
 import {
   getPublicProfileBySlug,
@@ -26,15 +27,34 @@ function publicUrls(paths: { avatar: string | null; cover: string | null }) {
   }
 }
 
-export async function generateMetadata({ params }: SlugPageProps): Promise<Metadata> {
-  const { slug } = await params;
+/**
+ * Per-request deduped public-profile loader.
+ * generateMetadata + page run in the same request and previously issued 2
+ * identical DB round-trips (profile + links each). React `cache()` keys on
+ * the slug string only — the admin client is created inside so both callers
+ * share one fetch. Per-request memoization only; no long-term caching of
+ * profile data (dashboard edits stay immediately visible).
+ */
+const loadPublicProfile = cache(async (slug: string) => {
   let supabase;
   try {
     supabase = createAdminClient();
   } catch {
+    return null;
+  }
+  return getPublicProfileBySlug(slug, supabase);
+});
+
+export async function generateMetadata({ params }: SlugPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    // Probe only (no query): preserves the distinct "Karti" fallback for
+    // misconfigured server reads; the loader below is the single query path.
+    createAdminClient();
+  } catch {
     return { title: "Karti", robots: { index: false, follow: false } };
   }
-  const data = await getPublicProfileBySlug(slug, supabase);
+  const data = await loadPublicProfile(slug);
   if (!data) {
     return { title: "Profile unavailable | Karti", robots: { index: false, follow: false } };
   }
@@ -53,13 +73,7 @@ export async function generateMetadata({ params }: SlugPageProps): Promise<Metad
 
 export default async function PublicProfilePage({ params }: SlugPageProps) {
   const { slug } = await params;
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    notFound();
-  }
-  const data = await getPublicProfileBySlug(slug, supabase);
+  const data = await loadPublicProfile(slug);
   if (!data) notFound();
 
   const { avatarUrl, coverUrl } = publicUrls({

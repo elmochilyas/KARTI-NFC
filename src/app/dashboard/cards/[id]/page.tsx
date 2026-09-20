@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Section } from "@/components/dashboard/Section";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { listClients } from "@/features/clients/service";
+import type { ClientSummary } from "@/features/clients/types";
 import { getProfileByClientId } from "@/features/profiles/service";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -58,8 +59,13 @@ export default async function CardDetailPage({ params }: CardDetailPageProps) {
   const card = result.data;
   const permanentUrl = permanentCardUrl(card.short_code);
 
-  const clientsResult = await listClients({ query: "" }, supabase);
-  const clients = clientsResult.ok ? clientsResult.data : [];
+  // The client dropdown only renders for unassigned cards — skip the
+  // full 100-row listClients fetch when an owner is already set.
+  let clients: ClientSummary[] = [];
+  if (!card.client_id) {
+    const clientsResult = await listClients({ query: "" }, supabase);
+    clients = clientsResult.ok ? clientsResult.data : [];
+  }
 
   let profile: { id: string; slug: string; display_name: string; status: string } | null = null;
   if (card.client_id) {

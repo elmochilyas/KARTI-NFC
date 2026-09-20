@@ -2,12 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { linkSchema } from "./links";
 import {
   checkSlugAvailability,
+  checkSlugAvailabilityInternal,
   createProfile,
+  createProfileInternal,
   ensureUniqueSlug,
   getProfileByClientId,
+  getProfileByClientIdInternal,
+  getProfileById,
+  getProfileByIdInternal,
   setProfileStatus,
+  setProfileStatusInternal,
   suggestSlug,
   updateProfile,
+  updateProfileInternal,
   type ProfileDb,
 } from "./service";
 
@@ -232,5 +239,175 @@ describe("linkSchema", () => {
     expect(
       linkSchema.safeParse({ type: "website", label: "", url: "https://x.com", icon: "" }).success,
     ).toBe(false);
+  });
+});
+
+describe("skipAuth pre-verified path (Track A)", () => {
+  function claimsSpyDb(
+    claims: unknown,
+    fromImpl: () => unknown,
+  ): {
+    db: ProfileDb;
+    getClaims: ReturnType<typeof vi.fn>;
+  } {
+    const getClaims = vi.fn(async () => ({ data: { claims }, error: null }));
+    const db = { auth: { getClaims }, from: vi.fn(fromImpl) } as unknown as ProfileDb;
+    return { db, getClaims };
+  }
+
+  it("getProfileByIdInternal bypasses auth when skipAuth:true", async () => {
+    const row = { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" };
+    const { db, getClaims } = claimsSpyDb(null, () => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({ data: row, error: null })),
+    }));
+    const result = await getProfileByIdInternal(PROFILE_ID, db, { skipAuth: true });
+    expect(result.ok).toBe(true);
+    expect(getClaims).not.toHaveBeenCalled();
+  });
+
+  it("public getProfileById still requires auth", async () => {
+    const { db, getClaims } = claimsSpyDb(null, () => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+    }));
+    const result = await getProfileById(PROFILE_ID, db);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("UNAUTHORIZED");
+    expect(getClaims).toHaveBeenCalled();
+  });
+
+  it("getProfileByClientIdInternal bypasses auth when skipAuth:true", async () => {
+    const { db, getClaims } = claimsSpyDb(null, () => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+    }));
+    const result = await getProfileByClientIdInternal(CLIENT_ID, db, { skipAuth: true });
+    expect(result).toEqual({ ok: true, data: null });
+    expect(getClaims).not.toHaveBeenCalled();
+  });
+
+  it("checkSlugAvailabilityInternal bypasses auth when skipAuth:true", async () => {
+    // Thenable stub (like the real query builder): direct await resolves availability.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stub: any = {};
+    const chain = () => stub;
+    stub.select = chain;
+    stub.eq = chain;
+    stub.neq = chain;
+    stub.limit = chain;
+    stub.then = (resolve: (v: unknown) => void) => {
+      resolve({ data: [], error: null });
+    };
+    const { db, getClaims } = claimsSpyDb(null, () => stub);
+    const result = await checkSlugAvailabilityInternal("free-slug", db, undefined, {
+      skipAuth: true,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.available).toBe(true);
+    expect(getClaims).not.toHaveBeenCalled();
+  });
+
+  it("createProfileInternal with skipAuth:true makes zero getClaims calls", async () => {
+    const getClaims = vi.fn(async () => ({ data: { claims: null }, error: null }));
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      single: vi.fn(async () => ({
+        data: { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" },
+        error: null,
+      })),
+      maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+      // Slug-availability direct await resolves free.
+      then: (resolve: (v: unknown) => void) => {
+        resolve({ data: [], error: null });
+      },
+    }));
+    const db = { auth: { getClaims }, from } as unknown as ProfileDb;
+    const result = await createProfileInternal(CLIENT_ID, VALID_INPUT, db, undefined, {
+      skipAuth: true,
+    });
+    expect(result.ok).toBe(true);
+    expect(getClaims).not.toHaveBeenCalled();
+  });
+
+  it("setProfileStatusInternal with skipAuth:true makes zero getClaims calls", async () => {
+    const row = {
+      id: PROFILE_ID,
+      client_id: CLIENT_ID,
+      slug: "ahmed-benali",
+      display_name: "Ahmed Benali",
+    };
+    const updated = { ...row, status: "ACTIVE" };
+    let calls = 0;
+    const getClaims = vi.fn(async () => ({ data: { claims: null }, error: null }));
+    const from = vi.fn(() => {
+      calls += 1;
+      const isFirst = calls === 1;
+      return {
+        select: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn(async () => ({ data: isFirst ? row : updated, error: null })),
+      };
+    });
+    const db = { auth: { getClaims }, from } as unknown as ProfileDb;
+    const result = await setProfileStatusInternal(PROFILE_ID, CLIENT_ID, "ACTIVE", db, {
+      skipAuth: true,
+    });
+    expect(result.ok).toBe(true);
+    expect(getClaims).not.toHaveBeenCalled();
+  });
+
+  it("updateProfile skips the slug-availability query when the slug is unchanged", async () => {
+    const current = { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" };
+    const updated = { ...current, display_name: "Ahmed Benali" };
+    const getClaims = vi.fn(async () => ({ data: { claims: { sub: "a" } }, error: null }));
+    let calls = 0;
+    const from = vi.fn(() => {
+      calls += 1;
+      // First call: getProfileByIdInternal → current row.
+      if (calls === 1) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn(async () => ({ data: current, error: null })),
+        };
+      }
+      // Second call doubles as update + (hypothetical) slug check:
+      // - direct await (slug-check pattern) resolves TAKEN → would force CONFLICT if queried;
+      // - maybeSingle (update pattern) resolves the updated row.
+      // Correct skip behavior hits maybeSingle → ok:true. An extra slug query would hit
+      // the taken stub → CONFLICT, failing this test.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stub: any = {};
+      const chain = () => stub;
+      stub.select = chain;
+      stub.update = chain;
+      stub.eq = chain;
+      stub.neq = chain;
+      stub.limit = chain;
+      stub.maybeSingle = vi.fn(async () => ({ data: updated, error: null }));
+      stub.then = (resolve: (v: unknown) => void) => {
+        resolve({ data: [{ id: "other-profile" }], error: null });
+      };
+      return stub;
+    });
+    const db = { auth: { getClaims }, from } as unknown as ProfileDb;
+    const result = await updateProfileInternal(PROFILE_ID, CLIENT_ID, VALID_INPUT, db, {
+      skipAuth: true,
+    });
+    expect(result.ok).toBe(true);
+    // Exactly get + update — no slug-availability round-trip.
+    expect(from).toHaveBeenCalledTimes(2);
   });
 });

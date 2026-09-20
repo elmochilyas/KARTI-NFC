@@ -84,6 +84,34 @@ export async function getPublicProfileBySlug(
   };
 }
 
+/**
+ * Profile-only loader for the vCard route (no links RTT).
+ * Same ACTIVE-only gating as getPublicProfileBySlug — returns null for
+ * unknown, reserved, DRAFT, or INACTIVE slugs without revealing which.
+ * The vCard body needs contact columns only, never link rows.
+ */
+export async function getPublicProfileRowBySlug(
+  rawSlug: string,
+  supabase: PublicDb,
+): Promise<PublicProfile | null> {
+  const slug = normalizeSlug(rawSlug);
+  if (slug === "" || isReservedSlug(slug)) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(PUBLIC_PROFILE_COLUMNS)
+    .eq("slug", slug)
+    .eq("status", "ACTIVE")
+    .maybeSingle();
+
+  if (profileError || !profile) return null;
+
+  return {
+    ...profile,
+    theme: profile.theme === "dark" ? "dark" : "light",
+  };
+}
+
 /** True when the profile carries enough contact data for a Save Contact CTA. */
 export function hasContactData(
   profile: Pick<PublicProfile, "display_name" | "phone" | "email">,

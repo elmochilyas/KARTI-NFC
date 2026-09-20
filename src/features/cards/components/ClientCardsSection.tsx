@@ -2,19 +2,35 @@ import Link from "next/link";
 import { Section } from "@/components/dashboard/Section";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { getCardsByClientId, listUnassignedCards } from "@/features/cards/service";
+import type { CardSummary } from "@/features/cards/types";
 import { AssignExistingCardForm } from "./CardForms";
 import { createClient } from "@/lib/supabase/server";
 
-/** Assigned-cards summary + attach-inventory picker for the client detail page. */
-export async function ClientCardsSection({ clientId }: { clientId: string }) {
-  const supabase = await createClient();
-  const [assigned, unassigned] = await Promise.all([
-    getCardsByClientId(clientId, supabase),
-    listUnassignedCards(supabase),
-  ]);
-
-  const cards = assigned.ok ? assigned.data : [];
-  const inventory = unassigned.ok ? unassigned.data : [];
+/**
+ * Assigned-cards summary + attach-inventory picker for the client detail page.
+ * Accepts pre-fetched `cards`/`inventory` (client page loads once and
+ * prop-drills); falls back to fetching when used standalone.
+ */
+export async function ClientCardsSection({
+  clientId,
+  cards: cardsProp,
+  inventory: inventoryProp,
+}: {
+  clientId: string;
+  cards?: CardSummary[];
+  inventory?: CardSummary[];
+}) {
+  let cards = cardsProp;
+  let inventory = inventoryProp;
+  if (cards === undefined || inventory === undefined) {
+    const supabase = await createClient();
+    const [assigned, unassigned] = await Promise.all([
+      cards === undefined ? getCardsByClientId(clientId, supabase) : Promise.resolve(null),
+      inventory === undefined ? listUnassignedCards(supabase) : Promise.resolve(null),
+    ]);
+    if (cards === undefined) cards = assigned?.ok ? assigned.data : [];
+    if (inventory === undefined) inventory = unassigned?.ok ? unassigned.data : [];
+  }
 
   return (
     <Section

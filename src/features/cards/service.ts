@@ -108,6 +108,30 @@ async function fetchCardRow(id: string, supabase: CardDb) {
   return { row: data, error: false as const };
 }
 
+/**
+ * Row-threading for multi-step mutations (Track C).
+ *
+ * assign → destination → status used to re-fetch the same card row in every
+ * step (3 serial selects for one logical change). Callers that already hold
+ * the row (e.g. orchestration) pass it via `opts.row` to skip the re-fetch.
+ * All invariant checks still run against the threaded row, and each step
+ * returns the fresh updated row for the next step — so checks never go stale.
+ */
+export type CardMutationOpts = {
+  /** Pre-fetched card row for this id; skipped when it does not match. */
+  row?: CardRow | null;
+  /**
+   * Pre-loaded destination profile for the ACTIVE gate in setCardStatus.
+   * Only used when defined; `null` means "profile missing" (gate fails).
+   */
+  profile?: { client_id: string; status: string } | null;
+};
+
+async function resolveCardRow(id: string, supabase: CardDb, opts?: CardMutationOpts) {
+  if (opts?.row && opts.row.id === id) return { row: opts.row, error: false as const };
+  return fetchCardRow(id, supabase);
+}
+
 export async function getCardById(id: string, supabase: CardDb): Promise<CardResult<CardDetail>> {
   if (!UUID_PATTERN.test(id)) return notFound("Card");
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
@@ -116,25 +140,22 @@ export async function getCardById(id: string, supabase: CardDb): Promise<CardRes
   if (error) return failed("Could not load the card. Please try again.");
   if (!row) return notFound("Card");
 
-  let clients: AssignedClient = null;
-  if (row.client_id) {
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id, name")
-      .eq("id", row.client_id)
-      .maybeSingle();
-    clients = client ?? null;
-  }
+  // Owner + destination-profile lookups are independent — one batch.
+  const [clientRes, profileRes] = await Promise.all([
+    row.client_id
+      ? supabase.from("clients").select("id, name").eq("id", row.client_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    row.destination_profile_id
+      ? supabase
+          .from("profiles")
+          .select("id, slug, display_name, status")
+          .eq("id", row.destination_profile_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
-  let destination_profile: DestinationProfile = null;
-  if (row.destination_profile_id) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, slug, display_name, status")
-      .eq("id", row.destination_profile_id)
-      .maybeSingle();
-    destination_profile = profile ?? null;
-  }
+  const clients: AssignedClient = clientRes.data ?? null;
+  const destination_profile: DestinationProfile = profileRes.data ?? null;
 
   return { ok: true, data: { ...row, clients, destination_profile } };
 }
@@ -260,19 +281,26 @@ export async function assignCardToClient(
   cardId: string,
   rawClientId: unknown,
   supabase: CardDb,
+  opts?: CardMutationOpts,
 ): Promise<CardResult<CardRow>> {
   if (!UUID_PATTERN.test(cardId)) return notFound("Card");
   const parsedClient = clientIdSchema.safeParse(rawClientId);
   if (!parsedClient.success) return invalid("Choose a valid client.");
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
 
-  const { row, error } = await fetchCardRow(cardId, supabase);
+  // Card fetch + client-existence check are independent — one batch.
+  // Check order below is unchanged (status gate before unknown-client).
+  const [fetched, clientExists] = await Promise.all([
+    resolveCardRow(cardId, supabase, opts),
+    verifyClientExists(parsedClient.data, supabase),
+  ]);
+  const { row, error } = fetched;
   if (error) return failed("Could not assign the card. Please try again.");
   if (!row) return notFound("Card");
   if (row.status === "ACTIVE" || row.status === "LOST" || row.status === "REPLACED") {
     return invalid(`Change the card status before reassigning (currently ${row.status}).`);
   }
-  if (!(await verifyClientExists(parsedClient.data, supabase))) return notFound("Client");
+  if (!clientExists) return notFound("Client");
 
   const { data, error: updateError } = await supabase
     .from("cards")
@@ -342,24 +370,27 @@ export async function setCardDestinationToProfile(
   clientId: string,
   rawProfileId: unknown,
   supabase: CardDb,
+  opts?: CardMutationOpts,
 ): Promise<CardResult<CardRow>> {
   if (!UUID_PATTERN.test(cardId) || !UUID_PATTERN.test(clientId)) return notFound("Card");
   const parsedProfile = profileIdSchema.safeParse(rawProfileId);
   if (!parsedProfile.success) return invalid("Choose a valid profile.");
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
 
-  const { row, error } = await fetchCardRow(cardId, supabase);
+  // Card row + candidate profile are independent — one batch.
+  // Check order below is unchanged (owner gate before profile checks).
+  const [fetched, profileRes] = await Promise.all([
+    resolveCardRow(cardId, supabase, opts),
+    supabase.from("profiles").select("id, client_id").eq("id", parsedProfile.data).maybeSingle(),
+  ]);
+  const { row, error } = fetched;
   if (error) return failed("Could not update the destination. Please try again.");
   if (!row) return notFound("Card");
   if (row.client_id !== clientId) {
     return invalid("Assign the card to the client before choosing their profile.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, client_id")
-    .eq("id", parsedProfile.data)
-    .maybeSingle();
+  const profile = profileRes.data;
   if (!profile) return notFound("Profile");
   if (profile.client_id !== clientId) {
     return invalid("That profile belongs to a different client.");
@@ -388,6 +419,7 @@ export async function setCardDestinationToExternalUrl(
   cardId: string,
   rawUrl: unknown,
   supabase: CardDb,
+  opts?: CardMutationOpts,
 ): Promise<CardResult<CardRow>> {
   if (!UUID_PATTERN.test(cardId)) return notFound("Card");
   const parsedUrl = externalUrlSchema.safeParse(rawUrl);
@@ -396,7 +428,7 @@ export async function setCardDestinationToExternalUrl(
   }
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
 
-  const { row, error } = await fetchCardRow(cardId, supabase);
+  const { row, error } = await resolveCardRow(cardId, supabase, opts);
   if (error) return failed("Could not update the destination. Please try again.");
   if (!row) return notFound("Card");
 
@@ -464,6 +496,7 @@ export async function setCardStatus(
   cardId: string,
   rawStatus: unknown,
   supabase: CardDb,
+  opts?: CardMutationOpts,
 ): Promise<CardResult<CardRow>> {
   if (!UUID_PATTERN.test(cardId)) return notFound("Card");
   const parsedStatus = cardStatusSchema.safeParse(rawStatus);
@@ -472,13 +505,16 @@ export async function setCardStatus(
   }
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
 
-  const { row, error } = await fetchCardRow(cardId, supabase);
+  const { row, error } = await resolveCardRow(cardId, supabase, opts);
   if (error) return failed("Could not update the status. Please try again.");
   if (!row) return notFound("Card");
 
   if (parsedStatus.data === "ACTIVE") {
+    // Orchestration threads the already-loaded profile; otherwise fetch.
     let profile: { client_id: string; status: string } | null = null;
-    if (row.destination_type === "PROFILE" && row.destination_profile_id) {
+    if (opts?.profile !== undefined) {
+      profile = opts.profile;
+    } else if (row.destination_type === "PROFILE" && row.destination_profile_id) {
       const { data } = await supabase
         .from("profiles")
         .select("client_id, status")

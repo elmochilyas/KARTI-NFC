@@ -6,6 +6,14 @@ export type StorageDb = SupabaseClient<Database>;
 export const PROFILE_ASSETS_BUCKET = "profile-assets";
 export const MAX_ASSET_BYTES = 5 * 1024 * 1024;
 
+/** Server-side normalize caps (Track B, layer 2). Mirrors image.ts. */
+export const AVATAR_MAX_DIM = 512;
+export const COVER_MAX_DIM = 1600;
+/** Upper bound per side to keep sharp CPU/memory bounded. */
+export const MAX_SOURCE_DIM = 4000;
+export const WEBP_QUALITY = 82;
+export const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
 const ALLOWED_MIME_TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -65,6 +73,26 @@ function extensionFor(mimeType: string): string | null {
   return ALLOWED_MIME_TYPES.get(mimeType) ?? null;
 }
 
+type SharpCallable = typeof import("sharp").default;
+
+/**
+ * Best-effort sharp loader. Returns null when sharp is unavailable so the
+ * caller can fall back to storing the original (still magic-byte-checked)
+ * file instead of failing the upload outright.
+ */
+async function loadSharp(): Promise<SharpCallable | null> {
+  try {
+    const mod = await import("sharp");
+    const candidate =
+      (mod as unknown as { default?: unknown }).default ??
+      (mod as unknown as { sharp?: unknown }).sharp ??
+      mod;
+    return typeof candidate === "function" ? (candidate as SharpCallable) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Safe generated path — never trusts client filenames. */
 export function assetPath(profileId: string, kind: AssetKind, extension: string): string {
   const random = crypto.getRandomValues(new Uint8Array(8));
@@ -108,10 +136,64 @@ export async function uploadAsset(
     return { ok: false, message: "That file is not a valid JPEG, PNG, or WebP image." };
   }
 
+  // Server-side normalize (Track B, layer 2): resize inside the kind cap,
+  // convert to WebP, store as `.webp` with an immutable cache header. Sharp
+  // is optional at runtime — when unavailable we fall back to the original
+  // (already type + magic-byte checked) bytes.
+  const cap = kind === "avatar" ? AVATAR_MAX_DIM : COVER_MAX_DIM;
+  const sharp = await loadSharp();
+  if (sharp) {
+    let input: Buffer;
+    try {
+      input = Buffer.from(await file.arrayBuffer());
+    } catch {
+      return { ok: false, message: "Could not read the image. Please try again." };
+    }
+    let meta: { width?: number; height?: number };
+    try {
+      meta = await sharp(input).metadata();
+    } catch {
+      return { ok: false, message: "That file is not a valid JPEG, PNG, or WebP image." };
+    }
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+    if (width <= 0 || height <= 0) {
+      return { ok: false, message: "That file is not a valid JPEG, PNG, or WebP image." };
+    }
+    if (width > MAX_SOURCE_DIM || height > MAX_SOURCE_DIM) {
+      return { ok: false, message: "Images must be 4000px or smaller on each side." };
+    }
+    let output: Buffer;
+    try {
+      output = await sharp(input)
+        .resize({ width: cap, height: cap, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
+    } catch {
+      return { ok: false, message: "Could not process the image. Please try again." };
+    }
+    if (output.byteLength === 0 || output.byteLength > MAX_ASSET_BYTES) {
+      return { ok: false, message: "Images must be 5 MB or smaller." };
+    }
+    const path = assetPath(profileId, kind, "webp");
+    const { error } = await supabase.storage.from(PROFILE_ASSETS_BUCKET).upload(path, output, {
+      contentType: "image/webp",
+      cacheControl: IMMUTABLE_CACHE_CONTROL,
+      upsert: false,
+    });
+
+    if (error) {
+      return { ok: false, message: "Upload failed. Please try again." };
+    }
+    return { ok: true, path };
+  }
+
   const path = assetPath(profileId, kind, extension);
-  const { error } = await supabase.storage
-    .from(PROFILE_ASSETS_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+  const { error } = await supabase.storage.from(PROFILE_ASSETS_BUCKET).upload(path, file, {
+    contentType: file.type,
+    cacheControl: IMMUTABLE_CACHE_CONTROL,
+    upsert: false,
+  });
 
   if (error) {
     return { ok: false, message: "Upload failed. Please try again." };

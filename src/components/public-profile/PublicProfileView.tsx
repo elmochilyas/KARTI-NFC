@@ -101,7 +101,7 @@ function Hero({
                 width={160}
                 height={160}
                 sizes="80px"
-                priority
+                loading="eager"
                 className="h-full w-full rounded-[19px] object-cover"
               />
             </span>
@@ -124,7 +124,7 @@ function Hero({
             width={160}
             height={160}
             sizes="80px"
-            priority
+            loading="eager"
             className="h-20 w-20 rounded-full object-cover shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-[3px] ring-white"
           />
         ) : (
