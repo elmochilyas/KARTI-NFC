@@ -246,10 +246,7 @@ describe("GET /api/vcard/[slug].vcf alias", () => {
 
     for (const slug of [".vcf", "unknown-slug.vcf"]) {
       vi.mocked(createAdminClient).mockReturnValue(fakeDb(null));
-      const missing = await GET(
-        new Request(`http://localhost:3000/api/vcard/${slug}`),
-        ctx(slug),
-      );
+      const missing = await GET(new Request(`http://localhost:3000/api/vcard/${slug}`), ctx(slug));
       expect(missing.status).toBe(404);
       expect(await missing.text()).toBe("Not found");
     }

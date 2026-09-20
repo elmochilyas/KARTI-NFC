@@ -107,7 +107,9 @@ describe("buildVCardIntentUrl", () => {
 
   it("rejects non-HTTP(S) and malformed inputs", () => {
     expect(buildVCardIntentUrl("javascript:alert(1)", "https://karti.app/x")).toBeNull();
-    expect(buildVCardIntentUrl("https://karti.app/api/vcard/x.vcf", "javascript:alert(1)")).toBeNull();
+    expect(
+      buildVCardIntentUrl("https://karti.app/api/vcard/x.vcf", "javascript:alert(1)"),
+    ).toBeNull();
     expect(buildVCardIntentUrl("not a url", "https://karti.app/x")).toBeNull();
   });
 });
@@ -117,8 +119,7 @@ describe("shouldAttemptAndroidIntent", () => {
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36";
   const SAMSUNG =
     "Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/126.0.0.0 Mobile Safari/537.36";
-  const FIREFOX_ANDROID =
-    "Mozilla/5.0 (Android 14; Mobile; rv:126.0) Gecko/126.0 Firefox/126.0";
+  const FIREFOX_ANDROID = "Mozilla/5.0 (Android 14; Mobile; rv:126.0) Gecko/126.0 Firefox/126.0";
   const IPHONE =
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
   const DESKTOP_CHROME =
@@ -141,9 +142,7 @@ describe("shouldAttemptAndroidIntent", () => {
 describe("supportsVCardFileShare", () => {
   it("reports false without share/canShare functions", () => {
     expect(supportsVCardFileShare({})).toBe(false);
-    expect(
-      supportsVCardFileShare({ share: async () => {} }),
-    ).toBe(false);
+    expect(supportsVCardFileShare({ share: async () => {} })).toBe(false);
   });
 
   it("defers to the platform canShare verdict", () => {
