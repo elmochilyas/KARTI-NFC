@@ -1080,3 +1080,34 @@ reloaded the profile page instead of opening Contacts.
 Same single-endpoint architecture; unit-tested helpers; the only client JS
 on the public page stays the one tiny island. Device confirmation still
 needs the operator.
+
+---
+
+## ADR-040 — Warm the vCard fetch so share() keeps user activation
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+The ADR-039 reason codes paid off immediately: on-device tap reported
+`(S)` with no share sheet ever appearing — the probe passed, then
+`navigator.share()` rejected silently. The mechanism is user-activation
+expiry: `share()` ran after `await fetch() + await blob()`, and on slow
+networks/cold boots that outlasts the tap's transient activation window,
+so Chrome rejects without UI.
+
+### Decision
+
+Start the same-origin vCard fetch on `pointerdown`/`focus` and stash the
+promise; the click handler awaits the already-running request, shrinking
+the gesture-to-`share()` gap to ~zero. Keyboard-only users (no
+pointerdown) keep the fetch-in-tap path. A press that never becomes a tap
+costs one tiny `no-store` GET; rejections are swallowed at warm time and
+re-observed on tap. No copy, helper-signature, or endpoint changes.
+
+### Consequences
+
+If `(S)` repeats after this, the rejection is fast (not expiry) and the
+next pivot is intent-first ordering on Android. If `(I)` appears instead,
+the intent leg is the problem, not share.

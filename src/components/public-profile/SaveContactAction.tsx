@@ -14,7 +14,8 @@ import { foregroundOnAccent } from "./ProfilePreview";
  *
  * 1. Web Share Level 2 with a `.vcf` File — the OS share sheet offers
  *    “Save to Contacts / Create New Contact” directly, with no
- *    Files/Downloads detour;
+ *    Files/Downloads detour. The fetch is warmed on pointerdown/focus so
+ *    `share()` stays inside the tap's user activation window;
  * 2. Chrome-on-Android `intent:// … type=text/x-vcard` fast-path (UA-gated;
  *    never used on Samsung Internet / Firefox / desktop; declares no
  *    category so Contacts-style DEFAULT-only filters resolve);
@@ -177,6 +178,29 @@ export function SaveContactAction({
   const [state, setState] = useState<SaveContactState>("idle");
   const [reason, setReason] = useState<SaveContactFailureReason | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Warmed vCard fetch, started on pointerdown/focus so the tap-time await
+   * resolves ~instantly. `navigator.share()` must run inside the tap's user
+   * activation window; awaiting a cold fetch first lets it expire (slow
+   * mobile networks, cold serverless boots) and Chrome rejects without ever
+   * showing UI. Keyboard-only users skip warming and use the fetch-in-tap
+   * path. Single-use per attempt; a press that never becomes a tap costs one
+   * tiny same-origin GET against a `no-store` endpoint.
+   */
+  const warmedFetch = useRef<Promise<Response> | null>(null);
+
+  function warmFetch() {
+    if (warmedFetch.current !== null) return;
+    try {
+      const pending = fetch(href, { credentials: "same-origin" });
+      // Swallow here to avoid unhandled-rejection noise when the press never
+      // becomes a tap; the click path still observes the real outcome below.
+      pending.catch(() => {});
+      warmedFetch.current = pending;
+    } catch {
+      warmedFetch.current = null;
+    }
+  }
 
   useEffect(() => {
     function clear() {
@@ -226,7 +250,11 @@ export function SaveContactAction({
       e.preventDefault();
       setState("opening");
       try {
-        const response = await fetch(href, { credentials: "same-origin" });
+        // Prefer the pointerdown-warmed fetch so share() stays inside user
+        // activation; fall back to a tap-time fetch (keyboard users).
+        const pending = warmedFetch.current;
+        warmedFetch.current = null;
+        const response = await (pending ?? fetch(href, { credentials: "same-origin" }));
         if (!response.ok) throw new Error(`vCard fetch failed: ${response.status}`);
         const blob = await response.blob();
         const file = new File([blob], vcardShareFilename(href), { type: "text/vcard" });
@@ -280,6 +308,8 @@ export function SaveContactAction({
         <a
           href={href}
           onClick={handleClick}
+          onPointerDown={warmFetch}
+          onFocus={warmFetch}
           aria-label="Save contact"
           className="pointer-events-auto flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl px-6 text-[16px] font-extrabold shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] transition hover:brightness-110 active:scale-[0.99]"
           style={{
@@ -302,6 +332,8 @@ export function SaveContactAction({
       <a
         href={href}
         onClick={handleClick}
+        onPointerDown={warmFetch}
+        onFocus={warmFetch}
         className="karti-rise flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-[18px] px-6 text-[16px] font-extrabold transition hover:brightness-110 active:scale-[0.99]"
         style={{
           animationDelay: "60ms",
