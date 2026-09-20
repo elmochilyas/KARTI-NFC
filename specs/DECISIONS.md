@@ -960,3 +960,41 @@ read like the step action rather than draft persistence.
 
 Clear primary at a glance on mobile; save remains always reachable without
 competing with step navigation.
+
+---
+
+## ADR-037 — Save Contact native-preview delivery
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+Tapping Save Contact produced a Files/Downloads detour on mobile instead of
+the native contact/import preview. Audit found the button href, builder
+escaping, and ACTIVE-only gating correct — the failure was delivery: the
+endpoint answered `Content-Disposition: attachment`, which forces a download
+mental model on iOS Safari / Android Chrome. The endpoint also ignored
+`profile_type`, so BUSINESS profiles never filed an organization.
+
+### Decision
+
+- Serve the canonical `/api/vcard/{slug}` as `text/vcard; charset=utf-8`
+  with `Content-Disposition: inline` (+ RFC 6266 `filename*`), `no-store`,
+  `nosniff`, and an exact `Content-Length`. No `download` attribute on any
+  Save anchor; same-tab direct navigation (no JS Blob fetch, no
+  `intent://` URL — unreliable on Samsung Internet and other browsers).
+- vCard 3.0 kept: `FN` is the display name for both types; BUSINESS falls
+  back to `ORG` = display name when no separate company exists and maps
+  `job_title` (category) to `TITLE`. Filename helper re-sanitizes the
+  normalized slug so headers can never carry CRLF/quotes/paths.
+- One tiny client island (`SaveContactAction`, same pattern as the Share
+  island): `idle → Opening… → native flow`, with a same-endpoint
+  “Couldn't open Contacts. Download contact” fallback only if the page is
+  still visible after 4s. Public page otherwise stays server-rendered.
+
+### Consequences
+
+iOS/Android receive a real vCard response the OS can preview and import;
+the final user confirmation stays with the OS (unbypassable by design).
+No second contact system exists — vCard remains the single canonical path.
