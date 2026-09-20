@@ -16,13 +16,19 @@ import { foregroundOnAccent } from "./ProfilePreview";
  *    “Save to Contacts / Create New Contact” directly, with no
  *    Files/Downloads detour;
  * 2. Chrome-on-Android `intent:// … type=text/x-vcard` fast-path (UA-gated;
- *    never used on Samsung Internet / Firefox / desktop);
+ *    never used on Samsung Internet / Firefox / desktop; declares no
+ *    category so Contacts-style DEFAULT-only filters resolve);
  * 3. Classic same-tab navigation to the `inline` vCard response.
  *
  * Share success (or dismissal) resets quietly — the 4s “still visible”
  * fallback only appears when a navigation/intent genuinely went nowhere.
- * Every path reuses the same canonical endpoint: there is no second contact
- * system and no `intent://` default.
+ * The fallback names the real next step (open the file from notifications)
+ * and carries a subtle reason code (`S`/`I`/`D`) so one on-device tap
+ * reports exactly which delivery path died. The intent path runs only
+ * synchronously inside the tap gesture; post-await share failures fall
+ * back to plain navigation because expired user activation gets intent
+ * navigations silently dropped. Every path reuses the same canonical
+ * endpoint: there is no second contact system and no `intent://` default.
  */
 
 /** How long to wait before concluding the native flow did not open. */
@@ -63,6 +69,13 @@ export function vcardShareFilename(href: string): string {
  * Build a Chrome-Android `intent://` URL that opens the vCard directly in
  * the Contacts/import handler, with the profile page as the browser
  * fallback. Returns null for non-HTTP(S) inputs. Exported for unit tests.
+ *
+ * Deliberately declares NO category: Android resolves an intent only
+ * against filters containing every category the intent carries, while an
+ * intent with no categories passes every filter's category test (the
+ * framework treats it as CATEGORY_DEFAULT for startActivity). Declaring
+ * BROWSABLE here actively broke resolution against Contacts-style
+ * DEFAULT-only filters and produced a silent fallback reload.
  */
 export function buildVCardIntentUrl(
   absoluteVCardUrl: string,
@@ -85,7 +98,6 @@ export function buildVCardIntentUrl(
     "#Intent" +
     `;scheme=${scheme}` +
     ";action=android.intent.action.VIEW" +
-    ";category=android.intent.category.BROWSABLE" +
     ";type=text/x-vcard" +
     `;S.browser_fallback_url=${encodeURIComponent(fallback.toString())}` +
     ";end"
@@ -124,14 +136,29 @@ export function supportsVCardFileShare(nav: FileShareNavigator): boolean {
 const ACCENT_GRADIENT =
   "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 58%, black))";
 
+/**
+ * Which delivery path died, surfaced as a short code in the fallback so a
+ * single on-device tap becomes a precise bug report: `S` = share sheet path,
+ * `I` = Android intent path, `D` = plain download navigation.
+ */
+export type SaveContactFailureReason = "S" | "I" | "D";
+
 /** Graceful fallback shown only when the native flow did not open. */
-export function SaveContactFallback({ href }: { href: string }) {
+export function SaveContactFallback({
+  href,
+  reason,
+}: {
+  href: string;
+  /** Delivery path that failed; shown as a subtle diagnostic code. */
+  reason?: SaveContactFailureReason;
+}) {
   return (
     <p className="mt-2 text-center text-[13px] font-medium" role="status">
       Couldn&apos;t open Contacts.{" "}
       <a href={href} className="font-bold underline underline-offset-2">
-        Download contact
+        Download the file, then open it from your notifications to save it
       </a>
+      {reason ? <span className="opacity-60"> ({reason})</span> : null}
     </p>
   );
 }
@@ -148,6 +175,7 @@ export function SaveContactAction({
   variant: "cta" | "sticky";
 }) {
   const [state, setState] = useState<SaveContactState>("idle");
+  const [reason, setReason] = useState<SaveContactFailureReason | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -210,32 +238,37 @@ export function SaveContactAction({
         // Back from the sheet (saved or dismissed): quiet reset, no failure UI.
         if (timer.current !== null) clearTimeout(timer.current);
         setState("idle");
+        setReason(null);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           if (timer.current !== null) clearTimeout(timer.current);
           setState("idle");
+          setReason(null);
           return;
         }
-        if (openAndroidIntent(href)) {
-          armFallbackTimer();
-          return;
-        }
+        // Share failed after an await: user activation has expired, so an
+        // intent navigation may be silently dropped by Chrome. Plain
+        // navigation always works — take it and report the share failure.
+        setReason("S");
         armFallbackTimer();
         window.location.assign(href);
       }
       return;
     }
 
-    // 2. Chrome-Android intent fast-path (gated; never the default).
+    // 2. Chrome-Android intent fast-path (gated; never the default). Runs
+    // synchronously inside the tap gesture, which intent handling requires.
     if (openAndroidIntent(href)) {
       e.preventDefault();
       setState("opening");
+      setReason("I");
       armFallbackTimer();
       return;
     }
 
     // 3. Classic same-tab navigation to the `inline` vCard (iOS preview path).
     setState("opening");
+    setReason("D");
     armFallbackTimer();
   }
 
@@ -257,7 +290,9 @@ export function SaveContactAction({
           <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
           {label}
         </a>
-        {state === "failed" ? <SaveContactFallback href={href} /> : null}
+        {state === "failed" ? (
+          <SaveContactFallback href={href} reason={reason ?? undefined} />
+        ) : null}
       </div>
     );
   }
@@ -278,7 +313,7 @@ export function SaveContactAction({
         <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
         {label}
       </a>
-      {state === "failed" ? <SaveContactFallback href={href} /> : null}
+      {state === "failed" ? <SaveContactFallback href={href} reason={reason ?? undefined} /> : null}
     </div>
   );
 }

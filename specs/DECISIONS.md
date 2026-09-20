@@ -1043,3 +1043,40 @@ Supporting phones skip the Downloads folder entirely; elsewhere behavior is
 unchanged. The final save confirmation still belongs to the OS Contacts app
 by design. On-device verification (iPhone Safari + Android Chrome) remains
 with the operator — no devices here.
+
+---
+
+## ADR-039 — Save Contact Android reliability (intent category, gesture, diagnostics)
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+On-device retest (Android Chrome, production, ADR-038 code live) still
+showed “Opening…” followed by an apparent page refresh with nothing saved.
+The production vCard endpoint itself answers 200, so the failure is in
+delivery: the share path never engaged, and the `intent://` fallback
+reloaded the profile page instead of opening Contacts.
+
+### Decision
+
+- Drop `category=BROWSABLE` from `buildVCardIntentUrl`. Android resolves an
+  intent only against filters carrying every category the intent declares;
+  Contacts-style DEFAULT-only filters reject a BROWSABLE-only intent, and
+  Chrome then loads `S.browser_fallback_url` — the observed silent reload.
+  An intent with no categories passes every filter's category test (the
+  framework treats it as CATEGORY_DEFAULT for startActivity), which is
+  strictly more compatible.
+- Never attempt the intent after an `await`: user activation has expired
+  there, so Chrome may silently drop the navigation. Share failures go
+  straight to plain navigation, which always works.
+- The fallback now names the real next step (open the downloaded file from
+  notifications) and carries a subtle reason code (`S` share / `I` intent /
+  `D` download) so one on-device tap reports exactly which path died.
+
+### Consequences
+
+Same single-endpoint architecture; unit-tested helpers; the only client JS
+on the public page stays the one tiny island. Device confirmation still
+needs the operator.

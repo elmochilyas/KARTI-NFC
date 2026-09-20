@@ -66,12 +66,27 @@ describe("SaveContactFallback", () => {
   it("reuses the canonical endpoint when the native flow did not open", () => {
     const html = renderToStaticMarkup(createElement(SaveContactFallback, { href: HREF }));
     expect(html).toContain("Couldn");
-    expect(html).toContain("Download contact");
+    expect(html).toContain("open it from your notifications");
     expect(html).toContain(`href="${HREF}"`);
     // The fallback reuses the canonical endpoint as a plain same-tab link:
     // no forced-download attribute, no intent URL.
     expect(html).not.toMatch(/\bdownload\s*=/i);
     expect(html).not.toContain("intent://");
+  });
+
+  it("names the real next step instead of looping a silent download", () => {
+    const html = renderToStaticMarkup(createElement(SaveContactFallback, { href: HREF }));
+    expect(html).toContain("Download the file");
+    expect(html).toContain("notifications");
+  });
+
+  it("surfaces the failing delivery path as a subtle diagnostic code", () => {
+    for (const reason of ["S", "I", "D"] as const) {
+      const html = renderToStaticMarkup(createElement(SaveContactFallback, { href: HREF, reason }));
+      expect(html).toContain(`(${reason})`);
+    }
+    const withoutReason = renderToStaticMarkup(createElement(SaveContactFallback, { href: HREF }));
+    expect(withoutReason).not.toMatch(/\([SID]\)/);
   });
 });
 
@@ -100,7 +115,7 @@ describe("buildVCardIntentUrl", () => {
     expect(intent).toBe(
       "intent://karti.app/api/vcard/ahmed-benali.vcf" +
         "#Intent;scheme=https;action=android.intent.action.VIEW" +
-        ";category=android.intent.category.BROWSABLE;type=text/x-vcard" +
+        ";type=text/x-vcard" +
         ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Fahmed-benali;end",
     );
   });

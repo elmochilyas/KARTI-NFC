@@ -753,6 +753,16 @@ A task is DONE only when:
 > (iPhone Safari / Android Chrome / Samsung Internet) still needs the
 > operator — no devices here.
 >
+> 2026-09-20 (Save Contact Android reliability, ADR-039): on-device retest
+> still showed Opening… → apparent refresh, nothing saved, with the vCard
+> endpoint itself healthy (live 200). Root causes: `intent://` declared
+> BROWSABLE, which DEFAULT-only Contacts filters reject (silent fallback
+> reload), and intent attempted post-await without user activation. Fixed:
+> category dropped from the intent URL, share failures route straight to
+> plain navigation, fallback names the notifications step and carries a
+> subtle `S`/`I`/`D` reason code. Verified: 334 tests green,
+> `typecheck` + `lint` + `build` green. Awaiting operator tap confirmation.
+>
 > 2026-09-20 (Save Contact direct-open, ADR-038): tap now tries Web Share
 > Level 2 with a `.vcf` File first (share sheet offers Save to Contacts,
 > no Downloads detour), then a UA-gated Chrome-Android `intent://`
