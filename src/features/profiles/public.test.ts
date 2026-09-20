@@ -129,9 +129,7 @@ describe("getPublicProfileRowBySlug (vCard profile-only loader)", () => {
     expect(result).not.toHaveProperty("links");
     expect(result).not.toHaveProperty("notes");
     // Only the profiles table is hit — no profile_links RTT for vCards.
-    const tables = vi
-      .mocked(db.from)
-      .mock.calls.map((call) => call[0] as string);
+    const tables = vi.mocked(db.from).mock.calls.map((call) => call[0] as string);
     expect(tables).toEqual(["profiles"]);
   });
 

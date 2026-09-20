@@ -138,7 +138,10 @@ export async function saveProfileAction(
         .then((outcomes) => {
           for (const outcome of outcomes) {
             if (!outcome.ok) {
-              console.error("[saveProfileAction] best-effort asset cleanup failed:", outcome.message);
+              console.error(
+                "[saveProfileAction] best-effort asset cleanup failed:",
+                outcome.message,
+              );
             }
           }
         })

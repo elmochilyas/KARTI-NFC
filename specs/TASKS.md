@@ -2003,6 +2003,7 @@ proxy, dashboard, card, profile, resolver, QR, NFC, or env changes.
 ```text
 pnpm typecheck
 pnpm lint
+pnpm format:check   # CI gates this too (PR #3 lesson: agents omit it)
 pnpm test
 supabase db push --dry-run   # or apply via MCP migration tool
 # live: anon SELECT [] on all tables; non-admin JWT 0 rows; operator CRUD OK

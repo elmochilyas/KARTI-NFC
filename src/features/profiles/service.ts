@@ -75,10 +75,7 @@ export type ProfileAuthOptions = {
   skipAuth?: boolean;
 };
 
-async function ensureAdmin(
-  supabase: ProfileDb,
-  options?: ProfileAuthOptions,
-): Promise<boolean> {
+async function ensureAdmin(supabase: ProfileDb, options?: ProfileAuthOptions): Promise<boolean> {
   if (options?.skipAuth) return true;
   return requireAdmin(supabase);
 }
@@ -246,7 +243,12 @@ export async function createProfileInternal(
     };
   }
 
-  const availability = await checkSlugAvailabilityInternal(parsed.data.slug, supabase, undefined, options);
+  const availability = await checkSlugAvailabilityInternal(
+    parsed.data.slug,
+    supabase,
+    undefined,
+    options,
+  );
   if (!availability.ok) return availability;
   if (!availability.data.available) {
     return {

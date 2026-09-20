@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  createProfileLink,
-  reorderProfileLinks,
-  toggleProfileLink,
-  type LinksDb,
-} from "./links";
+import { createProfileLink, reorderProfileLinks, toggleProfileLink, type LinksDb } from "./links";
 
 const CLIENT_ID = "123e4567-e89b-12d3-a456-426614174001";
 const OTHER_CLIENT = "123e4567-e89b-12d3-a456-426614174002";
@@ -145,10 +140,7 @@ function fakeLinksDb(
       return finishMaybeSingle();
     });
     api.maybeSingle = vi.fn(finishMaybeSingle);
-    api.then = (
-      resolve: (v: unknown) => void,
-      reject?: (e: unknown) => void,
-    ) => {
+    api.then = (resolve: (v: unknown) => void, reject?: (e: unknown) => void) => {
       if (mode === "select") {
         resolve({ data: matched(), error: null });
         return undefined;
@@ -268,7 +260,7 @@ describe("createProfileLink sort order", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("VALIDATION_ERROR");
-    expect((db.from as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(db.from as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 });
 

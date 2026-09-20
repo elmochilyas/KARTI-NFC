@@ -381,11 +381,7 @@ export async function setCardDestinationToProfile(
   // Check order below is unchanged (owner gate before profile checks).
   const [fetched, profileRes] = await Promise.all([
     resolveCardRow(cardId, supabase, opts),
-    supabase
-      .from("profiles")
-      .select("id, client_id")
-      .eq("id", parsedProfile.data)
-      .maybeSingle(),
+    supabase.from("profiles").select("id, client_id").eq("id", parsedProfile.data).maybeSingle(),
   ]);
   const { row, error } = fetched;
   if (error) return failed("Could not update the destination. Please try again.");

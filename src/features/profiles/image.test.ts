@@ -29,14 +29,12 @@ function installBrowserMocks(srcWidth: number, srcHeight: number) {
         width: 0,
         height: 0,
         getContext: vi.fn(() => ({ drawImage })),
-        toBlob: vi.fn(
-          (cb: (b: Blob | null) => void, type: string, quality?: number) => {
-            expect(type).toBe("image/webp");
-            expect(quality).toBe(IMAGE_QUALITY);
-            capturedCanvas = { width: canvas.width, height: canvas.height };
-            cb(new Blob(["webp-bytes"], { type: "image/webp" }));
-          },
-        ),
+        toBlob: vi.fn((cb: (b: Blob | null) => void, type: string, quality?: number) => {
+          expect(type).toBe("image/webp");
+          expect(quality).toBe(IMAGE_QUALITY);
+          capturedCanvas = { width: canvas.width, height: canvas.height };
+          cb(new Blob(["webp-bytes"], { type: "image/webp" }));
+        }),
       };
       return canvas;
     }),

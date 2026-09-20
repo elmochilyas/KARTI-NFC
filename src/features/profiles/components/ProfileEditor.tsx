@@ -220,9 +220,7 @@ function UploadControl({
         if (resized !== file) {
           URL.revokeObjectURL(originalPreviewUrl);
           setLocalPreview(URL.createObjectURL(resized));
-          setPickedName(
-            `${file.name} · ${origKb} KB → ${(resized.size / 1024).toFixed(0)} KB`,
-          );
+          setPickedName(`${file.name} · ${origKb} KB → ${(resized.size / 1024).toFixed(0)} KB`);
         }
         uploadFile(resized);
       } catch {

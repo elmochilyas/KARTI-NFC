@@ -243,7 +243,10 @@ describe("linkSchema", () => {
 });
 
 describe("skipAuth pre-verified path (Track A)", () => {
-  function claimsSpyDb(claims: unknown, fromImpl: () => unknown): {
+  function claimsSpyDb(
+    claims: unknown,
+    fromImpl: () => unknown,
+  ): {
     db: ProfileDb;
     getClaims: ReturnType<typeof vi.fn>;
   } {

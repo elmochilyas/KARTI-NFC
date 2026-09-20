@@ -176,13 +176,11 @@ export async function uploadAsset(
       return { ok: false, message: "Images must be 5 MB or smaller." };
     }
     const path = assetPath(profileId, kind, "webp");
-    const { error } = await supabase.storage
-      .from(PROFILE_ASSETS_BUCKET)
-      .upload(path, output, {
-        contentType: "image/webp",
-        cacheControl: IMMUTABLE_CACHE_CONTROL,
-        upsert: false,
-      });
+    const { error } = await supabase.storage.from(PROFILE_ASSETS_BUCKET).upload(path, output, {
+      contentType: "image/webp",
+      cacheControl: IMMUTABLE_CACHE_CONTROL,
+      upsert: false,
+    });
 
     if (error) {
       return { ok: false, message: "Upload failed. Please try again." };
