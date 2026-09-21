@@ -44,11 +44,7 @@ function assertPositive(...values: number[]): void {
 }
 
 /** Fresh centered state for a decoded source image. */
-export function initialCropState(
-  imgWidth: number,
-  imgHeight: number,
-  aspect: number,
-): CropState {
+export function initialCropState(imgWidth: number, imgHeight: number, aspect: number): CropState {
   assertPositive(imgWidth, imgHeight, aspect);
   return { imgWidth, imgHeight, aspect, zoom: CROP_ZOOM_MIN, offsetX: 0, offsetY: 0 };
 }
@@ -78,8 +74,7 @@ function clampZoom(zoom: number): number {
 }
 
 function clampOffset(state: CropState, frameWidth: number, frameHeight: number): CropState {
-  const scale =
-    coverScale(state.imgWidth, state.imgHeight, frameWidth, frameHeight) * state.zoom;
+  const scale = coverScale(state.imgWidth, state.imgHeight, frameWidth, frameHeight) * state.zoom;
   return {
     ...state,
     offsetX: Math.min(

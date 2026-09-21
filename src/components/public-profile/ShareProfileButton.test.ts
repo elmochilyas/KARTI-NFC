@@ -10,11 +10,13 @@ import {
 
 describe("buildSharePayload", () => {
   it("shares the display name as title with a personalized message", () => {
-    expect(buildSharePayload("Ahmed Benali", "https://karti-bice.vercel.app/ahmed-benali")).toEqual({
-      title: "Ahmed Benali",
-      text: "Check out Ahmed Benali on Karti",
-      url: "https://karti-bice.vercel.app/ahmed-benali",
-    });
+    expect(buildSharePayload("Ahmed Benali", "https://karti-bice.vercel.app/ahmed-benali")).toEqual(
+      {
+        title: "Ahmed Benali",
+        text: "Check out Ahmed Benali on Karti",
+        url: "https://karti-bice.vercel.app/ahmed-benali",
+      },
+    );
   });
 
   it("trims the display name and falls back for blank names", () => {
@@ -64,7 +66,7 @@ describe("legacyCopy", () => {
     expect(legacyCopy("https://karti-bice.vercel.app/ahmed-benali", doc)).toBe(true);
     expect(area.value).toBe("https://karti-bice.vercel.app/ahmed-benali");
     expect(area.select).toHaveBeenCalled();
-    expect((doc.execCommand as unknown as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("copy");
+    expect(doc.execCommand as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledWith("copy");
   });
 
   it("returns false without throwing when the copy fails", () => {
@@ -75,9 +77,7 @@ describe("legacyCopy", () => {
 
 describe("ShareProfileButton markup", () => {
   function render(dark = false): string {
-    return renderToStaticMarkup(
-      createElement(ShareProfileButton, { title: "Ahmed Benali", dark }),
-    );
+    return renderToStaticMarkup(createElement(ShareProfileButton, { title: "Ahmed Benali", dark }));
   }
 
   it("renders a labeled Share button with a friendly sublabel", () => {

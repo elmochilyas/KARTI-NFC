@@ -348,7 +348,9 @@ export function ImageCropEditor({
             value={crop?.zoom ?? CROP_ZOOM_MIN}
             disabled={!ready}
             onChange={(e) =>
-              setCrop((prev) => (prev ? zoomCrop(prev, Number(e.target.value), frame.w, frame.h) : prev))
+              setCrop((prev) =>
+                prev ? zoomCrop(prev, Number(e.target.value), frame.w, frame.h) : prev,
+              )
             }
             className="h-11 w-full accent-[var(--color-accent)]"
           />
@@ -359,9 +361,7 @@ export function ImageCropEditor({
           <p className="text-sm font-semibold">{previewHeading}</p>
           <span
             aria-hidden="true"
-            className={`relative block overflow-hidden ${
-              isAvatar ? "rounded-full" : "rounded-lg"
-            }`}
+            className={`relative block overflow-hidden ${isAvatar ? "rounded-full" : "rounded-lg"}`}
             style={
               isAvatar
                 ? { width: AVATAR_PREVIEW, height: AVATAR_PREVIEW }

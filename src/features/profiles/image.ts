@@ -137,17 +137,7 @@ export async function cropBitmapToWebP(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
   try {
-    ctx.drawImage(
-      bitmap,
-      rect.sx,
-      rect.sy,
-      rect.sw,
-      rect.sh,
-      0,
-      0,
-      output.width,
-      output.height,
-    );
+    ctx.drawImage(bitmap, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, output.width, output.height);
   } catch {
     return null;
   }

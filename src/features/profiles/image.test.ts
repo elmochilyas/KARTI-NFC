@@ -200,14 +200,29 @@ describe("cropBitmapToWebP", () => {
   it("returns null — never the original — when the canvas step fails", async () => {
     const noCtx = fakeFactory({ blob: true, ctx: false });
     await expect(
-      cropBitmapToWebP(bitmap, rect, { cap: 1024, quality: IMAGE_QUALITY, fileName: "p.png" }, noCtx.factory),
+      cropBitmapToWebP(
+        bitmap,
+        rect,
+        { cap: 1024, quality: IMAGE_QUALITY, fileName: "p.png" },
+        noCtx.factory,
+      ),
     ).resolves.toBeNull();
     const noBlob = fakeFactory({ blob: false, ctx: true });
     await expect(
-      cropBitmapToWebP(bitmap, rect, { cap: 1024, quality: IMAGE_QUALITY, fileName: "p.png" }, noBlob.factory),
+      cropBitmapToWebP(
+        bitmap,
+        rect,
+        { cap: 1024, quality: IMAGE_QUALITY, fileName: "p.png" },
+        noBlob.factory,
+      ),
     ).resolves.toBeNull();
     await expect(
-      cropBitmapToWebP(bitmap, rect, { cap: 1024, quality: IMAGE_QUALITY, fileName: "p.png" }, () => null),
+      cropBitmapToWebP(
+        bitmap,
+        rect,
+        { cap: 1024, quality: IMAGE_QUALITY, fileName: "p.png" },
+        () => null,
+      ),
     ).resolves.toBeNull();
   });
 });

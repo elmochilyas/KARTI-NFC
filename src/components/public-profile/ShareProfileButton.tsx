@@ -126,9 +126,7 @@ export function ShareProfileButton({ title, dark }: { title: string; dark: boole
         <LuShare2 size={22} />
       </span>
       <span className="min-w-0 flex-1 text-left">
-        <span className="block truncate text-[15px] font-bold">
-          {feedback ?? "Share Profile"}
-        </span>
+        <span className="block truncate text-[15px] font-bold">{feedback ?? "Share Profile"}</span>
         <span
           className={`block truncate text-xs font-medium ${dark ? "text-neutral-400" : "text-muted"}`}
         >
