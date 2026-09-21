@@ -15,7 +15,7 @@ import {
   ProfileHeader,
   ProfileLinksList,
   ProfileShell,
-  SaveContactButton,
+  ShareProfilePreview,
 } from "@/components/public-profile/ProfilePreview";
 import {
   saveProfileAction,
@@ -25,7 +25,7 @@ import {
   type UploadFormState,
 } from "@/app/dashboard/clients/[id]/profile/actions";
 import { suggestSlug } from "@/features/profiles/service";
-import { IMAGE_QUALITY, maxDimForKind, resizeImageToWebP } from "@/features/profiles/image";
+import { ImageCropEditor } from "./ImageCropEditor";
 import { displayProfileUrl, publicProfileUrl } from "@/features/profiles/urls";
 import type { ProfileRow, ProfileLinkRow } from "@/features/profiles/types";
 import type { ProfileTheme, ProfileType } from "@/features/profiles/schema";
@@ -135,7 +135,10 @@ function UploadControl({
   const [pending, startTransition] = useTransition();
   const [pickedName, setPickedName] = useState<string | null>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  // Open adjustment editor after select; upload happens only on confirm.
+  const [editor, setEditor] = useState<{ file: File; url: string; origKb: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const chooseRef = useRef<HTMLLabelElement>(null);
   const inputId = useId();
 
   // Revoke the instant preview URL when it is replaced or unmounted.
@@ -182,6 +185,13 @@ function UploadControl({
     });
   }
 
+  function closeEditor() {
+    if (editor) URL.revokeObjectURL(editor.url);
+    setEditor(null);
+    // Return focus to the choose control when the dialog unmounts.
+    chooseRef.current?.focus();
+  }
+
   function onSelect() {
     const file = fileRef.current?.files?.[0];
     clearLocalPreview();
@@ -204,30 +214,25 @@ function UploadControl({
       resetInput();
       return;
     }
-    const origKb = (file.size / 1024).toFixed(0);
-    setPickedName(`${file.name} · ${origKb} KB`);
-    const originalPreviewUrl = URL.createObjectURL(file);
-    setLocalPreview(originalPreviewUrl);
-    // Client-side optimization (Track B layer 1): downscale + convert to
-    // WebP before upload. The server revalidates + normalizes anyway;
-    // any resize failure falls back to the original file.
-    void (async () => {
-      try {
-        setMessage("Optimizing…");
-        const resized = await resizeImageToWebP(file, {
-          maxDim: maxDimForKind(kind),
-          quality: IMAGE_QUALITY,
-        });
-        if (resized !== file) {
-          URL.revokeObjectURL(originalPreviewUrl);
-          setLocalPreview(URL.createObjectURL(resized));
-          setPickedName(`${file.name} · ${origKb} KB → ${(resized.size / 1024).toFixed(0)} KB`);
-        }
-        uploadFile(resized);
-      } catch {
-        uploadFile(file);
-      }
-    })();
+    // Open the adjustment editor. Nothing uploads until confirm — the
+    // previous image stays in place if the user cancels.
+    setFailed(false);
+    setMessage(null);
+    setEditor({ file, url: URL.createObjectURL(file), origKb: (file.size / 1024).toFixed(0) });
+  }
+
+  function onEditorCancel() {
+    closeEditor();
+    setPickedName(null);
+    resetInput();
+  }
+
+  function onEditorConfirm(cropped: File) {
+    const origKb = editor?.origKb ?? (cropped.size / 1024).toFixed(0);
+    closeEditor();
+    setPickedName(`${cropped.name} · ${origKb} KB → ${(cropped.size / 1024).toFixed(0)} KB`);
+    setLocalPreview(URL.createObjectURL(cropped));
+    uploadFile(cropped);
   }
 
   if (!profileId) {
@@ -259,6 +264,15 @@ function UploadControl({
 
   return (
     <div className="flex items-start gap-4">
+      {editor ? (
+        <ImageCropEditor
+          file={editor.file}
+          sourceUrl={editor.url}
+          kind={kind}
+          onConfirm={onEditorConfirm}
+          onCancel={onEditorCancel}
+        />
+      ) : null}
       <div className="relative shrink-0">
         {previewUrl ? (
           <>
@@ -301,10 +315,14 @@ function UploadControl({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <p className="text-sm font-medium text-text">{label}</p>
-        <p className="text-sm text-muted">JPEG, PNG, or WebP · max 5 MB.</p>
+        <p className="text-sm text-muted">
+          JPEG, PNG, or WebP · max 5 MB · adjust the crop before upload.
+        </p>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <label
+            ref={chooseRef}
             htmlFor={inputId}
+            tabIndex={-1}
             className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-surface-muted px-4 text-sm font-medium text-text transition-colors hover:bg-border ${
               pending ? "pointer-events-none opacity-60" : ""
             }`}
@@ -1007,7 +1025,6 @@ export function ProfileEditor({
           bio={draft.bio.trim() || null}
           dark={dark}
         />
-        <SaveContactButton accent={accent} />
         <ContactActions
           contact={{
             phone: draft.phone.trim() || null,
@@ -1023,6 +1040,7 @@ export function ProfileEditor({
           mapsUrl={draft.maps_url.trim() || null}
           dark={dark}
         />
+        <ShareProfilePreview dark={dark} />
         <KartiAttribution dark={dark} />
       </ProfileShell>
     </div>

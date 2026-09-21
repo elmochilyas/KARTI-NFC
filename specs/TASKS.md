@@ -2113,6 +2113,91 @@ via the same component.
 
 ---
 
+# Phase 17 — Share Profile Final CTA (replaces Save Contact presentation)
+
+Native contact saving is inconsistent across iOS/Android (ADR-042
+moratorium). The public profile no longer presents Save Contact as the
+primary action; Share Profile is the final CTA. Backend kept for later
+reuse. See ADR-043.
+
+## 17.1 Share Profile button
+
+- [x] Web Share payload: title = display name, text = `Check out {Name} on Karti`, url = current public profile URL.
+- [x] Clipboard fallback with `Profile link copied` feedback (legacy execCommand path included, no technical errors).
+- [x] Secondary styling (existing radius/spacing/border, share icon, no primary CTA color); `aria-label`, keyboard support, ≥44px target.
+- [x] Only public display name + public URL shared (no client/card IDs, dashboard URLs, notes, private data).
+- [x] Server-safe rendering (URL read only in the tap handler; Share island remains the only client JS on the public page).
+
+## 17.2 Public profile composition
+
+- [x] Removed in-flow Save Contact CTA and sticky Save bar from `PublicProfileView`.
+- [x] Final order: Header → Quick actions → Information → Final CTA (Share Profile) → Attribution.
+- [x] vCard endpoint untouched; `SaveContactAction.tsx` + tests kept unused for later reuse.
+- [x] Dashboard editor preview mirrors the change (inert `ShareProfilePreview`, not the live island).
+
+## 17.3 Tests
+
+- [x] Share payload unit tests (title/text/URL, blank-name fallback, no private data).
+- [x] Clipboard/legacy-copy fallback tests.
+- [x] View tests: Share exists at bottom, correct order vs content/attribution, no Save/vCard surfaces, profile still renders, mobile-safe markup.
+
+### Phase 17 gate
+
+- [x] Typecheck passes.
+- [x] Lint passes.
+- [x] Tests pass (32 files / 357 tests).
+- [x] Production build passes.
+- [ ] `format:check` — pre-existing repo-wide CRLF baseline failure (39 files fail identically at HEAD; documented, not introduced here).
+
+> 2026-09-21: implemented + verified per plan. `typecheck`, `lint`,
+> `test` (357), `build` green. Human confirmations: on-device share-sheet
+> tap + 320/390px eyeball pass.
+
+---
+
+# Phase 18 — Profile Image Crop & Adjust Editor
+
+Select → Adjust → Preview → Save for avatar + cover. No schema change,
+no storage-model change (generated paths, gates, immutable cache kept).
+See ADR-044.
+
+## 18.1 Crop math + processing
+
+- [x] Pure `crop.ts` (cover-fit × 1–3x zoom, clamped pan, frame→source rect; avatar 1:1, cover 3:1).
+- [x] `cropBitmapToWebP` canvas step (EXIF-aware decode, WebP output, null — never original — on failure).
+- [x] Avatar cap 512 → 1024 in code constants only (client + server); cover stays 1600.
+- [x] Only cropped bytes uploaded; original never leaves the browser except into canvas.
+
+## 18.2 Editor UX
+
+- [x] Native `<dialog>` (top-layer, Esc-to-cancel, no new dependency); mobile sheet / desktop centered; existing tokens.
+- [x] Circular avatar viewport + rectangular cover viewport matching the public crop (WYSIWYG).
+- [x] Drag position (Pointer Events: Android/iOS/desktop), zoom slider 1x–3x, Reset, Cancel, Confirm.
+- [x] “How your … will appear” live preview before saving.
+- [x] Cancel keeps the previous image; focus returns to the choose control.
+- [x] A11y: labeled controls, arrow-key pan + +/- zoom, `aria-describedby`, targets ≥44px.
+
+## 18.3 Tests
+
+- [x] `crop.test.ts` (rect math, zoom clamp, pan clamp, square + 3:1, invalid input).
+- [x] `ImageCropEditor.test.ts` (dialog markup, controls, slider range, preview heading, touch targets, no upload on render).
+- [x] `image.test.ts` additions (EXIF-aware decode, crop draw args, 1024 cap, null-on-failure).
+- [x] Cap assertions updated (`image` + `storage` tests); profile-creation paths untouched.
+
+### Phase 18 gate
+
+- [x] Typecheck passes.
+- [x] Lint passes.
+- [x] Tests pass (34 files / 382 tests).
+- [x] Production build passes.
+- [ ] `format:check` — pre-existing repo-wide CRLF baseline failure (identical at HEAD; documented, not introduced here).
+
+> 2026-09-21: implemented + verified per plan. Human confirmations:
+> real drag/crop/upload pass on Android Chrome + iOS Safari + desktop,
+> 320/390px editor eyeball.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

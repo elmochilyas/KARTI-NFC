@@ -176,18 +176,18 @@ describe("uploadAsset server normalize (sharp)", () => {
     expect(options.upsert).toBe(false);
   });
 
-  it("caps avatars at 512px (cover at 1600px) without upscaling small files", async () => {
-    expect(AVATAR_MAX_DIM).toBe(512);
+  it("caps avatars at 1024px (cover at 1600px) without upscaling small files", async () => {
+    expect(AVATAR_MAX_DIM).toBe(1024);
     expect(COVER_MAX_DIM).toBe(1600);
 
-    // Large avatar downsizes inside 512.
+    // Large avatar downsizes inside 1024.
     const bigUpload = vi.fn(async () => ({ error: null }));
     const big = await pngFile(1200, 800);
     const bigResult = await uploadAsset(PROFILE_ID, "avatar", big, adminDb({ upload: bigUpload }));
     expect(bigResult.ok).toBe(true);
     const bigBody = (bigUpload.mock.calls[0] as unknown as unknown[])[1] as Buffer;
     const bigMeta = await sharp(bigBody).metadata();
-    expect(Math.max(bigMeta.width ?? 0, bigMeta.height ?? 0)).toBeLessThanOrEqual(512);
+    expect(Math.max(bigMeta.width ?? 0, bigMeta.height ?? 0)).toBeLessThanOrEqual(1024);
     expect(webpMagic(bigBody)).toBe(true);
 
     // Small file keeps its size (never upscales).
