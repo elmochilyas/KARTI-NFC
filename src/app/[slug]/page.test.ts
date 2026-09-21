@@ -91,6 +91,14 @@ describe("generateMetadata /[slug]", () => {
     expect(meta.themeColor).toBe("#0e7c5b");
     const icons = meta.icons as { apple?: string } | undefined;
     expect(icons?.apple).toBe("/u/ABCD234567/apple-touch-icon.png");
+    // Same Apple home-screen identity as the /u/ page.
+    const appleWebApp = meta.appleWebApp as
+      { capable?: boolean; statusBarStyle?: string; title?: string } | undefined;
+    expect(appleWebApp?.capable).toBe(true);
+    expect(appleWebApp?.statusBarStyle).toBe("default");
+    expect(appleWebApp?.title).toBe("Ahmed");
+    const other = meta.other as Record<string, string> | undefined;
+    expect(other?.["mobile-web-app-capable"]).toBe("yes");
   });
 
   it("exposes no identity for DRAFT, INACTIVE, or unknown slugs", async () => {

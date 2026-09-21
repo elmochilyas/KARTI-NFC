@@ -53,17 +53,18 @@ function render(): string {
 }
 
 describe("PublicProfileView Keep this Card", () => {
-  it("renders the Keep CTA with its caption in the bottom section", () => {
+  it("renders the Keep CTA with its title, subtitle, and caption", () => {
     const html = render();
-    expect(html).toContain("Keep this card");
-    expect(html).toContain("Keep Profile");
+    expect(html).toContain("Keep this digital card");
+    expect(html).toContain("Add it to your phone for quick access anytime");
+    expect(html).toContain("Add to Phone");
     expect(html).toContain("Keep this digital card on your phone");
-    expect(html).toContain('aria-label="Keep Profile');
+    expect(html).toContain('aria-label="Add to Phone');
   });
 
   it("orders Keep after profile content, before Share and attribution", () => {
     const html = render();
-    const keep = html.indexOf("Keep this card");
+    const keep = html.indexOf("Keep this digital card");
     const share = html.indexOf("Share my profile");
     expect(keep).toBeGreaterThan(-1);
     expect(share).toBeGreaterThan(-1);

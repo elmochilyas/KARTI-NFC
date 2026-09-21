@@ -91,6 +91,14 @@ describe("generateMetadata /u/[code]", () => {
     expect(meta.themeColor).toBe("#0e7c5b");
     const icons = meta.icons as { apple?: string } | undefined;
     expect(icons?.apple).toBe("/u/ABCD234567/apple-touch-icon.png");
+    // Apple home-screen support: capable + status bar + short title.
+    const appleWebApp = meta.appleWebApp as
+      { capable?: boolean; statusBarStyle?: string; title?: string } | undefined;
+    expect(appleWebApp?.capable).toBe(true);
+    expect(appleWebApp?.statusBarStyle).toBe("default");
+    expect(appleWebApp?.title).toBe("Ahmed");
+    const other = meta.other as Record<string, string> | undefined;
+    expect(other?.["mobile-web-app-capable"]).toBe("yes");
   });
 
   it("exposes no identity for unknown codes", async () => {

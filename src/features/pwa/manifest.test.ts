@@ -25,6 +25,7 @@ describe("buildProfileManifest", () => {
       description: "Plumber in Casablanca.",
       id: "/u/A8K29MPQ2Z",
       start_url: "/u/A8K29MPQ2Z",
+      scope: "/u/A8K29MPQ2Z",
       display: "standalone",
       background_color: MANIFEST_BACKGROUND_COLOR,
       theme_color: "#123456",
@@ -39,8 +40,20 @@ describe("buildProfileManifest", () => {
           sizes: "512x512",
           type: "image/png",
         },
+        {
+          src: "https://karti.app/u/A8K29MPQ2Z/icon-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any maskable",
+        },
       ],
     });
+  });
+
+  it("scopes the standalone window to the profile identity URL", () => {
+    const manifest = buildProfileManifest(BASE);
+    expect(manifest.scope).toBe(manifest.start_url);
+    expect(manifest.scope).toBe("/u/A8K29MPQ2Z");
   });
 
   it("start_url uses /u/{publicCode} — never the slug, never /t/", () => {
@@ -94,6 +107,7 @@ describe("buildProfileManifest", () => {
         "icons",
         "id",
         "name",
+        "scope",
         "short_name",
         "start_url",
         "theme_color",

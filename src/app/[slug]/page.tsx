@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
-import { manifestThemeColor } from "@/features/pwa/manifest";
+import { manifestShortName, manifestThemeColor } from "@/features/pwa/manifest";
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
@@ -68,6 +68,13 @@ export async function generateMetadata({ params }: SlugPageProps): Promise<Metad
     manifest: `/u/${data.profile.public_code}/manifest.webmanifest`,
     themeColor: manifestThemeColor(data.profile.accent_color),
     icons: { apple: `/u/${data.profile.public_code}/apple-touch-icon.png` },
+    // Same per-profile Apple web-app identity as the /u/ page.
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: manifestShortName(data.profile.display_name),
+    },
+    other: { "mobile-web-app-capable": "yes" },
     openGraph: {
       title: publicProfileTitle(data.profile),
       description: publicProfileDescription(data.profile),

@@ -352,7 +352,7 @@ export function KeepProfilePreview({ dark }: { dark: boolean }) {
       }`}
     >
       <IconSmartphone className="h-[18px] w-[18px] shrink-0" />
-      <span className="flex-1 truncate text-left">Keep Profile</span>
+      <span className="flex-1 truncate text-left">Add to Phone</span>
       <IconChevron className={`h-4 w-4 shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`} />
     </span>
   );

@@ -2427,6 +2427,119 @@ unreachable via `/u/` (fail-closed). See ADR-048.
 
 ---
 
+# Phase 23 — Hero No-Overlap Redesign (cover shadow + collision fix)
+
+Clean refactor of the public-profile hero. Visuals + composition only: no
+backend, routing, resolver, vCard, data-rule, or storage changes.
+Operator choice: clean no-overlap + tiles below hero + small tweaks.
+
+## 23.1 Hero
+
+- [x] Cover is image-only (`h-52 sm:h-60`, `object-cover`, full color — no
+      `brightness`, no scrims, no text on image; accent-gradient fallback kept).
+- [x] Identity on solid sheet (avatar `-mt-12` bounded overlap with
+      theme-matched ring; name in theme text; accent-tinted category pill;
+      muted tagline; no text-shadows/backdrop-blur).
+- [x] PERSON circle / BUSINESS rounded-square shapes + initials fallbacks kept.
+
+## 23.2 Tiles + sheet
+
+- [x] Quick tiles in-flow (no `-mt-10`/`z-10`); order/labels/sublabels/aria intact.
+- [x] Sheet drops `rounded-t-[28px]` seam; rest of page
+      (info → about → links → Keep → Share → attribution) untouched.
+
+## 23.3 Tests + docs
+
+- [x] New `PublicProfileViewHero.test.ts` (5 cases: no shadowing stack,
+      name outside cover, tiles in-flow, avatar seam ring, dark theme).
+- [x] ADR-049 recorded.
+
+### Phase 23 gate
+
+- [x] Typecheck passes.
+- [x] Lint passes.
+- [x] Tests pass (45 files / 462 tests).
+- [x] Production build passes.
+- [ ] `format:check` — repo-wide CRLF baseline (unchanged standing note).
+- [ ] Operator 390px visual pass with a real cover photo.
+
+> 2026-09-21: implemented + verified per plan (typecheck/lint/test/build
+> green). Human confirmations: 320/390px eyeball with real cover imagery.
+>
+> 2026-09-21 (cover/sheet separation): white covers melted into the light
+> sheet with no visible edge. Added theme-aware hairline + shadow on the
+> cover section (light `border-[#E2E8F0]` + soft slate shadow, dark
+> `border-white/10` + deep shadow); avatar untouched; hero test +1 case
+> (463 total). Checks green.
+>
+> 2026-09-21 (premium avatar + spacing): avatar 96→112px (`h-28 w-28`,
+> `-mt-14`, 224px retina source) with crisp white ring + accent halo
+> (`accent 16%` glow) + deep soft shadow in both themes (replaces the
+> sheet-matched ring that vanished on white covers); BUSINESS logo
+> `rounded-[28px] p-1.5`; name 28→30px + `mt-4` + `text-balance`; category
+> pill airier (`mt-2.5 px-3.5 py-1.5`); tagline `leading-relaxed`;
+> identity `pb-3`, sheet `pt-5`. Hero tests updated. Checks green.
+
+---
+
+# Phase 24 — PWA Install Experience + iOS Add to Home Screen Fix
+
+Technically correct, extremely clear installation on every platform.
+No NFC/QR/resolver/identity/wallet/DB changes. See ADR-050.
+
+## 24.1 Installability audit fixes
+
+- [x] Manifest gains `scope` (= `start_url` `/u/{code}`) + maskable 512
+      entry (`purpose: "any maskable"`); key-pinning test 9→10 keys.
+- [x] Both pages (`/[slug]`, `/u/[code]`) emit `appleWebApp` (capable,
+      statusBarStyle default, title = short name) + `mobile-web-app-capable`.
+- [x] 512 icon renders with maskable safe-zone pad (center 80%, accent
+      backdrop); 192/180 stay full-bleed. Manifest link, apple-touch-icon,
+      theme-color, canonical `/u/{code}` verified on both pages.
+
+## 24.2 Platform detection
+
+- [x] `detectInstallEnvironment`: `ios-safari` vs `ios-other` (CriOS/FxiOS/
+      EdgiOS/OPiOS Mercury/Yandex) vs `android` vs `desktop` (+ tests).
+- [x] Platform CTAs: iOS Safari `Add to Home Screen`, Android `Install
+      Digital Card`, iOS non-Safari `Open in Safari to save this card`
+      (guidance note, never a fake install), SSR/pre-hydration `Add to Phone`.
+
+## 24.3 Premium iOS guide
+
+- [x] Illustrated 3-step modal (`Save this card to your iPhone`): Safari
+      toolbar mock with highlighted Share glyph, action-sheet row mock for
+      Add to Home Screen, Add confirmation + "appears like an app" close.
+- [x] Non-Safari variant leads with the Safari-first note. CSS mocks only
+      (existing icons, no new deps); dialog a11y preserved; dismiss kept.
+
+## 24.4 Keep section UX
+
+- [x] Title `Keep this digital card` + subtitle `Add it to your phone for
+      quick access anytime`; order (links → Keep → Share → attribution)
+      unchanged; editor inert preview mirrors the new label.
+
+## 24.5 Dev-only diagnostic
+
+- [x] `PwaDiagnostics` island: renders only on development `?pwa-debug=1`;
+      live-checks manifest body, icon fetch, Apple meta tags, secure
+      context, display-mode, parsed environment. Null elsewhere (tested).
+
+## 24.6 Verification
+
+- [x] `typecheck`, `lint`, `test` (46 files / 470 tests), `build` green.
+- [x] ACTIVE-only + generic-404 + no-private-fields matrices extended
+      (scope/maskable included, no leaks).
+- [ ] `format:check` — repo-wide CRLF baseline (unchanged standing note).
+- [ ] Device-only: Android Chrome install + icon + standalone launch;
+      iPhone Safari Share→Add availability + installed icon; desktop
+      fallback — operator, no devices here.
+
+> 2026-09-21: implemented + verified per plan. NFC/QR/resolver/identity/
+> wallet/DB untouched. Not committed — left ready for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

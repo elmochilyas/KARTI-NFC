@@ -1457,3 +1457,92 @@ alphabet.length`). No operator data was malformed; only a temp probe row.
 Every issued identity code is install-ready. Future alphabet changes
 must keep the roll bounded by `length(alphabet)`, and the CHECK must be
 extended deliberately if the format ever changes.
+
+---
+
+## ADR-049 — Hero no-overlap redesign (clean cover + solid identity)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+The Phase 19 hero stacked three darkening layers over the cover
+(`brightness-[0.8]` + `from-black/70 via-black/30 to-black/85` scrim +
+`h-24 from-black/50` bottom gradient), burying mid-tone covers, and pulled
+quick tiles 40px up over the hero (`-mt-10`) with unbounded text height
+(wrapping name + pill + clamp-3 tagline) — "shadowed cover, things flow
+over things".
+
+### Decision
+
+- Cover renders at full color: fixed `h-52 sm:h-60` image-only section, no
+  brightness filter, no scrims, no text on the image. Accent-gradient
+  fallback kept for cover-less profiles.
+- Identity moves onto the solid sheet: avatar `-mt-12` (only bounded
+  overlap; ring matches sheet `ring-[#F4F8FC]` / `ring-neutral-950`), name
+  in theme text (no text-shadow), category as accent-tinted pill (no
+  backdrop-blur), tagline in muted tone.
+- Quick tiles sit in-flow (`mt-4` via sheet `pt-4`), no `-mt-10`/`z-10`;
+  sheet drops `rounded-t-[28px]`. LCP single-priority rule, server-only
+  rendering, section order, and content-driven collapse unchanged.
+
+### Consequences
+
+Cover photography stays vivid; no floating collisions at any content
+length or at 320px. Future hero polish must keep text off the image and
+keep overlaps bounded/constant-height (avatar-only).
+
+> 2026-09-21 addendum (white-cover separation): cover `<section>` carries
+> a theme-aware `border-b` + soft shadow (light `#E2E8F0` + slate shadow,
+> dark `white/10` + deep shadow) so white covers read as a finished photo
+> edge against either sheet. Avatar deliberately untouched.
+>
+> 2026-09-21 addendum (premium avatar): 112px avatar/logo, white ring +
+> accent halo + deep shadow in both themes; drops the sheet-matched ring
+> (invisible on white covers). Spacing rebalanced (name `mt-4` 30px,
+> pill/tagline `mt-2.5`, identity `pb-3`, sheet `pt-5`).
+
+---
+
+## ADR-050 — PWA install correctness + platform-specific Keep CTAs
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Phase 22 shipped a working install identity, but the manifest lacked
+`scope`, had no maskable icon (Android adaptive cropping could clip
+faces), pages missed Apple web-app meta (no `capable`/`status-bar`/
+`title`), the island could not tell iOS Safari (installable) from iOS
+Chrome (not installable — Add to Home Screen absent from its share
+sheet), and the iOS guide was unillustrated text. iOS users could not
+find the option with no explanation why.
+
+### Decision
+
+- Manifest: `scope` = `start_url` (`/u/{code}`); third icon entry
+  `purpose: "any maskable"` on the 512 URL; the 512 route pads to the
+  80% safe zone on the accent backdrop (192/180 stay full-bleed).
+- Pages: `appleWebApp { capable, statusBarStyle: default, title:
+  short_name }` + `mobile-web-app-capable` on both `/[slug]` and
+  `/u/[code]`; unknown/misconfigured metadata stays bare.
+- Island: `detectInstallEnvironment` (CriOS/FxiOS/EdgiOS/OPiOS-aware);
+  CTAs per environment (`Add to Home Screen` / `Install Digital Card` /
+  `Open in Safari to save this card` / `Add to Phone` SSR fallback);
+  non-Safari iOS gets guidance, never a fake install button.
+- Guide: illustrated 3-step modal (toolbar mock, sheet-row mock, Add
+  confirmation) in existing icon set, no new dependencies.
+- Diagnostics: dev-only `?pwa-debug=1` island (manifest/icon/meta/
+  context checks), null in production, no privileged imports.
+- Keep section: `Keep this digital card` + quick-access subtitle; Share
+  stays the final accent CTA (no duplicate secondary button).
+
+### Consequences
+
+Install surface is valid PWA on Android (prompt + adaptive icon) and
+correct standalone web-app on iOS Safari, with honest fallbacks
+everywhere else. Identity model, resolver, NFC/QR, wallet backlog, and
+database are untouched. On-device install confirmation stays with the
+operator.
