@@ -42,8 +42,9 @@ verification recorded in `specs/TASKS.md` §12.
 
 ## Service role
 
-- Used only in three server routes (`/[slug]`, `/t/[code]`,
-  `/api/vcard/[slug]`) with explicit public-safe projections; no writes.
+- Used only in server routes (`/[slug]`, `/u/[code]`, `/t/[code]`,
+  `/api/vcard/[slug]`, `/u/[code]/manifest.webmanifest`, `/u/[code]/icon-*`)
+  with explicit public-safe projections; no writes.
 - Secret lives in `src/lib/env-server.ts` behind the `server-only` package
   (client import = build error). `src/lib/env.ts` is browser-safe.
 - `admin-isolation.test.ts` statically forbids client-component imports of
@@ -60,6 +61,13 @@ verification recorded in `specs/TASKS.md` §12.
   (no Host-header trust).
 - vCard: ACTIVE-only, escaped builder, http(s)-gated URLs, slug-derived
   filename, `text/vcard`, attachment disposition, `no-store`.
+- PWA manifest/icons: ACTIVE-only through the same cached code loader
+  (DRAFT/INACTIVE/unknown/malformed share one generic 404); manifest body
+  key-pinned to public fields (name, short_name, description, start_url,
+  display, colors, icon URLs — never client/card/admin data);
+  `start_url` regex-pinned to `/u/{CODE}` (never slug, never `/t/`);
+  icon bytes gated by magic-byte check + 5 MB cap; both `no-store` so a
+  deactivation or avatar change takes effect immediately.
 - Render-time href gates: stored links/website/maps revalidated http(s);
   `tel:`/`mailto:`/WhatsApp builders return null on hostile input and the
   tile/row is omitted. Live hostile-fixture render verified: hostile markup

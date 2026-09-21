@@ -2337,6 +2337,96 @@ future integration such as wallet cards.
 
 ---
 
+# Phase 22 — Profile PWA "Keep this Card" (replaces Wallet MVP approach)
+
+Goal: tapping Keep Profile installs THAT profile as a home-screen app —
+per-profile install identity, no generic Karti app, no Apple/Google Wallet
+dependency, no external services. See ADR-047.
+
+## 22.1 Profile-specific manifest
+
+- [x] Pure `src/features/pwa/manifest.ts` (name/short_name/description,
+      `start_url: /u/{publicCode}`, standalone, theme from validated
+      accent, 192 + 512 icon URLs).
+- [x] Route `GET /u/[code]/manifest.webmanifest`
+      (`application/manifest+json`, `no-store`).
+- [x] ACTIVE-only via the existing cached code loader (DRAFT/INACTIVE/
+      unknown/malformed → one generic 404, no existence leak).
+- [x] No private fields (builder output key-pinned by test).
+- [x] Unit + route tests (name, start_url shape, icon URLs, security matrix).
+
+## 22.2 On-demand profile icons (no stored objects, no migration)
+
+- [x] Pure `src/features/pwa/icons.ts` (sizes, initials, accent bg, escaped
+      fallback SVG) + server `iconImage.ts` (sharp square center-crop from
+      the current avatar; accent initials tile on missing/undecodable
+      bytes; null → 404).
+- [x] Routes `GET /u/[code]/icon-192.png`, `/icon-512.png`,
+      `/apple-touch-icon.png` (`image/png`, `no-store`, same ACTIVE gate).
+- [x] Magic-byte gate on fetched avatar bytes; 5 MB fetch cap.
+- [x] Tests (crop-to-square dimensions, 512 + apple sizes, fallback paths,
+      unknown → 404, locked headers).
+
+## 22.3 Keep Profile install experience
+
+- [x] `KeepProfileButton` island (2nd tiny `"use client"` on the public
+      page): Android `beforeinstallprompt` → native prompt on tap (no
+      manual instructions when available); Android without prompt →
+      minimal Chrome-menu hint; iOS → guided modal (Share → Add to Home
+      Screen → Add, close button, no jargon); desktop → plain
+      "Open this profile on your phone to keep it." note; standalone →
+      renders nothing.
+- [x] Pure `detectInstallPlatform` + `isRunningStandalone` unit tests.
+- [x] SSR-markup tests (CTA + caption, no modal/hint/wallet strings).
+
+## 22.4 Public profile integration
+
+- [x] `PublicProfileView` order: hero → tiles → information → about →
+      links → **Keep this card** → Share → attribution (Keep after profile
+      information, before attribution; hero untouched).
+- [x] `<link rel="manifest" href="/u/{code}/manifest.webmanifest">` on BOTH
+      `/u/[code]` and `/[slug]` (identical install identity from either
+      entry; `start_url` always `/u/{code}`).
+- [x] `apple-touch-icon` + `theme-color` metadata on both pages.
+- [x] Dashboard editor preview mirrors the order (inert
+      `KeepProfilePreview`, not the live island — same rationale as Share).
+- [x] No wallet references remain in public markup/code (ADR history kept).
+- [x] View-order tests (Keep placement vs content/Share/attribution).
+
+## 22.5 Verification
+
+- [x] `typecheck`, `lint`, `test`, `build` green (counts in report).
+- [x] `admin-isolation` posture unchanged (new routes server-only; island
+      touches no privileged modules).
+- [ ] `format:check` — repo-wide CRLF baseline (unchanged standing note).
+- [ ] On-device install pass (Android prompt → icon → standalone launch;
+      iOS Add to Home Screen; 320/390px eyeball) — operator, no devices here.
+
+> 2026-09-21: implemented + verified per plan. NFC/QR/resolver/vCard
+> untouched. One corrective migration for the generator fix (22.6); no new
+> dependency, no new env vars.
+
+## 22.6 public_code generator fix (found live during 22.5)
+
+Pre-existing Phase 21 bug, not introduced here: the SQL generator rolled
+1..32 against a 31-symbol alphabet, so ~27% of codes came out short and
+unreachable via `/u/` (fail-closed). See ADR-048.
+
+- [x] Root-caused (alphabet recount 31 vs hardcoded 32; TS side safe via
+      `% alphabet.length`).
+- [x] Temp probes removed; operator data verified clean (0 malformed).
+- [x] Migration `20260924_public_code_generator_fix.sql` (dynamic roll +
+      format CHECK) applied live + verified (10/10 samples valid,
+      DEFAULT-path insert end-to-end, full cleanup, residue 0).
+- [x] Live PWA matrix on temp fixtures (removed afterwards): ACTIVE →
+      manifest 200 + icon 200 with exact body; fresh INACTIVE → 404 both;
+      unknown → 404 both; ACTIVE `/u/` page carries `<link
+      rel="manifest" href="/u/{code}/manifest.webmanifest">`,
+      apple-touch-icon, Keep section in order, Share + attribution intact;
+      slug page 200.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

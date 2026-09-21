@@ -50,7 +50,8 @@ Tap card
 
 Primary visitor actions may include:
 
-- Save contact
+- Keep the card on the phone (profile PWA install)
+- Share the profile
 - Call
 - WhatsApp
 - Email
@@ -346,8 +347,7 @@ Company name
 
 Short description
 
-Primary CTA
-Save Contact
+Keep this Card (profile PWA install)
 
 Secondary CTAs
 Call | WhatsApp | Email
@@ -357,6 +357,8 @@ Social links
 Website / booking / review links
 
 Location
+
+Share Profile
 
 Karti branding
 ```
@@ -407,23 +409,25 @@ The same core data model should support both profile types.
 
 ---
 
-## 9. Save Contact Feature
+## 9. Keep this Card (Profile PWA Install)
 
 The profile must provide a prominent:
 
 ```text
-Save Contact
+Keep Profile
 ```
 
-button.
+button (section heading: "Keep this Card").
 
-The backend generates a `.vcf` / vCard file.
+Tapping it installs THAT profile as a phone home-screen app via a
+profile-specific PWA manifest (`/u/{publicCode}/manifest.webmanifest`,
+`start_url: /u/{publicCode}`). Android fires the native install prompt
+where available; iOS gets a guided Add-to-Home-Screen modal; desktop
+shows a phone-only note. There is no generic Karti app and no
+Apple/Google Wallet dependency.
 
-Suggested endpoint:
-
-```text
-/api/vcard/[slug]
-```
+The backend vCard endpoint (`/api/vcard/[slug]`) is retained for later
+reuse but is no longer presented as the primary action.
 
 Possible vCard fields:
 
@@ -1344,7 +1348,8 @@ card-12
 - Website
 - Social links
 - Location
-- Save Contact
+- Keep this Card (profile PWA install)
+- Share Profile
 - Responsive design
 - Public profile slug
 

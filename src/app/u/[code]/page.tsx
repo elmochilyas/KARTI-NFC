@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
+import { manifestThemeColor } from "@/features/pwa/manifest";
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileByCode } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
@@ -42,11 +43,17 @@ export async function generateMetadata({ params }: IdentityPageProps): Promise<M
   }
   const { avatarUrl } = publicUrls({ avatar: data.profile.avatar_path, cover: null });
   const canonical = identityUrlForPublicCode(getAppUrl(), data.profile.public_code);
+  // Per-profile PWA identity: the installed shortcut belongs to THIS
+  // profile (name + icon + /u/{code} start_url), never a generic app.
+  const manifestPath = `/u/${data.profile.public_code}/manifest.webmanifest`;
   return {
     title: publicProfileTitle(data.profile),
     description: publicProfileDescription(data.profile),
     robots: { index: false, follow: false },
     alternates: { canonical },
+    manifest: manifestPath,
+    themeColor: manifestThemeColor(data.profile.accent_color),
+    icons: { apple: `/u/${data.profile.public_code}/apple-touch-icon.png` },
     openGraph: {
       title: publicProfileTitle(data.profile),
       description: publicProfileDescription(data.profile),

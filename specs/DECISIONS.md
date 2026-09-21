@@ -1362,3 +1362,98 @@ generator output) because `pnpm db:types` needs `SUPABASE_ACCESS_TOKEN`,
 unavailable here — re-running it absorbs the backport; the generated file
 was restored untouched otherwise. On-device install sheets remain
 operator-verified (no devices here).
+
+---
+
+## ADR-047 — Profile PWA "Keep this Card" (replaces wallet MVP approach)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Native contact saving proved inconsistent across devices (ADR-037–043,
+intent-work moratorium), and the Apple/Google Wallet integration was
+removed the day it was built — external credentials were not going to be
+provisioned (ADR-046 superseded). The product still needs "keep this card
+on the phone": a per-profile install identity built on the stable `/u/`
+identity that survives slug renames and NFC destination switches, with no
+wallet dependency and no external services.
+
+### Decision
+
+- **One manifest per profile:** `GET /u/[code]/manifest.webmanifest`
+  (pure builder in `src/features/pwa/manifest.ts` + thin route). `name` =
+  display name, `short_name` = first token ≤12 chars, `start_url`/`id` =
+  `/u/{CODE}` always (never the renamable slug, never `/t/{shortCode}`),
+  `display: standalone`, validated accent or default theme color. Both
+  `/u/[code]` and `/[slug]` pages emit the same manifest link, so the
+  install identity is identical regardless of entry URL.
+- **On-demand icons, no stored objects:** `GET /u/[code]/icon-192.png`,
+  `/icon-512.png`, `/apple-touch-icon.png` render square PNGs via sharp —
+  center-crop of the current avatar, accent initials tile when no avatar
+  exists or bytes fail validation (magic-byte gate + 5 MB fetch cap). No
+  migration, no new bucket paths/policies, no invalidation problem:
+  avatar edits reflect immediately. All three responses are `no-store`,
+  same as the manifest — install-time fetches where correctness beats
+  caching, consistent with the resolver/vCard posture.
+- **Platform-split install island:** `KeepProfileButton` (second tiny
+  `"use client"` on the public page). Android + `beforeinstallprompt` →
+  native prompt fired sync-in-gesture on tap (no manual instructions in
+  this path); Android without a captured prompt → minimal hint; iOS →
+  guided modal (Share → Add to Home Screen → Add, close button, no
+  jargon); desktop → plain guidance note; already-standalone → renders
+  nothing. The prompt event is captured, never auto-fired.
+- **Placement:** Keep this Card sits after profile information (Connect
+  links) and before Share Profile; Share stays the final CTA;
+  attribution last. The dashboard editor preview mirrors the order with
+  an inert span (a live island could offer installing a dashboard URL).
+- **Security unchanged:** ACTIVE-only through the existing cached code
+  loader (DRAFT/INACTIVE/unknown/malformed → one generic 404); manifest
+  body key-pinned to public fields; no service-role or secrets in client
+  code (island touches no privileged modules); no service worker, no
+  tracking, no new tables, no new dependencies, no new env vars.
+
+### Consequences
+
+Visitors keep a home-screen icon that looks like the person/business and
+opens that profile directly in standalone mode. Installed shortcuts stay
+valid across slug renames (identity URL) and card destination switches
+(NFC layer untouched). The stable `/u/` identity remains available for a
+future wallet reintroduction per the ADR-046 blueprint. On-device install
+confirmation stays with the operator (no devices here).
+
+---
+
+## ADR-048 — public_code generator off-by-one + format CHECK
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Phase 22 live verification caught a latent Phase 21 bug: the
+`generate_profile_public_code()` SQL function rolled
+`floor(random() * 32) + 1` against a **31**-symbol alphabet, so index 32
+produced `substr(..., 32, 1) = ''` — ~27% of issued codes came out short
+(9 chars). Short codes fail the app's 10-char format gate, leaving those
+profiles unreachable via `/u/` (fail-closed 404, including manifest and
+icons). The TypeScript counterpart was never affected (`byte %
+alphabet.length`). No operator data was malformed; only a temp probe row.
+
+### Decision
+
+- Migration `20260924_public_code_generator_fix.sql`: roll against
+  `length(alphabet)` instead of the hardcoded 32, and add a DB-level
+  format CHECK (`profiles_public_code_format`,
+  `^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{10}$`) so no caller path can
+  persist a malformed code again. Existing data verified clean (zero
+  violations) before apply; 10/10 post-fix samples valid; DEFAULT-path
+  insert verified end-to-end.
+- No app-code change needed: the strict 10-char gate stays correct.
+
+### Consequences
+
+Every issued identity code is install-ready. Future alphabet changes
+must keep the roll bounded by `length(alphabet)`, and the CHECK must be
+extended deliberately if the format ever changes.
