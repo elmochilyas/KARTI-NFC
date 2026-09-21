@@ -23,6 +23,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  experimental: {
+    // Public pays react-icons only, dashboard pays lucide-react only — but
+    // without this both libraries compile whole-package without tree-shaking
+    // precision. Zero behavior change, smaller JS on every route.
+    optimizePackageImports: ["react-icons", "lucide-react"],
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,

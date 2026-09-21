@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { Button } from "@/components/ui/Button";
 import {
   QR_DISPLAY_SIZE,
@@ -34,12 +33,17 @@ export function CardQrCode({
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(permanentUrl, {
-      width: QR_DISPLAY_SIZE * 3,
-      margin: QR_MARGIN_MODULES,
-      errorCorrectionLevel: "M",
-      color: { dark: "#111418", light: "#ffffff" },
-    })
+    // Dynamic import: `qrcode` stays out of the initial dashboard chunk and
+    // never enters the public bundle — it loads only when a QR is rendered.
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(permanentUrl, {
+          width: QR_DISPLAY_SIZE * 3,
+          margin: QR_MARGIN_MODULES,
+          errorCorrectionLevel: "M",
+          color: { dark: "#111418", light: "#ffffff" },
+        }),
+      )
       .then((url) => {
         if (cancelled) return;
         setError(null);
@@ -58,6 +62,7 @@ export function CardQrCode({
   async function download() {
     setDownloading(true);
     try {
+      const { default: QRCode } = await import("qrcode");
       const png = await QRCode.toDataURL(permanentUrl, {
         width: QR_EXPORT_SIZE,
         margin: QR_EXPORT_MARGIN_MODULES,

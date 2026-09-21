@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { revalidatePublicProfiles } from "@/features/profiles/publicCache";
 import {
   createProfileInternal,
   setProfileStatusInternal,
@@ -160,6 +161,8 @@ export async function saveProfileAction(
     redirect(`${dashboardPath(clientId)}?created=1`);
   }
   revalidatePath(dashboardPath(clientId));
+  // Zero-stale public cache: repeat taps refetch exactly once after this save.
+  revalidatePublicProfiles();
   return { ok: true, data: result.data };
 }
 
@@ -180,6 +183,7 @@ export async function setStatusAction(
   });
   if (!result.ok) return { ok: false, message: result.error.message };
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return {
     ok: true,
     message:
@@ -225,6 +229,7 @@ export async function addLinkAction(
     };
   }
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return { ok: true };
 }
 
@@ -255,6 +260,7 @@ export async function updateLinkAction(
     };
   }
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return { ok: true };
 }
 
@@ -268,6 +274,7 @@ export async function deleteLinkAction(
   const result = await deleteProfileLink(linkId, profileId, clientId, supabase);
   if (!result.ok) return { ok: false, message: result.error.message };
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return { ok: true };
 }
 
@@ -282,6 +289,7 @@ export async function toggleLinkAction(
   const result = await toggleProfileLink(linkId, profileId, clientId, enabled, supabase);
   if (!result.ok) return { ok: false, message: result.error.message };
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return { ok: true };
 }
 
@@ -295,6 +303,7 @@ export async function reorderLinksAction(
   const result = await reorderProfileLinks(profileId, clientId, orderedIds, supabase);
   if (!result.ok) return { ok: false, message: result.error.message };
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return { ok: true };
 }
 
@@ -319,6 +328,7 @@ export async function uploadAssetAction(
   const result = await uploadAsset(profileId, kind, file, supabase);
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(dashboardPath(clientId));
+  revalidatePublicProfiles();
   return {
     ok: true,
     message: "Uploaded. Save the profile to keep it.",

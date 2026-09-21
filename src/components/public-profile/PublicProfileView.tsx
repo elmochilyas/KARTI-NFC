@@ -77,6 +77,7 @@ function Hero({
           aria-hidden="true"
           fill
           priority
+          fetchPriority="high"
           sizes="(max-width: 480px) 100vw, 480px"
           className="object-cover brightness-[0.8]"
         />
@@ -110,7 +111,12 @@ function Hero({
                 width={192}
                 height={192}
                 sizes="96px"
-                loading="eager"
+                // LCP discipline: exactly one preloaded image per view. Cover
+                // owns priority when present; otherwise the avatar is the LCP
+                // and takes it. Never two `priority` images on one tap.
+                priority={!coverUrl}
+                fetchPriority={coverUrl ? "auto" : "high"}
+                loading={coverUrl ? "eager" : undefined}
                 className="h-full w-full rounded-[21px] object-cover"
               />
             </span>
@@ -133,7 +139,9 @@ function Hero({
             width={192}
             height={192}
             sizes="96px"
-            loading="eager"
+            priority={!coverUrl}
+            fetchPriority={coverUrl ? "auto" : "high"}
+            loading={coverUrl ? "eager" : undefined}
             className="h-24 w-24 rounded-full object-cover shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-4 ring-white"
           />
         ) : (

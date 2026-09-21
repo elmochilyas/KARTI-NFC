@@ -1263,3 +1263,47 @@ and cover, without touching the storage security model or the database.
 Framing is decided before any bytes reach Storage. Pinch-zoom is out of
 scope (slider + drag + keys cover all inputs); real pointer/canvas
 behavior needs a browser pass (no jsdom in the suite).
+
+## ADR-045 — NFC tap performance bundle (zero-stale)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+NFC taps paid 2 sequential page loads (`/t/[code]` 307 → `/[slug]`) with
+3–4 sequential Supabase RTTs, all dynamic, plus an Edge invocation on every
+public hit and two competing preloaded images. Operator target is ~1–2s
+tap-to-content with zero stale destinations and the `307` redirect kept.
+
+### Decision
+
+- Proxy matcher narrowed to `/dashboard`, `/dashboard/:path*`, `/login` —
+  public taps never invoke Edge (previously a broad matcher ran Edge on
+  every public request for a no-op pathname check).
+- Single-RTT embeds with legacy fallback (never fail a tap): resolver uses
+  `profiles!cards_destination_profile_id_fkey(slug,status)`; public profile
+  uses `profile_links!profile_links_profile_id_fkey(...)` with JS-side
+  enabled-filter/sort. Embed errors or absent keys fall through to the exact
+  legacy two-query paths (unit-pinned by both shapes).
+- Additive indexes only (`profiles(slug,status)`,
+  `profile_links(profile_id,enabled,sort_order,created_at)`,
+  `cards(short_code,status)`; migration `20260922_perf_public_reads`).
+- Zero-stale cross-request cache: `unstable_cache` with `revalidate: false`
+  (purge-only, no TTL) behind one global tag; dashboard profile/link writes
+  purge via `updateTag` (immediate Server-Action semantics — Next 16's
+  `revalidateTag` targets a cacheLife profile and is the wrong tool here).
+  The resolver stays `no-store`, so card destination switches bypass the
+  cache by construction; slug renames are covered because the purge is global.
+- Render: exactly one preloaded LCP image (cover XOR avatar) with
+  `fetchPriority`, storage-origin preconnect, zero-client asset URLs,
+  `optimizePackageImports` for the icon libs, dynamic `qrcode` import,
+  `Server-Timing` on the redirect for sampling.
+
+### Consequences
+
+Repeat taps between edits skip the database; first taps cost ~1 RTT per
+page instead of 2 sequential RTTs; dashboard edits stay instantly visible.
+Over-purge cost (any edit refetches every slug once) is negligible at
+single-admin scale. RLS, service-role isolation, `307` semantics, and the
+permanent-URL invariant are unchanged.

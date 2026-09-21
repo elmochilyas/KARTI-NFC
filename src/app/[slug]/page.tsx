@@ -3,55 +3,51 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
 import {
-  getPublicProfileBySlug,
   publicProfileDescription,
   publicProfileTitle,
 } from "@/features/profiles/public";
-import { publicAssetUrl } from "@/features/profiles/storage";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
+import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
+import { isSupabaseConfigured } from "@/lib/env";
 
 type SlugPageProps = {
   params: Promise<{ slug: string }>;
 };
 
+// Explicit: public profiles are per-request dynamic (dashboard edits are
+// immediately visible — zero stale). Cross-request memoization arrives via
+// tagged unstable_cache in publicCache.ts, not via route static/ISR.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function publicUrls(paths: { avatar: string | null; cover: string | null }) {
-  // getPublicUrl is pure string-building (no network); a throwaway client suffices.
-  try {
-    const supabase = createAdminClient();
-    return {
-      avatarUrl: publicAssetUrl(supabase, paths.avatar),
-      coverUrl: publicAssetUrl(supabase, paths.cover),
-    };
-  } catch {
-    return { avatarUrl: null, coverUrl: null };
-  }
+  // Pure string-building (no Supabase client, no network) — see
+  // publicAssetPathUrl. Previously two throwaway createAdminClient() calls
+  // ran here on top of the data loader's own client.
+  return {
+    avatarUrl: publicAssetPathUrl(paths.avatar),
+    coverUrl: publicAssetPathUrl(paths.cover),
+  };
 }
 
 /**
  * Per-request deduped public-profile loader.
- * generateMetadata + page run in the same request and previously issued 2
- * identical DB round-trips (profile + links each). React `cache()` keys on
- * the slug string only — the admin client is created inside so both callers
- * share one fetch. Per-request memoization only; no long-term caching of
- * profile data (dashboard edits stay immediately visible).
+ * generateMetadata + page run in the same request; React `cache()` keys on
+ * the slug string only. Cross-request memoization lives one layer deeper in
+ * getCachedPublicProfileBySlug (tagged unstable_cache, purged on every
+ * dashboard write — zero stale). No long-term TTL caching of profile data.
  */
 const loadPublicProfile = cache(async (slug: string) => {
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    return null;
-  }
-  return getPublicProfileBySlug(slug, supabase);
+  if (!isSupabaseConfigured()) return null;
+  return getCachedPublicProfileBySlug(slug);
 });
 
 export async function generateMetadata({ params }: SlugPageProps): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    // Probe only (no query): preserves the distinct "Karti" fallback for
-    // misconfigured server reads; the loader below is the single query path.
-    createAdminClient();
-  } catch {
+  // Probe only (no query, no client construction): preserves the distinct
+  // "Karti" fallback for misconfigured server reads; the loader below is
+  // the single query path.
+  if (!isSupabaseConfigured()) {
     return { title: "Karti", robots: { index: false, follow: false } };
   }
   const data = await loadPublicProfile(slug);
@@ -80,13 +76,25 @@ export default async function PublicProfilePage({ params }: SlugPageProps) {
     avatar: data.profile.avatar_path,
     cover: data.profile.cover_path,
   });
+  // Preconnect to the Supabase storage origin so the LCP image (avatar or
+  // cover) skips DNS+TLS setup on the critical path. Rendered as hoisted
+  // <link> tags (React 19); zero JS cost.
+  const origin = storageOrigin();
 
   return (
-    <PublicProfileView
-      profile={data.profile}
-      links={data.links}
-      avatarUrl={avatarUrl}
-      coverUrl={coverUrl}
-    />
+    <>
+      {origin ? (
+        <>
+          <link rel="preconnect" href={origin} crossOrigin="anonymous" />
+          <link rel="dns-prefetch" href={origin} />
+        </>
+      ) : null}
+      <PublicProfileView
+        profile={data.profile}
+        links={data.links}
+        avatarUrl={avatarUrl}
+        coverUrl={coverUrl}
+      />
+    </>
   );
 }

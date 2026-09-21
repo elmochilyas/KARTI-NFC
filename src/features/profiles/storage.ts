@@ -225,3 +225,29 @@ export function publicAssetUrl(supabase: StorageDb, path: string | null): string
   const { data } = supabase.storage.from(PROFILE_ASSETS_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
+
+/**
+ * Zero-client public asset URL (tap-path fast path).
+ *
+ * `getPublicUrl` is pure string-building — no network — so the public page
+ * does not need a throwaway Supabase client just to render `<Image src>`.
+ * Output is byte-identical to `publicAssetUrl` (same base + bucket + path).
+ * Returns null when storage is unconfigured or path is null.
+ */
+export function publicAssetPathUrl(path: string | null): string | null {
+  if (!path) return null;
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) return null;
+  return `${raw.replace(/\/+$/, "")}/storage/v1/object/public/${PROFILE_ASSETS_BUCKET}/${path}`;
+}
+
+/** Origin (`https://xyz.supabase.co`) for `<link rel="preconnect">` on tap. */
+export function storageOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}

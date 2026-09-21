@@ -1,10 +1,9 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
-import type { Database } from "@/types/database";
+import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
 
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("server-only", () => ({}));
+vi.mock("@/features/profiles/publicCache", () => ({ getCachedPublicProfileBySlug: vi.fn() }));
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -13,7 +12,7 @@ vi.mock("next/navigation", () => ({
 
 import PublicProfilePage, { generateMetadata } from "./page";
 
-const ACTIVE_ROW = {
+const ACTIVE_PROFILE = {
   id: "123e4567-e89b-12d3-a456-426614174001",
   profile_type: "PERSON",
   slug: "ahmed-benali",
@@ -34,44 +33,43 @@ const ACTIVE_ROW = {
   status: "ACTIVE",
 };
 
-/** Fake admin client: query behavior + pure getPublicUrl string-building. */
-function fakeAdmin(profile: Record<string, unknown> | null): SupabaseClient<Database> {
-  const filters: [string, unknown][] = [];
-  const profileQuery: Record<string, unknown> = {
-    select: vi.fn(() => profileQuery),
-    eq: vi.fn((column: string, value: unknown) => {
-      filters.push([column, value]);
-      return profileQuery;
-    }),
-    maybeSingle: vi.fn(async () => {
-      const matches =
-        profile !== null && filters.every(([column, value]) => profile[column] === value);
-      return { data: matches ? profile : null, error: null };
-    }),
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chain: any = { select: vi.fn(() => chain), eq: vi.fn(() => chain) };
-  chain.order = vi.fn(() => chain);
-  chain.then = (resolve: (v: unknown) => void) => resolve({ data: [], error: null });
-  return {
-    from: vi.fn((t: string) => (t === "profiles" ? profileQuery : chain)),
-    storage: {
-      from: () => ({
-        getPublicUrl: (p: string) => ({ data: { publicUrl: `https://cdn.example/${p}` } }),
-      }),
-    },
-  } as unknown as SupabaseClient<Database>;
-}
+const ACTIVE_DATA = { profile: ACTIVE_PROFILE, links: [] };
 
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
 
+const ENV_URL = "NEXT_PUBLIC_SUPABASE_URL";
+const ENV_ANON = "NEXT_PUBLIC_SUPABASE_ANON_KEY";
+let savedUrl: string | undefined;
+let savedAnon: string | undefined;
+
 beforeEach(() => {
-  vi.mocked(createAdminClient).mockReset();
+  vi.mocked(getCachedPublicProfileBySlug).mockReset();
+  savedUrl = process.env[ENV_URL];
+  savedAnon = process.env[ENV_ANON];
+  process.env[ENV_URL] = "https://cdn.example";
+  process.env[ENV_ANON] = "test-anon-key";
 });
+
+afterEach(() => {
+  if (savedUrl === undefined) delete process.env[ENV_URL];
+  else process.env[ENV_URL] = savedUrl;
+  if (savedAnon === undefined) delete process.env[ENV_ANON];
+  else process.env[ENV_ANON] = savedAnon;
+});
+
+/** The page returns a fragment (preconnect links + view) — dig out the view. */
+function findView(element: unknown) {
+  const root = element as { props: { children: unknown } };
+  const children = root.props.children as unknown[];
+  const flat = children.flat(Infinity as 1) as { type?: unknown; props?: Record<string, unknown> }[];
+  const view = flat.find((child) => child?.type === PublicProfileView);
+  if (!view) throw new Error("PublicProfileView not found in page output");
+  return view.props as Record<string, unknown>;
+}
 
 describe("generateMetadata /[slug]", () => {
   it("exposes title, description, and noindex for ACTIVE profiles", async () => {
-    vi.mocked(createAdminClient).mockReturnValue(fakeAdmin(ACTIVE_ROW));
+    vi.mocked(getCachedPublicProfileBySlug).mockResolvedValue(ACTIVE_DATA as never);
     const meta = await generateMetadata(props("ahmed-benali"));
     expect(meta.title).toContain("Ahmed Benali");
     expect(meta.description).toContain("Developer");
@@ -81,50 +79,40 @@ describe("generateMetadata /[slug]", () => {
   });
 
   it("exposes no identity for DRAFT, INACTIVE, or unknown slugs", async () => {
-    for (const row of [
-      { ...ACTIVE_ROW, status: "DRAFT" },
-      { ...ACTIVE_ROW, status: "INACTIVE" },
-      null,
-    ]) {
-      vi.mocked(createAdminClient).mockReturnValue(fakeAdmin(row));
-      const meta = await generateMetadata(props("ahmed-benali"));
-      expect(meta).toEqual({
-        title: "Profile unavailable | Karti",
-        robots: { index: false, follow: false },
-      });
-      expect(JSON.stringify(meta)).not.toContain("Ahmed Benali");
-    }
+    vi.mocked(getCachedPublicProfileBySlug).mockResolvedValue(null);
+    const meta = await generateMetadata(props("ahmed-benali"));
+    expect(meta).toEqual({
+      title: "Profile unavailable | Karti",
+      robots: { index: false, follow: false },
+    });
+    expect(JSON.stringify(meta)).not.toContain("Ahmed Benali");
   });
 
   it("fails closed when server reads are misconfigured", async () => {
-    vi.mocked(createAdminClient).mockImplementation(() => {
-      throw new Error("missing env");
-    });
+    delete process.env[ENV_URL];
+    delete process.env[ENV_ANON];
     const meta = await generateMetadata(props("ahmed-benali"));
     expect(meta).toEqual({ title: "Karti", robots: { index: false, follow: false } });
+    expect(getCachedPublicProfileBySlug).not.toHaveBeenCalled();
   });
 });
 
 describe("PublicProfilePage /[slug]", () => {
   it("renders the public view with resolved asset URLs for ACTIVE profiles", async () => {
-    vi.mocked(createAdminClient).mockReturnValue(fakeAdmin(ACTIVE_ROW));
-    const element = (await PublicProfilePage(props("ahmed-benali"))) as unknown as {
-      type: unknown;
-      props: Record<string, unknown>;
-    };
-    expect(element.type).toBe(PublicProfileView);
-    expect(element.props.links).toEqual([]);
-    expect(element.props.avatarUrl).toContain("cdn.example");
-    expect(element.props.coverUrl).toBeNull();
-    expect(element.props.profile).toMatchObject({ slug: "ahmed-benali", status: "ACTIVE" });
+    vi.mocked(getCachedPublicProfileBySlug).mockResolvedValue(ACTIVE_DATA as never);
+    const element = await PublicProfilePage(props("ahmed-benali"));
+    const viewProps = findView(element);
+    expect(viewProps.links).toEqual([]);
+    expect(viewProps.avatarUrl).toContain("cdn.example");
+    expect(viewProps.coverUrl).toBeNull();
+    expect(viewProps.profile).toMatchObject({ slug: "ahmed-benali", status: "ACTIVE" });
   });
 
-  it("notFounds DRAFT profiles and misconfigured reads without leaking", async () => {
-    vi.mocked(createAdminClient).mockReturnValue(fakeAdmin({ ...ACTIVE_ROW, status: "DRAFT" }));
+  it("notFounds missing profiles and misconfigured reads without leaking", async () => {
+    vi.mocked(getCachedPublicProfileBySlug).mockResolvedValue(null);
     await expect(PublicProfilePage(props("ahmed-benali"))).rejects.toThrow("NEXT_NOT_FOUND");
-    vi.mocked(createAdminClient).mockImplementation(() => {
-      throw new Error("missing env");
-    });
+    delete process.env[ENV_URL];
+    delete process.env[ENV_ANON];
     await expect(PublicProfilePage(props("ahmed-benali"))).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });
