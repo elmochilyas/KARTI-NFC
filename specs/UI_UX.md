@@ -22,7 +22,7 @@ Within seconds, a visitor should understand:
 
 - who/what this is;
 - what they do;
-- how to save/contact them;
+- how to keep/contact them;
 - which important action to take.
 
 ## Mobile first
@@ -56,8 +56,8 @@ The public page is a mobile-first hero card (`max-w-[480px]`, full-screen
 feel on phones, centered on desktop). Section order is fixed:
 
 ```text
-Hero → quick tiles → Save Contact → information → about →
-more links → share → footer
+Hero → quick tiles → information → about → more links →
+keep this card → share → footer
 ```
 
 - Hero (~300–360px at 390px wide): full-bleed cover (`object-fit:
@@ -80,13 +80,39 @@ more links → share → footer
   full-width Save band, full-bleed `border-y` information/about/link/share
   groups. Only text (titles, footer) carries side insets — no card ever
   floats with side gutters.
-- About card (bio only), brand link rows, Share Profile (Web Share API
-  with copy-URL fallback), understated Karti footer.
+- About card (bio only), brand link rows, Keep this Card (below),
+  Share Profile (Web Share API with copy-URL fallback), understated Karti
+  footer.
 - Content-driven: missing phone/website/address/bio/links collapse
   cleanly; reference content is never hard-coded.
 
 The dashboard editor preview keeps its earlier compact card as an editing
 aid; the public page is the premium hero design above.
+
+## Keep this Card (profile PWA install)
+
+After profile information (Connect links), before Share Profile:
+
+```text
+KEEP THIS CARD
+
+[ Keep Profile ]
+Keep this digital card on your phone
+```
+
+- Card-row styling (icon + bold title + sublabel + chevron), matching the
+  Connect rows; Share stays the strong final CTA below it.
+- Android with an install prompt available: tap fires the native Chrome
+  install sheet directly — no manual instructions in this path.
+- Android without a captured prompt: minimal hint (Chrome menu → Add to
+  Home screen).
+- iOS Safari: guided modal — "To keep this card:" 1. Tap Share,
+  2. Choose Add to Home Screen, 3. Tap Add — with close button and no
+  technical wording.
+- Desktop: plain note — "Open this profile on your phone to keep it."
+- Already installed (standalone display-mode): the CTA hides itself.
+- Installed icon = profile avatar (square center-crop) or accent
+  initials tile; opens `/u/{publicCode}` in standalone mode.
 
 ## Person profile
 

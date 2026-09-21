@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import {
   ContactActions,
   KartiAttribution,
+  KeepProfilePreview,
   LocationBlock,
   ProfileHeader,
   ProfileLinksList,
@@ -1040,6 +1041,7 @@ export function ProfileEditor({
           mapsUrl={draft.maps_url.trim() || null}
           dark={dark}
         />
+        <KeepProfilePreview dark={dark} />
         <ShareProfilePreview dark={dark} />
         <KartiAttribution dark={dark} />
       </ProfileShell>

@@ -81,6 +81,18 @@ describe("generateMetadata /u/[code]", () => {
     expect(meta.robots).toEqual({ index: false, follow: false });
   });
 
+  it("links the profile-specific PWA manifest and touch icon", async () => {
+    vi.mocked(getCachedPublicProfileByCode).mockResolvedValue(ACTIVE_DATA as never);
+    const meta = await generateMetadata(props("ABCD234567"));
+    // Manifest identity is the immutable /u/{code} — never slug, never /t/.
+    expect(meta.manifest).toBe("/u/ABCD234567/manifest.webmanifest");
+    expect(String(meta.manifest)).not.toContain("/t/");
+    expect(String(meta.manifest)).not.toContain("ahmed-benali");
+    expect(meta.themeColor).toBe("#0e7c5b");
+    const icons = meta.icons as { apple?: string } | undefined;
+    expect(icons?.apple).toBe("/u/ABCD234567/apple-touch-icon.png");
+  });
+
   it("exposes no identity for unknown codes", async () => {
     vi.mocked(getCachedPublicProfileByCode).mockResolvedValue(null);
     const meta = await generateMetadata(props("ZZZZZZZZZZ"));
@@ -89,6 +101,7 @@ describe("generateMetadata /u/[code]", () => {
       robots: { index: false, follow: false },
     });
     expect(JSON.stringify(meta)).not.toContain("Ahmed Benali");
+    expect("manifest" in meta).toBe(false);
   });
 
   it("fails closed when server reads are misconfigured", async () => {

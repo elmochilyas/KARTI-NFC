@@ -10,15 +10,17 @@ import {
   type QuickAction,
 } from "./brandIcons";
 import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
+import { KeepProfileButton } from "./KeepProfileButton";
 import { ShareProfileButton } from "./ShareProfileButton";
 import type { PublicLink, PublicProfile } from "@/features/profiles/public";
 
 /**
  * Premium hero-first public profile view — server-rendered except the tiny
- * Share island. Section order: hero → quick tiles → information → about →
- * more links → share → footer. Content-driven: every section omits itself
- * cleanly when its data is absent. No fake data. Share Profile is the final
- * CTA (wallet integration deferred — stable /u/ identity remains for it).
+ * Share + Keep islands. Section order: hero → quick tiles → information →
+ * about → more links → keep this card → share → footer. Content-driven:
+ * every section omits itself cleanly when its data is absent. No fake data.
+ * Keep Profile installs THIS profile as a home-screen app via its
+ * profile-specific manifest; Share Profile stays the final CTA.
  */
 
 function isHttpUrl(url: string): boolean {
@@ -549,7 +551,20 @@ export function PublicProfileView({
               </section>
             ) : null}
 
-            <div className="karti-rise" style={{ animationDelay: "240ms" }}>
+            <section
+              aria-label="Keep this card"
+              className="karti-rise"
+              style={{ animationDelay: "220ms" }}
+            >
+              <h2 className={`px-1 text-xs font-bold tracking-[0.18em] uppercase ${mutedClass}`}>
+                Keep this card
+              </h2>
+              <div className="mt-2.5">
+                <KeepProfileButton dark={dark} accent={accent} />
+              </div>
+            </section>
+
+            <div className="karti-rise" style={{ animationDelay: "280ms" }}>
               <ShareProfileButton title={profile.display_name} dark={dark} accent={accent} />
             </div>
 

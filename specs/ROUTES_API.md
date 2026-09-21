@@ -61,6 +61,24 @@ lookup and the disposition filename comes from the stored slug.
 
 No private client notes/admin data.
 
+### `/u/[code]/manifest.webmanifest`
+
+`GET`
+
+Profile-specific PWA manifest for ACTIVE profiles only (same
+privileged read path as the public page). `start_url`/`id` are always
+`/u/{publicCode}` — never the slug, never `/t/[code]`. Icons point at
+the on-demand `/u/[code]/icon-*.png` routes. `application/manifest+json`,
+`no-store`; DRAFT/INACTIVE/unknown/malformed → plain 404.
+
+### `/u/[code]/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png`
+
+`GET`
+
+On-demand square PNG home-screen icons (avatar center-crop, accent
+initials fallback). ACTIVE-only, `image/png`, `no-store`; failures share
+the same generic 404. No stored objects, no new tables.
+
 ## Dashboard routes
 
 Recommended:

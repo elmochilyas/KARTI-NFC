@@ -183,6 +183,15 @@ export function IconShare({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+export function IconSmartphone({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <BaseIcon className={className}>
+      <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+      <path d="M12 18h.01" />
+    </BaseIcon>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
@@ -322,6 +331,28 @@ export function ShareProfilePreview({ dark }: { dark: boolean }) {
     >
       <IconShare className="h-[18px] w-[18px] shrink-0" />
       <span className="flex-1 truncate text-left">Share my profile</span>
+      <IconChevron className={`h-4 w-4 shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`} />
+    </span>
+  );
+}
+
+/**
+ * Inert Keep preview for the dashboard editor. Deliberately a `<span>`,
+ * not the live Keep island: outside the public page there is no profile
+ * manifest/install context, so the live button could offer installing a
+ * dashboard URL. Mirrors the public Keep section order (before Share).
+ */
+export function KeepProfilePreview({ dark }: { dark: boolean }) {
+  return (
+    <span
+      className={`inline-flex min-h-[3.25rem] w-full items-center gap-3 rounded-2xl border px-4 py-3 text-[0.95rem] font-semibold ${
+        dark
+          ? "border-neutral-800 bg-neutral-800/40 text-neutral-100"
+          : "border-border bg-white text-text"
+      }`}
+    >
+      <IconSmartphone className="h-[18px] w-[18px] shrink-0" />
+      <span className="flex-1 truncate text-left">Keep Profile</span>
       <IconChevron className={`h-4 w-4 shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`} />
     </span>
   );

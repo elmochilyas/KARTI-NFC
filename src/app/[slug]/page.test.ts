@@ -82,6 +82,17 @@ describe("generateMetadata /[slug]", () => {
     expect(og.images?.[0]?.url).toContain("cdn.example");
   });
 
+  it("links the same profile-specific PWA manifest as the /u/ page", async () => {
+    vi.mocked(getCachedPublicProfileBySlug).mockResolvedValue(ACTIVE_DATA as never);
+    const meta = await generateMetadata(props("ahmed-benali"));
+    // Identical install identity regardless of entry URL: always /u/{code}.
+    expect(meta.manifest).toBe("/u/ABCD234567/manifest.webmanifest");
+    expect(String(meta.manifest)).not.toContain("/t/");
+    expect(meta.themeColor).toBe("#0e7c5b");
+    const icons = meta.icons as { apple?: string } | undefined;
+    expect(icons?.apple).toBe("/u/ABCD234567/apple-touch-icon.png");
+  });
+
   it("exposes no identity for DRAFT, INACTIVE, or unknown slugs", async () => {
     vi.mocked(getCachedPublicProfileBySlug).mockResolvedValue(null);
     const meta = await generateMetadata(props("ahmed-benali"));

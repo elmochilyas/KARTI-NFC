@@ -119,6 +119,22 @@ Test:
 - special-character escaping;
 - optional missing fields.
 
+## Profile PWA (Keep this Card)
+
+Test:
+
+- manifest: ACTIVE returns 200 `application/manifest+json` with the
+  profile name, `start_url: /u/{publicCode}`, correct icon URLs;
+- manifest: `start_url` never contains a slug or `/t/`;
+- manifest/icons: DRAFT, INACTIVE, unknown, and malformed codes → plain
+  404 with no existence leak and no private fields;
+- icons: avatar center-cropped to exact square PNG sizes (192/512/180);
+- icons: initials fallback on missing/failed/non-image bytes;
+- UI: Keep CTA renders after profile content, before Share and
+  attribution; Share stays functional; no wallet references;
+- platform split: iOS/Android/desktop detection; desktop note copy;
+  standalone hides the CTA.
+
 ## RLS
 
 Verify actual behavior for:
