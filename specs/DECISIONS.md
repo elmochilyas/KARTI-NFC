@@ -1192,3 +1192,74 @@ shipped answer; no further intent variants are planned.
 > build). Remaining paths are operator-device experiments only: My Files
 > last-hop check, Samsung Internet tap test, Chrome Canary preferred-app
 > flag. No code changes ship for this flow until one of those reports back.
+
+## ADR-043 — Share Profile replaces Save Contact as the public final CTA
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Native contact saving proved inconsistent across iOS and Android
+(ADR-037–042, intent-work moratorium). The product decision is to stop
+presenting Save Contact as the primary action and offer a reliable
+native sharing experience instead.
+
+### Decision
+
+- `PublicProfileView` renders no Save Contact surfaces: the in-flow CTA
+  and the sticky bar are both removed. Final order is hero → quick
+  tiles → information → about → more links → Share Profile → footer.
+- `ShareProfileButton` (still the only `"use client"` island on the
+  public page) shares `{ title: display_name, text: "Check out {Name}
+  on Karti", url: window.location.href }` via the Web Share API, with a
+  clipboard fallback (`"Profile link copied"`, plus a legacy
+  `execCommand` path) and no technical errors. Only the public display
+  name + current public URL are ever shared.
+- `SaveContactAction.tsx`, its tests, and `GET /api/vcard/[slug]` stay
+  in the repo untouched for later reuse — nothing is deleted.
+- The dashboard editor preview mirrors the change with an inert
+  server-rendered `ShareProfilePreview` (a `<span>`, not the live
+  island — the live button would share the dashboard URL).
+
+### Consequences
+
+Saving contacts is no longer visually suggested as the primary action;
+Share is the sole, secondary-styled final CTA. A future save flow can
+reuse the kept endpoint + island without rebuilding.
+
+## ADR-044 — Crop-before-upload image editor (no schema change)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Profile photos uploaded straight from the picker were stored immediately
+and shown in a fixed container, so framing often mismatched the public
+profile. The product needs Select → Adjust → Preview → Save, for avatar
+and cover, without touching the storage security model or the database.
+
+### Decision
+
+- Pure crop math (`crop.ts`: cover-fit scale × 1–3x zoom, clamped pan,
+  frame→source rect) shared by the editor preview and the canvas step, so
+  WYSIWYG cannot drift. Canvas encode (`cropBitmapToWebP` in image.ts)
+  returns null — never the uncropped original — when unavailable.
+- Native `<dialog>` editor (top-layer, Esc-to-cancel, no dependency):
+  drag (Pointer Events) + arrow-key pan + 1–3x slider, Reset/Cancel/
+  Confirm, live “How your … will appear” preview in the public crop shape
+  (circle avatar, 3:1 cover).
+- UploadControl opens the editor on select and uploads only the confirmed
+  cropped WebP through the unchanged `uploadAssetAction`; cancel keeps the
+  previous image. Generated storage paths, MIME/size/magic-byte gates,
+  sharp normalize, and immutable caching are untouched.
+- Avatar cap raised 512 → 1024 in code constants only (client + server),
+  matching the 1024px requirement; cover stays 1600. No migration — caps
+  are not schema.
+
+### Consequences
+
+Framing is decided before any bytes reach Storage. Pinch-zoom is out of
+scope (slider + drag + keys cover all inputs); real pointer/canvas
+behavior needs a browser pass (no jsdom in the suite).

@@ -7,7 +7,7 @@ export const PROFILE_ASSETS_BUCKET = "profile-assets";
 export const MAX_ASSET_BYTES = 5 * 1024 * 1024;
 
 /** Server-side normalize caps (Track B, layer 2). Mirrors image.ts. */
-export const AVATAR_MAX_DIM = 512;
+export const AVATAR_MAX_DIM = 1024;
 export const COVER_MAX_DIM = 1600;
 /** Upper bound per side to keep sharp CPU/memory bounded. */
 export const MAX_SOURCE_DIM = 4000;

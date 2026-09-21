@@ -171,6 +171,18 @@ export function IconChevron({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+export function IconShare({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <BaseIcon className={className}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="m8.59 13.51 6.83 3.98" />
+      <path d="m15.41 6.51-6.82 3.98" />
+    </BaseIcon>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
@@ -293,6 +305,36 @@ export function ProfileHeader({
 /* Primary CTA                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Inert Share preview for the dashboard editor. Deliberately a `<span>`,
+ * not the live Share island: the live button shares `window.location.href`,
+ * which inside the editor would be a dashboard URL, never the public page.
+ * Reserved for future use; the public page uses the live island instead.
+ */
+export function ShareProfilePreview({ dark }: { dark: boolean }) {
+  return (
+    <span
+      className={`inline-flex min-h-[3.25rem] w-full items-center gap-3 rounded-2xl border px-4 py-3 text-[0.95rem] font-semibold ${
+        dark
+          ? "border-neutral-800 bg-neutral-800/40 text-neutral-100"
+          : "border-border bg-white text-text"
+      }`}
+    >
+      <IconShare className="h-[18px] w-[18px] shrink-0" />
+      <span className="flex-1 truncate text-left">Share Profile</span>
+      <IconChevron
+        className={`h-4 w-4 shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
+      />
+    </span>
+  );
+}
+
+/**
+ * Reserved for future use — no longer rendered on the public profile or
+ * the editor preview (Share Profile is the final CTA instead). The vCard
+ * endpoint stays available. Kept exported so a future flow can reuse it
+ * without rebuilding the visual.
+ */
 export function SaveContactButton({
   accent,
   mode = "preview",

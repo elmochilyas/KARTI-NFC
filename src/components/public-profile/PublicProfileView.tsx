@@ -9,16 +9,16 @@ import {
   type QuickAction,
 } from "./brandIcons";
 import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
-import { SaveContactAction, type InsertContactFields } from "./SaveContactAction";
 import { ShareProfileButton } from "./ShareProfileButton";
 import type { PublicLink, PublicProfile } from "@/features/profiles/public";
-import { pickTelNumber } from "@/domain/vcard";
 
 /**
  * Premium hero-first public profile view — 100% server-rendered except the
- * tiny Share island. Section order: hero → quick tiles → Save Contact →
- * information → about → more links → share → footer. Content-driven: every
- * section omits itself cleanly when its data is absent. No fake data.
+ * tiny Share island. Section order: hero → quick tiles → information →
+ * about → more links → share → footer. Content-driven: every section omits
+ * itself cleanly when its data is absent. No fake data. Contact saving is
+ * deliberately not the primary action (vCard endpoint kept for later use);
+ * the final CTA is Share Profile.
  */
 
 function isHttpUrl(url: string): boolean {
@@ -294,18 +294,6 @@ export function PublicProfileView({
     : "border-[#E7EDF4] bg-white text-text shadow-[0_8px_24px_rgba(15,35,60,0.08)]";
   const mutedClass = dark ? "text-neutral-400" : "text-muted";
   const dividerClass = dark ? "divide-white/10" : "divide-[#EEF2F7]";
-  // `.vcf` suffix helps OS sniffers hand the response to Contacts (ADR-038);
-  // the route serves the byte-identical inline vCard for both URL forms.
-  const vcardHref = `/api/vcard/${profile.slug}.vcf`;
-  // Prefilled editor fields for the Android INSERT fast-path (ADR-041).
-  // Same source the vCard builder uses; all fields already public on-page.
-  const contact: InsertContactFields = {
-    name: profile.display_name,
-    phone: pickTelNumber(profile.phone, profile.whatsapp),
-    email: profile.email?.trim() || null,
-    company: profile.company_name?.trim() || null,
-    title: profile.job_title?.trim() || null,
-  };
 
   return (
     <main
@@ -337,8 +325,6 @@ export function PublicProfileView({
           <QuickTiles actions={quickActions} dark={dark} />
 
           <div className="mt-4 flex flex-col gap-4">
-            <SaveContactAction href={vcardHref} accent={accent} variant="cta" contact={contact} />
-
             {hasInfo ? (
               <section
                 aria-label={isBusiness ? "Business information" : "Contact information"}
@@ -495,9 +481,6 @@ export function PublicProfileView({
             </div>
           </div>
         </div>
-      </div>
-      <div className="pointer-events-none sticky bottom-0 z-20 mx-auto w-full max-w-[480px] px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <SaveContactAction href={vcardHref} accent={accent} variant="sticky" contact={contact} />
       </div>
     </main>
   );
