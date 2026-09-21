@@ -101,16 +101,12 @@ describe("generateMetadata /u/[code]", () => {
 });
 
 describe("IdentityProfilePage /u/[code]", () => {
-  it("renders the public view with wallet identity for ACTIVE profiles", async () => {
+  it("renders the public view with identity data for ACTIVE profiles", async () => {
     vi.mocked(getCachedPublicProfileByCode).mockResolvedValue(ACTIVE_DATA as never);
     const element = await IdentityProfilePage(props("abcd234567"));
     const viewProps = findView(element);
     expect(viewProps.profile).toMatchObject({ slug: "ahmed-benali", public_code: "ABCD234567" });
-    expect(viewProps.wallet).toMatchObject({
-      publicCode: "ABCD234567",
-      appleReady: expect.any(Boolean),
-      googleReady: expect.any(Boolean),
-    });
+    expect(viewProps.links).toEqual([]);
   });
 
   it("notFounds missing profiles and misconfigured reads without leaking", async () => {

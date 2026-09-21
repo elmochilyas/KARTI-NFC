@@ -5,7 +5,6 @@ import { PublicProfileView } from "@/components/public-profile/PublicProfileView
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
-import { getWalletReadiness } from "@/features/wallet/actions";
 import { identityUrlForPublicCode } from "@/domain/publicCode";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 
@@ -55,7 +54,8 @@ export async function generateMetadata({ params }: SlugPageProps): Promise<Metad
   }
   const { avatarUrl } = publicUrls({ avatar: data.profile.avatar_path, cover: null });
   // Canonical identity: slug URLs stay human-friendly, but /u/{publicCode}
-  // is the permanent address (survives renames, embedded in wallet cards).
+  // is the permanent address (survives renames; supports future
+  // integrations such as wallet cards).
   const canonical = identityUrlForPublicCode(getAppUrl(), data.profile.public_code);
   return {
     title: publicProfileTitle(data.profile),
@@ -84,7 +84,6 @@ export default async function PublicProfilePage({ params }: SlugPageProps) {
   // cover) skips DNS+TLS setup on the critical path. Rendered as hoisted
   // <link> tags (React 19); zero JS cost.
   const origin = storageOrigin();
-  const readiness = getWalletReadiness();
 
   return (
     <>
@@ -99,11 +98,6 @@ export default async function PublicProfilePage({ params }: SlugPageProps) {
         links={data.links}
         avatarUrl={avatarUrl}
         coverUrl={coverUrl}
-        wallet={{
-          publicCode: data.profile.public_code,
-          appleReady: readiness.appleReady,
-          googleReady: readiness.googleReady,
-        }}
       />
     </>
   );

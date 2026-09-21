@@ -16,7 +16,6 @@ import {
   ProfileLinksList,
   ProfileShell,
   ShareProfilePreview,
-  WalletCtaPreview,
 } from "@/components/public-profile/ProfilePreview";
 import {
   saveProfileAction,
@@ -1041,7 +1040,6 @@ export function ProfileEditor({
           mapsUrl={draft.maps_url.trim() || null}
           dark={dark}
         />
-        <WalletCtaPreview dark={dark} />
         <ShareProfilePreview dark={dark} />
         <KartiAttribution dark={dark} />
       </ProfileShell>

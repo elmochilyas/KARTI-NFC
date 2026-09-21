@@ -1,13 +1,14 @@
 import { CARD_SHORT_CODE_ALPHABET, normalizeShortCode } from "./cards";
 
 /**
- * Stable public identity codes (wallet / `/u/{publicCode}`).
+ * Stable public identity codes (`/u/{publicCode}`).
  *
  * Unlike slugs (human-readable, renamable), a public code never changes, so
- * saved wallet cards and shared identity links keep working forever. Same
- * Crockford-style alphabet as card short codes, longer (10 chars) since the
- * space is per-profile, not per-card. Stored uppercase; lookups normalize.
- * NOT an authorization secret — ACTIVE-only gating still applies everywhere.
+ * shared identity links keep working forever — and future integrations such
+ * as wallet cards can build on them. Same Crockford-style alphabet as card
+ * short codes, longer (10 chars) since the space is per-profile, not
+ * per-card. Stored uppercase; lookups normalize. NOT an authorization
+ * secret — ACTIVE-only gating still applies everywhere.
  */
 
 export const PUBLIC_CODE_LENGTH = 10;
@@ -36,7 +37,7 @@ export function generatePublicCode(randomBytes?: Uint8Array): string {
   return code;
 }
 
-/** Canonical identity URL for a profile — the only URL wallet cards embed. */
+/** Canonical identity URL for a profile — the permanent address. */
 export function identityUrlForPublicCode(appUrl: string, publicCode: string): string {
   return `${appUrl.replace(/\/+$/, "")}/u/${normalizePublicCode(publicCode)}`;
 }

@@ -5,7 +5,6 @@ import { PublicProfileView } from "@/components/public-profile/PublicProfileView
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileByCode } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
-import { getWalletReadiness } from "@/features/wallet/actions";
 import { identityUrlForPublicCode } from "@/domain/publicCode";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 
@@ -14,8 +13,9 @@ type IdentityPageProps = {
 };
 
 // Immutable identity URL (/u/{publicCode}, ADR-046): survives slug renames,
-// so saved wallet cards and shared links never rot. Same zero-stale dynamic
-// posture as the slug page; same global cache tag (one purge covers both).
+// so shared identity links never rot — and future integrations such as
+// wallet cards can build on it. Same zero-stale dynamic posture as the slug
+// page; same global cache tag (one purge covers both).
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -66,7 +66,6 @@ export default async function IdentityProfilePage({ params }: IdentityPageProps)
     cover: data.profile.cover_path,
   });
   const origin = storageOrigin();
-  const readiness = getWalletReadiness();
 
   return (
     <>
@@ -81,11 +80,6 @@ export default async function IdentityProfilePage({ params }: IdentityPageProps)
         links={data.links}
         avatarUrl={avatarUrl}
         coverUrl={coverUrl}
-        wallet={{
-          publicCode: data.profile.public_code,
-          appleReady: readiness.appleReady,
-          googleReady: readiness.googleReady,
-        }}
       />
     </>
   );
