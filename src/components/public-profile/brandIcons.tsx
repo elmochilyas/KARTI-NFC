@@ -265,8 +265,10 @@ const ROW_GLYPH_COLOR: Partial<Record<BrandKey, string>> = {
 };
 
 /**
- * App-style brand mark for quick-action tiles (~44px).
- * Instagram = gradient tile, WhatsApp = green circle, others = brand glyph.
+ * App-style brand mark for quick-action tiles (48px, centered).
+ * Instagram = official gradient tile, WhatsApp = official green circle,
+ * Snapchat = yellow tile, Call/system = accent-tinted circle with phone
+ * glyph, other social brands keep their official glyph colors.
  * `dark` adapts monochrome marks (X/TikTok) to the tile surface.
  */
 export function QuickTileIcon({ brand, dark = true }: { brand: BrandKey; dark?: boolean }) {
@@ -274,10 +276,10 @@ export function QuickTileIcon({ brand, dark = true }: { brand: BrandKey; dark?: 
     return (
       <span
         aria-hidden="true"
-        className="flex h-11 w-11 items-center justify-center rounded-[14px] text-white shadow-md"
+        className="flex h-12 w-12 items-center justify-center rounded-[16px] text-white shadow-md"
         style={{ background: INSTAGRAM_GRADIENT }}
       >
-        <Glyph brand={brand} size={24} />
+        <Glyph brand={brand} size={25} />
       </span>
     );
   }
@@ -285,9 +287,9 @@ export function QuickTileIcon({ brand, dark = true }: { brand: BrandKey; dark?: 
     return (
       <span
         aria-hidden="true"
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-[#25D366] text-white shadow-md"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-md"
       >
-        <Glyph brand={brand} size={23} />
+        <Glyph brand={brand} size={24} />
       </span>
     );
   }
@@ -295,16 +297,50 @@ export function QuickTileIcon({ brand, dark = true }: { brand: BrandKey; dark?: 
     return (
       <span
         aria-hidden="true"
-        className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#FFFC00] text-black shadow-md"
+        className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#FFFC00] text-black shadow-md"
       >
-        <Glyph brand={brand} size={24} />
+        <Glyph brand={brand} size={25} />
       </span>
     );
   }
-  const mono = brand === "x" || brand === "tiktok";
+  if (brand === "x" || brand === "tiktok") {
+    const fg = dark ? "#ffffff" : "#111418";
+    return (
+      <span
+        aria-hidden="true"
+        className={`flex h-12 w-12 items-center justify-center rounded-full ${
+          dark ? "bg-white/10" : "bg-black/[0.06]"
+        }`}
+      >
+        <Glyph brand={brand} size={22} color={fg} />
+      </span>
+    );
+  }
+  const color = ROW_GLYPH_COLOR[brand];
+  if (color) {
+    return (
+      <span
+        aria-hidden="true"
+        className={`flex h-12 w-12 items-center justify-center rounded-full ${
+          dark ? "bg-white/10" : "bg-black/[0.05]"
+        }`}
+      >
+        <Glyph brand={brand} size={23} color={color} />
+      </span>
+    );
+  }
+  // System brands (call/email/website/booking/generic): accent-tinted
+  // circle with the Lucide phone/mail/globe glyph in the accent color.
   return (
-    <span aria-hidden="true" className="flex h-11 w-11 items-center justify-center">
-      <Glyph brand={brand} size={29} color={mono ? (dark ? "#ffffff" : "#111418") : undefined} />
+    <span
+      aria-hidden="true"
+      className="flex h-12 w-12 items-center justify-center rounded-full"
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--karti-accent) 14%, transparent)",
+        color: "var(--karti-accent)",
+      }}
+    >
+      <Glyph brand={brand} size={23} />
     </span>
   );
 }

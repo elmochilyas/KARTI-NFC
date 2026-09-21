@@ -55,8 +55,9 @@ describe("PublicProfileView Share final CTA", () => {
   it("renders the profile with a Share button and attribution", () => {
     const html = render();
     expect(html).toContain("Ahmed Benali");
-    expect(html).toContain("Share Profile");
-    expect(html).toContain('aria-label="Share this profile"');
+    expect(html).toContain("Share my profile");
+    expect(html).toContain("Send my digital card");
+    expect(html).toContain('aria-label="Share my profile"');
     expect(html).toContain("Powered by");
   });
 
@@ -68,7 +69,7 @@ describe("PublicProfileView Share final CTA", () => {
 
   it("places Share after all profile content, before attribution", () => {
     const html = render();
-    const share = html.indexOf("Share Profile");
+    const share = html.indexOf("Share my profile");
     expect(share).toBeGreaterThan(-1);
     // After quick actions, information, about, and extra links…
     expect(share).toBeGreaterThan(html.indexOf("Quick actions"));

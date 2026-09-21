@@ -83,15 +83,17 @@ describe("ShareProfileButton markup", () => {
   it("renders a labeled Share button with a friendly sublabel", () => {
     const html = render();
     expect(html).toContain("<button");
-    expect(html).toContain('aria-label="Share this profile"');
-    expect(html).toContain("Share Profile");
-    expect(html).toContain("Share this profile with someone");
+    expect(html).toContain('aria-label="Share my profile"');
+    expect(html).toContain("Share my profile");
+    expect(html).toContain("Send my digital card");
   });
 
-  it("meets the minimum touch target and stays secondary", () => {
+  it("is a strong bottom action with a large touch target", () => {
     const html = render();
-    // min-h-[60px] clears the 44px minimum; no primary accent fill.
-    expect(html).toContain("min-h-[60px]");
+    // min-h-[68px] clears the 44px minimum; accent fill makes it the
+    // strongest element at the bottom of the page.
+    expect(html).toContain("min-h-[68px]");
+    expect(html).toContain("rounded-[20px]");
     expect(html).not.toContain("Save Contact");
     expect(html).not.toContain("/api/vcard");
   });
@@ -99,7 +101,8 @@ describe("ShareProfileButton markup", () => {
   it("renders in both themes without private data", () => {
     for (const dark of [false, true]) {
       const html = render(dark);
-      expect(html).toContain("Share Profile");
+      expect(html).toContain("Share my profile");
+      expect(html).toContain("Send my digital card");
       expect(html).not.toContain("client");
       expect(html).not.toContain("dashboard");
     }

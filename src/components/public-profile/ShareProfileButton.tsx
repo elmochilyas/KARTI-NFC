@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { LuChevronRight, LuShare2 } from "react-icons/lu";
 
 /**
- * Share Profile action. Uses the Web Share API where available, otherwise
- * copies the public profile URL. Tiny client island — the rest of the
- * public page stays server-rendered with zero JS.
+ * Share my profile action — the strong final CTA of the public page.
+ * Uses the Web Share API where available, otherwise copies the public
+ * profile URL. Tiny client island — the rest of the public page stays
+ * server-rendered with zero JS.
  *
  * Security: only the public display name + current public page URL are
  * ever shared. No client/card IDs, dashboard URLs, notes, or private data.
@@ -55,7 +56,15 @@ export function legacyCopy(text: string, doc: Document = document): boolean {
   }
 }
 
-export function ShareProfileButton({ title, dark }: { title: string; dark: boolean }) {
+export function ShareProfileButton({
+  title,
+  dark,
+  accent = null,
+}: {
+  title: string;
+  dark: boolean;
+  accent?: string | null;
+}) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,41 +112,36 @@ export function ShareProfileButton({ title, dark }: { title: string; dark: boole
     }
   }
 
+  const accentValue = accent ?? null;
+  void dark;
   return (
     <button
       type="button"
       onClick={onShare}
-      aria-label="Share this profile"
+      aria-label="Share my profile"
       aria-live="polite"
-      className={`flex min-h-[60px] w-full items-center gap-3 rounded-[18px] border px-3.5 py-2 text-left transition hover:-translate-y-px active:scale-[0.99] ${
-        dark
-          ? "border-white/10 bg-white/[0.06] text-white shadow-[0_16px_40px_-20px_rgba(0,0,0,0.6)] hover:bg-white/[0.09]"
-          : "border-[#E7EDF4] bg-white text-text shadow-[0_8px_24px_rgba(15,35,60,0.08)] hover:bg-[#F8FAFD]"
-      }`}
+      title="Share my profile — Send my digital card"
+      className="flex min-h-[68px] w-full items-center gap-3 rounded-[20px] px-4 py-3 text-left shadow-[0_18px_40px_-14px_var(--karti-accent)] transition duration-150 hover:-translate-y-px hover:brightness-[1.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current active:scale-[0.98]"
+      style={{
+        backgroundColor: accentValue ?? "var(--karti-accent, #0e7c5b)",
+        color: "#ffffff",
+      }}
     >
       <span
         aria-hidden="true"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--karti-accent) 12%, transparent)",
-          color: "var(--karti-accent)",
-        }}
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20 text-white"
       >
-        <LuShare2 size={22} />
+        <LuShare2 size={23} />
       </span>
       <span className="min-w-0 flex-1 text-left">
-        <span className="block truncate text-[15px] font-bold">{feedback ?? "Share Profile"}</span>
-        <span
-          className={`block truncate text-xs font-medium ${dark ? "text-neutral-400" : "text-muted"}`}
-        >
-          {feedback ? "Done" : "Share this profile with someone"}
+        <span className="block text-[16px] leading-tight font-extrabold break-words">
+          {feedback ?? "Share my profile"}
+        </span>
+        <span className="mt-0.5 block text-[13px] leading-snug font-medium break-words text-white/85">
+          {feedback ? "Done" : "Send my digital card"}
         </span>
       </span>
-      <LuChevronRight
-        size={18}
-        aria-hidden="true"
-        className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
-      />
+      <LuChevronRight size={20} aria-hidden="true" className="shrink-0 text-white/80" />
     </button>
   );
 }

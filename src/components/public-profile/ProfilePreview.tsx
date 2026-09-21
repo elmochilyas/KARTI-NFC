@@ -321,7 +321,7 @@ export function ShareProfilePreview({ dark }: { dark: boolean }) {
       }`}
     >
       <IconShare className="h-[18px] w-[18px] shrink-0" />
-      <span className="flex-1 truncate text-left">Share Profile</span>
+      <span className="flex-1 truncate text-left">Share my profile</span>
       <IconChevron className={`h-4 w-4 shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`} />
     </span>
   );
