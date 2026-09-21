@@ -761,6 +761,17 @@ A task is DONE only when:
 > Pending gate + operator tap confirmation (editor open = done; repeat
 > `(I)` = floor stands, intent work ends).
 >
+> 2026-09-21 (intent-work moratorium): operator retest on merged PR #10
+> (fresh tab, post-deploy, Samsung + Chrome) still fails — repeat `(I)`
+> with reload plus a dead "Open Downloads" button. Per ADR-042's own
+> pre-decision, programmatic intent work ENDS here: share-Files, INSERT
+> (both MIME flavors), VIEW (both category variants), and VIEW_DOWNLOADS
+> all fail to resolve on this build. No further intent/share variants will
+> be attempted. Pending operator-only experiments: (1) last-hop check —
+> tap the `.vcf` in My Files → Samsung import? (2) Samsung Internet tap
+> test; (3) Chrome Canary "Open downloads in preferred app" flag. If (1)
+> works, the guided floor is the complete shipped flow.
+>
 > 2026-09-20 (INSERT-first on Android, ADR-041): `(S)` repeated on a fresh
 > tab after warming shipped — share-with-File rejects fast on Samsung +
 > Chrome, warming can't fix that. Android-Chrome taps now fire a sync
