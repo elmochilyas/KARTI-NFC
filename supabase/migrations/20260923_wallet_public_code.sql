@@ -1,8 +1,9 @@
--- Karti wallet identity: stable per-profile public_code (ADR-046).
+-- Karti stable public identity: per-profile public_code (ADR-046).
 --
--- Slugs are renamable, so wallet cards and identity links need an
--- immutable identifier: /u/{public_code}. 10-char codes from the same
--- unambiguous alphabet as card short codes (no 0/O/1/I/L).
+-- Slugs are renamable, so identity links need an immutable identifier:
+-- /u/{public_code}. Stable public identity supports future integrations
+-- such as wallet cards. 10-char codes from the same unambiguous alphabet
+-- as card short codes (no 0/O/1/I/L).
 --
 -- Additive only: new nullable column → backfill → default → NOT NULL →
 -- UNIQUE + composite index. New inserts always receive a code via the

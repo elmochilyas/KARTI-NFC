@@ -11,16 +11,14 @@ import {
 } from "./brandIcons";
 import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
 import { ShareProfileButton } from "./ShareProfileButton";
-import { WalletCtaCard, type WalletCtaProps } from "./WalletCtaCard";
 import type { PublicLink, PublicProfile } from "@/features/profiles/public";
 
 /**
- * Premium hero-first public profile view — server-rendered except two tiny
- * islands (Add to Wallet, Share). Section order: hero → quick tiles →
- * information → about → more links → wallet → share → footer.
- * Content-driven: every section omits itself cleanly when its data is
- * absent. No fake data. The wallet card renders only when the page passes
- * identity + backend readiness (credential-gated, ADR-046).
+ * Premium hero-first public profile view — server-rendered except the tiny
+ * Share island. Section order: hero → quick tiles → information → about →
+ * more links → share → footer. Content-driven: every section omits itself
+ * cleanly when its data is absent. No fake data. Share Profile is the final
+ * CTA (wallet integration deferred — stable /u/ identity remains for it).
  */
 
 function isHttpUrl(url: string): boolean {
@@ -320,14 +318,11 @@ export function PublicProfileView({
   links,
   avatarUrl,
   coverUrl,
-  wallet = null,
 }: {
   profile: PublicProfile;
   links: PublicLink[];
   avatarUrl: string | null;
   coverUrl: string | null;
-  /** Wallet identity + backend readiness; null omits the card entirely. */
-  wallet?: Omit<WalletCtaProps, "displayName" | "dark" | "accent"> | null;
 }) {
   const dark = profile.theme === "dark";
   const accent = profile.accent_color;
@@ -555,19 +550,6 @@ export function PublicProfileView({
             ) : null}
 
             <div className="karti-rise" style={{ animationDelay: "240ms" }}>
-              {wallet ? (
-                <WalletCtaCard
-                  publicCode={wallet.publicCode}
-                  displayName={profile.display_name}
-                  appleReady={wallet.appleReady}
-                  googleReady={wallet.googleReady}
-                  dark={dark}
-                  accent={accent}
-                />
-              ) : null}
-            </div>
-
-            <div className="karti-rise" style={{ animationDelay: "280ms" }}>
               <ShareProfileButton title={profile.display_name} dark={dark} accent={accent} />
             </div>
 

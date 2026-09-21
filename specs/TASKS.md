@@ -2298,39 +2298,42 @@ caching). `307 + no-store` redirect kept (ADR-024). See ADR-045.
 
 ---
 
-# Phase 21 — Digital Wallet Card Saving (Add to Wallet)
+# Phase 21 — Stable Public Identity + Wallet (wallet REMOVED, identity KEPT)
 
-One CTA, platform auto-detected, no wallet choice. See ADR-046.
+Wallet integration deferred (ADR-046 superseded): external credentials were
+not going to be provisioned, so the Apple/Google integration was removed
+cleanly — no flags, no dead code. The stable identity system stays:
+permanent public profile URLs that survive slug renames, reusable by any
+future integration such as wallet cards.
 
-## 21.1 Stable identity
+## 21.1 Stable identity (KEPT)
 
-- [x] `profiles.public_code` (10-char, UNIQUE NOT NULL + DEFAULT generator, migration `20260923`) applied live + backfill verified.
+- [x] `profiles.public_code` (10-char, UNIQUE NOT NULL + DEFAULT generator, migration `20260923`) applied live + backfill verified. NOT rolled back.
 - [x] `/u/[code]` page (same view/data/metadata + canonical) + canonical on slug pages.
 - [x] `u` reserved in slugs.
-- [x] Wallet QR/barcode payloads embed `/u/{publicCode}` only (tests pin: never `/t/`).
 
-## 21.2 Wallet feature
+## 21.2 Wallet removal (2026-09-21)
 
-- [x] `src/features/wallet/`: types + `detectPlatform` (iOS/Android/desktop, iPadOS hint) + `actions` orchestration.
-- [x] Apple: generic pass model (sanitized fields, stable serial, QR barcode) + P12 split + sharp artwork + passkit signing; `.pkpass` MIME/headers.
-- [x] Google: GenericObject + RS256 save-JWT (jose) + `pay.google.com/gp/v/save/` link; stateless (one-time class by operator).
-- [x] `GET /api/wallet/[code]`: ACTIVE-only, iOS→pass, Android→302, desktop→400 modal signal, unknown→404, failures generic + no-store.
-- [x] Server-only credentials (`env-server` + `server-only`); credential-gated CTA (never fake); isolation tests extended.
+- [x] Deleted: `src/features/wallet/`, `src/app/api/wallet/[code]/`, `WalletCtaCard`, `AddToWalletButton` (+ tests).
+- [x] Removed deps: `passkit-generator`, `jose`, `node-forge`, `@types/node-forge`.
+- [x] Removed env vars: `APPLE_*` (5), `GOOGLE_*` (4) from `.env.example`; none required anymore.
+- [x] Cleaned refs: pages (no wallet prop), `PublicProfileView` (Share final CTA again), editor preview, `env-server`, isolation test.
+- [x] No imports reference wallet/passkit/jose (verified by grep + typecheck).
+- [x] Public profile hierarchy: hero → tiles → information → about → links → Share → attribution (no empty gaps).
 
-## 21.3 UI
+## 21.3 Verification after removal
 
-- [x] `WalletCtaCard` + `AddToWalletButton` island (anchor when ready, QR/Copy modal otherwise) above Share; inert `WalletCtaPreview` in editor.
-- [x] Fallbacks: desktop phone-modal, unconfigured → Copy/Share, generation error generic copy.
+- [x] `typecheck`, `lint`, `test`, `build` green (counts in report).
+- [x] NFC flow (`/t/` resolver) untouched; QR/permanent-URL untouched.
+- [x] `/u/[code]` works (ACTIVE renders, unknown/DRAFT/INACTIVE → 404).
+- [x] No wallet routes, no wallet env required (asserted).
+- [ ] `format:check` — repo-wide CRLF baseline (unchanged standing note).
 
-## 21.4 Tests + verification
-
-- [x] 64 new tests (platform matrix, hostile-field escaping, P12 round-trip, full signed-buffer ZIP/shape, JWT verify, route matrix, page/canonical, no-secret-leakage).
-- [x] `typecheck`, `lint`, `test` (47 files / 464 tests), `build` green (`/u/[code]` + `/api/wallet/[code]` dynamic).
-- [x] Live prod-server matrix: `/u/{code}` 200 (name + CTA + canonical, no `/t/`), unknown→404, iOS-no-creds→500 generic + no-store, desktop→400 JSON, unknown→404.
-- [ ] `format:check` — repo-wide CRLF baseline; new files prettier-clean (verified per-file).
-- [ ] Operator: provision Apple cert + WWDR, Google issuer + service account + GenericClass; on-device install sheets (iPhone + Android); `pnpm db:types` re-run with token (absorbs 3-line backport).
-
-> 2026-09-21: implemented + verified per plan. Deps added: `passkit-generator`, `jose`, `node-forge` (+ `@types/node-forge` dev). Human confirmations: on-device wallet install + 390px eyeball + credential provisioning.
+> 2026-09-21 (removal): wallet was built in commit `86c37aa` and removed from
+> the working tree the same day (uncommitted — ready for review); only the
+> stable identity system (`public_code`, `/u/`, canonical, reserved `u`)
+> remains. Operator follow-up that still applies: `pnpm db:types` re-run with
+> token (absorbs 3-line `public_code` backport).
 
 ---
 

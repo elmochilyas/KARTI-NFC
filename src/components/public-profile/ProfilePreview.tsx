@@ -183,16 +183,6 @@ export function IconShare({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-export function IconWallet({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <BaseIcon className={className}>
-      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-    </BaseIcon>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
@@ -314,43 +304,6 @@ export function ProfileHeader({
 /* ------------------------------------------------------------------ */
 /* Primary CTA                                                         */
 /* ------------------------------------------------------------------ */
-
-/**
- * Inert wallet-card preview for the dashboard editor. Deliberately a
- * `<span>` tree, not the live island: the live button detects the
- * operator's device and links the wallet API, neither of which makes sense
- * inside the editor. Mirrors the public card copy at a glance.
- */
-export function WalletCtaPreview({ dark }: { dark: boolean }) {
-  return (
-    <span className="block">
-      <span
-        className={`block px-1 text-xs font-bold tracking-[0.18em] uppercase ${
-          dark ? "text-neutral-400" : "text-muted"
-        }`}
-      >
-        Keep this card
-      </span>
-      <span
-        className={`mt-2.5 inline-flex min-h-[68px] w-full items-center gap-3 rounded-[20px] px-4 py-3 ${
-          dark ? "bg-neutral-800/40 text-neutral-100" : "bg-white text-text"
-        } border ${dark ? "border-neutral-800" : "border-border"}`}
-      >
-        <IconWallet className="h-[23px] w-[23px] shrink-0" />
-        <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[16px] leading-tight font-extrabold">Add to Wallet</span>
-          <span
-            className={`mt-0.5 block text-[13px] leading-snug font-medium ${
-              dark ? "text-neutral-400" : "text-muted"
-            }`}
-          >
-            Keep this digital card on your phone
-          </span>
-        </span>
-      </span>
-    </span>
-  );
-}
 
 /**
  * Inert Share preview for the dashboard editor. Deliberately a `<span>`,

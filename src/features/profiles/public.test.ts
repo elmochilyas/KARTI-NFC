@@ -172,7 +172,7 @@ describe("getPublicProfileBySlug", () => {
   });
 });
 
-describe("getPublicProfileByCode (wallet identity /u/{publicCode})", () => {
+describe("getPublicProfileByCode (stable identity /u/{publicCode})", () => {
   it("returns ACTIVE profiles with public_code and links in database order", async () => {
     const db = fakeDb(ACTIVE_ROW, [
       { id: "l1", type: "instagram", label: "IG", url: "https://ig.com", sort_order: 0 },

@@ -1310,8 +1310,16 @@ permanent-URL invariant are unchanged.
 
 ## ADR-046 — Digital wallet card saving (Add to Wallet)
 
-**Status:** Accepted
-**Date:** 2026-09-21
+**Status:** Superseded (2026-09-21 — wallet integration deferred, see below;
+stable identity retained)
+
+> Wallet integration deferred. The Apple/Google integration was removed
+> cleanly the same day it was built (external credentials were not going to
+> be provisioned — no flags, no dead code, no wallet env vars, no wallet
+> dependencies). Stable identity remains: `profiles.public_code`, `/u/`
+> route, canonical links, and reserved `u` all stay, supporting future
+> integrations such as wallet cards. The design below is preserved as the
+> reintroduction blueprint.
 
 ### Context
 
