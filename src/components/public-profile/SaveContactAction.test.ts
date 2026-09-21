@@ -2,20 +2,38 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import {
+  SAVE_CONTACT_ATTEMPT_KEY,
+  SAVE_CONTACT_ATTEMPT_MAX_AGE_MS,
   SAVE_CONTACT_OPENING_TIMEOUT_MS,
   SaveContactAction,
   SaveContactFallback,
-  buildVCardIntentUrl,
+  buildInsertContactIntentUrl,
+  consumeSaveAttempt,
+  markSaveAttempt,
   shouldAttemptAndroidIntent,
   supportsVCardFileShare,
   vcardShareFilename,
+  type InsertContactFields,
 } from "./SaveContactAction";
 
 const HREF = "/api/vcard/ahmed-benali.vcf";
 
+const CONTACT: InsertContactFields = {
+  name: "Ahmed Benali",
+  phone: "+212600000000",
+  email: "ahmed@example.com",
+  company: "Atlas",
+  title: "Developer",
+};
+
 function render(variant: "cta" | "sticky"): string {
   return renderToStaticMarkup(
-    createElement(SaveContactAction, { href: HREF, accent: "#0e7c5b", variant }),
+    createElement(SaveContactAction, {
+      href: HREF,
+      accent: "#0e7c5b",
+      variant,
+      contact: CONTACT,
+    }),
   );
 }
 
@@ -106,26 +124,128 @@ describe("vcardShareFilename", () => {
   });
 });
 
-describe("buildVCardIntentUrl", () => {
-  it("builds a VIEW intent for the vCard with an encoded browser fallback", () => {
-    const intent = buildVCardIntentUrl(
-      "https://karti.app/api/vcard/ahmed-benali.vcf",
-      "https://karti.app/ahmed-benali",
-    );
-    expect(intent).toBe(
-      "intent://karti.app/api/vcard/ahmed-benali.vcf" +
-        "#Intent;scheme=https;action=android.intent.action.VIEW" +
-        ";type=text/x-vcard" +
+describe("buildInsertContactIntentUrl", () => {
+  const FALLBACK = "https://karti.app/ahmed-benali";
+
+  it("opens the raw-contact editor with extras and an encoded fallback", () => {
+    expect(
+      buildInsertContactIntentUrl(
+        {
+          name: "Ahmed Benali",
+          phone: "+212 600 000000",
+          email: "ahmed@example.com",
+          company: "Atlas, SARL",
+          title: "Developer",
+        },
+        FALLBACK,
+      ),
+    ).toBe(
+      "intent://vnd.android.cursor.dir/raw_contact/" +
+        "#Intent;action=android.intent.action.INSERT" +
+        ";S.name=Ahmed%20Benali" +
+        ";S.phone=%2B212%20600%20000000" +
+        ";S.email=ahmed%40example.com" +
+        ";S.company=Atlas%2C%20SARL" +
+        ";S.job_title=Developer" +
         ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Fahmed-benali;end",
     );
   });
 
-  it("rejects non-HTTP(S) and malformed inputs", () => {
-    expect(buildVCardIntentUrl("javascript:alert(1)", "https://karti.app/x")).toBeNull();
+  it("skips blank optional fields", () => {
+    expect(buildInsertContactIntentUrl({ name: "Ahmed" }, FALLBACK)).toBe(
+      "intent://vnd.android.cursor.dir/raw_contact/" +
+        "#Intent;action=android.intent.action.INSERT" +
+        ";S.name=Ahmed" +
+        ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Fahmed-benali;end",
+    );
     expect(
-      buildVCardIntentUrl("https://karti.app/api/vcard/x.vcf", "javascript:alert(1)"),
+      buildInsertContactIntentUrl(
+        { name: "Ahmed", phone: "   ", email: null, company: "", title: undefined },
+        FALLBACK,
+      ),
+    ).toBe(
+      "intent://vnd.android.cursor.dir/raw_contact/" +
+        "#Intent;action=android.intent.action.INSERT" +
+        ";S.name=Ahmed" +
+        ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Fahmed-benali;end",
+    );
+  });
+
+  it("neutralizes intent-breaking characters while keeping Unicode intact", () => {
+    // A raw `;` would split the intent URI — it must arrive encoded.
+    const intent = buildInsertContactIntentUrl({ name: "Doe; John", company: "A;B" }, FALLBACK);
+    expect(intent).toContain("S.name=Doe%3B%20John");
+    expect(intent).toContain("S.company=A%3BB");
+    const arabic = buildInsertContactIntentUrl({ name: "أحمد بن علي" }, FALLBACK);
+    expect(arabic).toContain(`S.name=${encodeURIComponent("أحمد بن علي")}`);
+  });
+
+  it("rejects blank names and non-HTTP(S) fallbacks", () => {
+    expect(buildInsertContactIntentUrl({ name: "   " }, FALLBACK)).toBeNull();
+    expect(buildInsertContactIntentUrl({ name: "Ahmed" }, "not a url")).toBeNull();
+    expect(buildInsertContactIntentUrl({ name: "Ahmed" }, "javascript:alert(1)")).toBeNull();
+  });
+});
+
+describe("save-attempt flag", () => {
+  function fakeStorage(initial: Record<string, string> = {}) {
+    const data = { ...initial };
+    return {
+      getItem: (key: string): string | null => (key in data ? data[key] : null),
+      setItem: (key: string, value: string): void => {
+        data[key] = value;
+      },
+      removeItem: (key: string): void => {
+        delete data[key];
+      },
+    };
+  }
+
+  it("round-trips an attempt exactly once", () => {
+    const storage = fakeStorage();
+    markSaveAttempt(storage, "insert");
+    expect(storage.getItem(SAVE_CONTACT_ATTEMPT_KEY)).toContain('"insert"');
+    expect(consumeSaveAttempt(storage)).toBe("insert");
+    // Single-shot: already consumed.
+    expect(consumeSaveAttempt(storage)).toBeNull();
+  });
+
+  it("ignores stale, malformed, and foreign payloads", () => {
+    expect(consumeSaveAttempt(fakeStorage())).toBeNull();
+    expect(consumeSaveAttempt(fakeStorage({ [SAVE_CONTACT_ATTEMPT_KEY]: "not-json" }))).toBeNull();
+    expect(
+      consumeSaveAttempt(fakeStorage({ [SAVE_CONTACT_ATTEMPT_KEY]: '{"kind":"nope","ts":1}' })),
     ).toBeNull();
-    expect(buildVCardIntentUrl("not a url", "https://karti.app/x")).toBeNull();
+    expect(
+      consumeSaveAttempt(fakeStorage({ [SAVE_CONTACT_ATTEMPT_KEY]: '{"kind":"insert"}' })),
+    ).toBeNull();
+    const stale = fakeStorage();
+    markSaveAttempt(stale, "view");
+    expect(
+      consumeSaveAttempt(stale, Date.now() + SAVE_CONTACT_ATTEMPT_MAX_AGE_MS + 1000),
+    ).toBeNull();
+  });
+
+  it("survives hostile storage without throwing", () => {
+    const throwing = {
+      getItem: (): string | null => {
+        throw new Error("denied");
+      },
+      setItem: (): void => {
+        throw new Error("denied");
+      },
+      removeItem: (): void => {
+        throw new Error("denied");
+      },
+    };
+    expect(() => markSaveAttempt(throwing, "insert")).not.toThrow();
+    expect(consumeSaveAttempt(throwing)).toBeNull();
+  });
+
+  it("keeps the key namespaced and the window sane", () => {
+    expect(SAVE_CONTACT_ATTEMPT_KEY).toContain("karti:");
+    expect(SAVE_CONTACT_ATTEMPT_MAX_AGE_MS).toBeGreaterThanOrEqual(60_000);
+    expect(SAVE_CONTACT_ATTEMPT_MAX_AGE_MS).toBeLessThanOrEqual(600_000);
   });
 });
 

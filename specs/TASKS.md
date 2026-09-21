@@ -753,6 +753,15 @@ A task is DONE only when:
 > (iPhone Safari / Android Chrome / Samsung Internet) still needs the
 > operator — no devices here.
 >
+> 2026-09-20 (INSERT-first on Android, ADR-041): `(S)` repeated on a fresh
+> tab after warming shipped — share-with-File rejects fast on Samsung +
+> Chrome, warming can't fix that. Android-Chrome taps now fire a sync
+> `INSERT` intent (editor prefilled, no fetch/activation dependency),
+> armed in sessionStorage so fallback reloads restore the coded UI; share
+> auto-attempt dropped on this path, VIEW helper deleted, iOS/desktop
+> untouched. Fields ride as island props (no new endpoint). Pending gate +
+> operator tap confirmation (editor open prefilled = success).
+>
 > 2026-09-20 (share activation warming, ADR-040): the `(S)` code proved
 > share() rejected with no UI after awaiting a cold fetch — user-activation
 > expiry. Fetch now warms on pointerdown/focus; tap awaits the running

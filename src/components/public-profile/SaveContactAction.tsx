@@ -10,26 +10,24 @@ import { foregroundOnAccent } from "./ProfilePreview";
  * The anchor stays a real same-tab link (`/api/vcard/{slug}.vcf`, no `download`
  * attribute) so the page works with JS disabled: iOS Safari receives a genuine
  * `text/vcard` response and opens the native contact preview. On top of that,
- * the click handler attempts faster paths first (ADR-038):
+ * the click handler attempts faster paths first:
  *
- * 1. Web Share Level 2 with a `.vcf` File — the OS share sheet offers
- *    “Save to Contacts / Create New Contact” directly, with no
- *    Files/Downloads detour. The fetch is warmed on pointerdown/focus so
- *    `share()` stays inside the tap's user activation window;
- * 2. Chrome-on-Android `intent:// … type=text/x-vcard` fast-path (UA-gated;
- *    never used on Samsung Internet / Firefox / desktop; declares no
- *    category so Contacts-style DEFAULT-only filters resolve);
+ * 1. Chrome-on-Android INSERT `intent://` (ADR-041) — opens the Contacts
+ *    editor directly with fields prefilled. Synchronous in the tap gesture:
+ *    no fetch, no activation race, immune to subrequest blockers. The
+ *    attempt is armed in sessionStorage so a fallback reload restores the
+ *    failure UI instead of a silent refresh;
+ * 2. Web Share Level 2 with a `.vcf` File (non-Chrome-Android, iOS where
+ *    capable) — the OS share sheet offers “Save to Contacts / Create New
+ *    Contact” directly. The fetch is warmed on pointerdown/focus so `share()`
+ *    stays inside the tap's user activation window;
  * 3. Classic same-tab navigation to the `inline` vCard response.
  *
  * Share success (or dismissal) resets quietly — the 4s “still visible”
- * fallback only appears when a navigation/intent genuinely went nowhere.
- * The fallback names the real next step (open the file from notifications)
+ * fallback only appears when a navigation genuinely went nowhere. The
+ * fallback names the real next step (open the file from notifications)
  * and carries a subtle reason code (`S`/`I`/`D`) so one on-device tap
- * reports exactly which delivery path died. The intent path runs only
- * synchronously inside the tap gesture; post-await share failures fall
- * back to plain navigation because expired user activation gets intent
- * navigations silently dropped. Every path reuses the same canonical
- * endpoint: there is no second contact system and no `intent://` default.
+ * reports exactly which delivery path died.
  */
 
 /** How long to wait before concluding the native flow did not open. */
@@ -67,42 +65,102 @@ export function vcardShareFilename(href: string): string {
 }
 
 /**
- * Build a Chrome-Android `intent://` URL that opens the vCard directly in
- * the Contacts/import handler, with the profile page as the browser
- * fallback. Returns null for non-HTTP(S) inputs. Exported for unit tests.
- *
- * Deliberately declares NO category: Android resolves an intent only
- * against filters containing every category the intent carries, while an
- * intent with no categories passes every filter's category test (the
- * framework treats it as CATEGORY_DEFAULT for startActivity). Declaring
- * BROWSABLE here actively broke resolution against Contacts-style
- * DEFAULT-only filters and produced a silent fallback reload.
+ * Contact fields for the Android INSERT intent (Contacts editor, prefilled).
+ * Keys follow the ContactsContract.Intents.Insert contract.
  */
-export function buildVCardIntentUrl(
-  absoluteVCardUrl: string,
+export type InsertContactFields = {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  company?: string | null;
+  title?: string | null;
+};
+
+/**
+ * Build a Chrome-Android `intent://` URL that opens the Contacts editor
+ * directly with fields prefilled (`action.INSERT`, type-only opaque URI).
+ * Type-only (no data URI) sidesteps scheme/host filter matching entirely;
+ * no category is declared so DEFAULT-only editor filters resolve (an intent
+ * with no categories passes every filter's category test). Returns null
+ * when the name is blank or the fallback is not HTTP(S). Exported for unit
+ * tests.
+ */
+export function buildInsertContactIntentUrl(
+  fields: InsertContactFields,
   absoluteFallbackUrl: string,
 ): string | null {
-  let vcard: URL;
+  const name = fields.name.trim();
+  if (name === "") return null;
   let fallback: URL;
   try {
-    vcard = new URL(absoluteVCardUrl);
     fallback = new URL(absoluteFallbackUrl);
   } catch {
     return null;
   }
-  if (vcard.protocol !== "http:" && vcard.protocol !== "https:") return null;
   if (fallback.protocol !== "http:" && fallback.protocol !== "https:") return null;
-  const scheme = vcard.protocol.slice(0, -1);
-  const path = `${vcard.host}${vcard.pathname}${vcard.search}`;
-  return (
-    `intent://${path}` +
+  const extras: Array<[string, string | null | undefined]> = [
+    ["phone", fields.phone],
+    ["email", fields.email],
+    ["company", fields.company],
+    ["job_title", fields.title],
+  ];
+  let url =
+    "intent://vnd.android.cursor.dir/raw_contact/" +
     "#Intent" +
-    `;scheme=${scheme}` +
-    ";action=android.intent.action.VIEW" +
-    ";type=text/x-vcard" +
-    `;S.browser_fallback_url=${encodeURIComponent(fallback.toString())}` +
-    ";end"
-  );
+    ";action=android.intent.action.INSERT" +
+    `;S.name=${encodeURIComponent(name)}`;
+  for (const [key, value] of extras) {
+    const trimmed = value?.trim();
+    if (trimmed) url += `;S.${key}=${encodeURIComponent(trimmed)}`;
+  }
+  return url + `;S.browser_fallback_url=${encodeURIComponent(fallback.toString())};end`;
+}
+
+/** sessionStorage key arming the reload-proof fallback (intent attempts). */
+export const SAVE_CONTACT_ATTEMPT_KEY = "karti:save-contact:attempt";
+
+/** Attempts older than this are ignored (stale tab revisited much later). */
+export const SAVE_CONTACT_ATTEMPT_MAX_AGE_MS = 120_000;
+
+export type SaveContactAttemptKind = "insert" | "view";
+
+type SaveAttemptStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/**
+ * Record an intent attempt so a fallback reload restores the failure UI
+ * instead of a silent refresh. Best-effort: private mode may throw.
+ * Exported for unit tests.
+ */
+export function markSaveAttempt(storage: SaveAttemptStorage, kind: SaveContactAttemptKind): void {
+  try {
+    storage.setItem(SAVE_CONTACT_ATTEMPT_KEY, JSON.stringify({ kind, ts: Date.now() }));
+  } catch {
+    // Storage unavailable — the reload just shows a fresh page.
+  }
+}
+
+/**
+ * Consume a recorded attempt (single-shot); null when absent, stale, or
+ * malformed. Exported for unit tests.
+ */
+export function consumeSaveAttempt(
+  storage: SaveAttemptStorage,
+  now: number = Date.now(),
+): SaveContactAttemptKind | null {
+  try {
+    const raw = storage.getItem(SAVE_CONTACT_ATTEMPT_KEY);
+    storage.removeItem(SAVE_CONTACT_ATTEMPT_KEY);
+    if (raw === null) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const record = parsed as { kind?: unknown; ts?: unknown };
+    if (record.kind !== "insert" && record.kind !== "view") return null;
+    if (typeof record.ts !== "number" || Number.isNaN(record.ts)) return null;
+    if (now - record.ts > SAVE_CONTACT_ATTEMPT_MAX_AGE_MS) return null;
+    return record.kind;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -168,12 +226,15 @@ export function SaveContactAction({
   href,
   accent,
   variant,
+  contact,
 }: {
   /** Canonical vCard endpoint, e.g. `/api/vcard/ahmed-benali.vcf`. */
   href: string;
   accent: string | null;
   /** `cta` = in-flow button, `sticky` = bottom sticky bar. */
   variant: "cta" | "sticky";
+  /** Prefilled editor fields for the Android INSERT fast-path. */
+  contact: InsertContactFields;
 }) {
   const [state, setState] = useState<SaveContactState>("idle");
   const [reason, setReason] = useState<SaveContactFailureReason | null>(null);
@@ -210,8 +271,19 @@ export function SaveContactAction({
       }
     }
     window.addEventListener("pagehide", clear);
+    // A fallback reload after an intent attempt restores the failure UI
+    // (with its reason code) instead of a silent refresh. Deferred past the
+    // first client render so hydration matches SSR and no cascading render
+    // fires inside the effect body.
+    const restore = setTimeout(() => {
+      if (consumeSaveAttempt(window.sessionStorage) !== null) {
+        setState("failed");
+        setReason("I");
+      }
+    }, 0);
     return () => {
       window.removeEventListener("pagehide", clear);
+      clearTimeout(restore);
       clear();
     };
   }, []);
@@ -225,15 +297,20 @@ export function SaveContactAction({
     }, SAVE_CONTACT_OPENING_TIMEOUT_MS);
   }
 
-  /** Chrome-Android `intent://` fast-path. Returns true when attempted. */
-  function openAndroidIntent(vcardHref: string): boolean {
+  /**
+   * Chrome-Android INSERT fast-path: opens the Contacts editor directly
+   * with fields prefilled. Synchronous in the tap gesture (no fetch, no
+   * activation race) and armed in sessionStorage so a fallback reload
+   * restores the failure UI. Returns true when attempted.
+   */
+  function openInsertContactIntent(fields: InsertContactFields): boolean {
     try {
       const nav = navigator as unknown as FileShareNavigator & NavigatorWithUserAgentData;
       const userAgent = nav.userAgent ?? navigator.userAgent;
       if (!shouldAttemptAndroidIntent(userAgent, nav.userAgentData?.platform)) return false;
-      const absoluteVCard = new URL(vcardHref, window.location.href).toString();
-      const intent = buildVCardIntentUrl(absoluteVCard, window.location.href);
+      const intent = buildInsertContactIntentUrl(fields, window.location.href);
       if (!intent) return false;
+      markSaveAttempt(window.sessionStorage, "insert");
       window.location.href = intent;
       return true;
     } catch {
@@ -243,9 +320,19 @@ export function SaveContactAction({
 
   async function handleClick(e: MouseEvent<HTMLAnchorElement>) {
     if (state === "failed") return;
+
+    // 1. Android-Chrome INSERT fast-path: Contacts editor, prefilled.
+    if (openInsertContactIntent(contact)) {
+      e.preventDefault();
+      setState("opening");
+      setReason("I");
+      armFallbackTimer();
+      return;
+    }
+
     const nav = navigator as unknown as FileShareNavigator;
 
-    // 1. Share-sheet fast-path: no Downloads detour on supporting phones.
+    // 2. Share-sheet path: no Downloads detour on supporting phones.
     if (supportsVCardFileShare(nav)) {
       e.preventDefault();
       setState("opening");
@@ -281,16 +368,6 @@ export function SaveContactAction({
         armFallbackTimer();
         window.location.assign(href);
       }
-      return;
-    }
-
-    // 2. Chrome-Android intent fast-path (gated; never the default). Runs
-    // synchronously inside the tap gesture, which intent handling requires.
-    if (openAndroidIntent(href)) {
-      e.preventDefault();
-      setState("opening");
-      setReason("I");
-      armFallbackTimer();
       return;
     }
 
