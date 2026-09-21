@@ -165,6 +165,11 @@ export type Database = {
           maps_url: string | null
           phone: string | null
           profile_type: string
+          // MANUAL BACKPORT (2026-09-21): profiles.public_code from migration
+          // 20260923_wallet_public_code. `pnpm db:types` could not run here
+          // (no SUPABASE_ACCESS_TOKEN); re-running it will emit this exact
+          // line and absorb the backport. See ADR-046.
+          public_code: string
           slug: string
           status: string
           theme: string
@@ -188,6 +193,7 @@ export type Database = {
           maps_url?: string | null
           phone?: string | null
           profile_type: string
+          public_code?: string
           slug: string
           status?: string
           theme?: string
@@ -211,6 +217,7 @@ export type Database = {
           maps_url?: string | null
           phone?: string | null
           profile_type?: string
+          public_code?: string
           slug?: string
           status?: string
           theme?: string

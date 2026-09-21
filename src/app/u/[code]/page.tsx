@@ -3,59 +3,44 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
-import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
+import { getCachedPublicProfileByCode } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
 import { getWalletReadiness } from "@/features/wallet/actions";
 import { identityUrlForPublicCode } from "@/domain/publicCode";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 
-type SlugPageProps = {
-  params: Promise<{ slug: string }>;
+type IdentityPageProps = {
+  params: Promise<{ code: string }>;
 };
 
-// Explicit: public profiles are per-request dynamic (dashboard edits are
-// immediately visible — zero stale). Cross-request memoization arrives via
-// tagged unstable_cache in publicCache.ts, not via route static/ISR.
+// Immutable identity URL (/u/{publicCode}, ADR-046): survives slug renames,
+// so saved wallet cards and shared links never rot. Same zero-stale dynamic
+// posture as the slug page; same global cache tag (one purge covers both).
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 function publicUrls(paths: { avatar: string | null; cover: string | null }) {
-  // Pure string-building (no Supabase client, no network) — see
-  // publicAssetPathUrl. Previously two throwaway createAdminClient() calls
-  // ran here on top of the data loader's own client.
   return {
     avatarUrl: publicAssetPathUrl(paths.avatar),
     coverUrl: publicAssetPathUrl(paths.cover),
   };
 }
 
-/**
- * Per-request deduped public-profile loader.
- * generateMetadata + page run in the same request; React `cache()` keys on
- * the slug string only. Cross-request memoization lives one layer deeper in
- * getCachedPublicProfileBySlug (tagged unstable_cache, purged on every
- * dashboard write — zero stale). No long-term TTL caching of profile data.
- */
-const loadPublicProfile = cache(async (slug: string) => {
+const loadIdentityProfile = cache(async (code: string) => {
   if (!isSupabaseConfigured()) return null;
-  return getCachedPublicProfileBySlug(slug);
+  return getCachedPublicProfileByCode(code);
 });
 
-export async function generateMetadata({ params }: SlugPageProps): Promise<Metadata> {
-  const { slug } = await params;
-  // Probe only (no query, no client construction): preserves the distinct
-  // "Karti" fallback for misconfigured server reads; the loader below is
-  // the single query path.
+export async function generateMetadata({ params }: IdentityPageProps): Promise<Metadata> {
+  const { code } = await params;
   if (!isSupabaseConfigured()) {
     return { title: "Karti", robots: { index: false, follow: false } };
   }
-  const data = await loadPublicProfile(slug);
+  const data = await loadIdentityProfile(code);
   if (!data) {
     return { title: "Profile unavailable | Karti", robots: { index: false, follow: false } };
   }
   const { avatarUrl } = publicUrls({ avatar: data.profile.avatar_path, cover: null });
-  // Canonical identity: slug URLs stay human-friendly, but /u/{publicCode}
-  // is the permanent address (survives renames, embedded in wallet cards).
   const canonical = identityUrlForPublicCode(getAppUrl(), data.profile.public_code);
   return {
     title: publicProfileTitle(data.profile),
@@ -71,18 +56,15 @@ export async function generateMetadata({ params }: SlugPageProps): Promise<Metad
   };
 }
 
-export default async function PublicProfilePage({ params }: SlugPageProps) {
-  const { slug } = await params;
-  const data = await loadPublicProfile(slug);
+export default async function IdentityProfilePage({ params }: IdentityPageProps) {
+  const { code } = await params;
+  const data = await loadIdentityProfile(code);
   if (!data) notFound();
 
   const { avatarUrl, coverUrl } = publicUrls({
     avatar: data.profile.avatar_path,
     cover: data.profile.cover_path,
   });
-  // Preconnect to the Supabase storage origin so the LCP image (avatar or
-  // cover) skips DNS+TLS setup on the critical path. Rendered as hoisted
-  // <link> tags (React 19); zero JS cost.
   const origin = storageOrigin();
   const readiness = getWalletReadiness();
 
