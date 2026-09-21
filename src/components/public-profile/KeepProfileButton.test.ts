@@ -4,13 +4,20 @@ import { createElement } from "react";
 import {
   ANDROID_MANUAL_HINT,
   DESKTOP_KEEP_MESSAGE,
+  IOS_NON_SAFARI_NOTE,
   KeepProfileButton,
+  ctaTitleForEnvironment,
+  detectInstallEnvironment,
   detectInstallPlatform,
   isRunningStandalone,
 } from "./KeepProfileButton";
 
 const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+const IPHONE_CHROME_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.6099.119 Mobile/15E148 Safari/604.1";
+const IPHONE_FIREFOX_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/120.0 Mobile/15E148 Safari/605.1.15";
 const IPAD_UA =
   "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 const ANDROID_CHROME_UA =
@@ -47,17 +54,48 @@ describe("isRunningStandalone", () => {
   });
 });
 
+describe("detectInstallEnvironment", () => {
+  it("routes iOS Safari to the illustrated guide flow", () => {
+    expect(detectInstallEnvironment(IPHONE_UA)).toBe("ios-safari");
+    expect(detectInstallEnvironment(IPAD_UA)).toBe("ios-safari");
+  });
+
+  it("routes iOS Chrome/Firefox to the open-in-Safari flow", () => {
+    expect(detectInstallEnvironment(IPHONE_CHROME_UA)).toBe("ios-other");
+    expect(detectInstallEnvironment(IPHONE_FIREFOX_UA)).toBe("ios-other");
+  });
+
+  it("routes Android and desktop correctly", () => {
+    expect(detectInstallEnvironment(ANDROID_CHROME_UA)).toBe("android");
+    expect(detectInstallEnvironment(DESKTOP_UA)).toBe("desktop");
+    expect(detectInstallEnvironment("")).toBe("desktop");
+  });
+});
+
+describe("ctaTitleForEnvironment", () => {
+  it("never promises installation where none exists", () => {
+    expect(ctaTitleForEnvironment("ios-safari", false)).toBe("Add to Home Screen");
+    expect(ctaTitleForEnvironment("ios-other", false)).toBe(
+      "Open in Safari to save this card",
+    );
+    expect(ctaTitleForEnvironment("android", false)).toBe("Install Digital Card");
+    expect(ctaTitleForEnvironment("desktop", false)).toBe("Add to Phone");
+    expect(ctaTitleForEnvironment(null, false)).toBe("Add to Phone");
+    expect(ctaTitleForEnvironment("android", true)).toBe("Preparing…");
+  });
+});
+
 describe("KeepProfileButton markup", () => {
   function render(dark = false): string {
     return renderToStaticMarkup(createElement(KeepProfileButton, { dark }));
   }
 
-  it("renders the Keep CTA with its caption before hydration", () => {
+  it("renders the generic CTA with its caption before hydration", () => {
     const html = render();
-    expect(html).toContain("Keep Profile");
+    expect(html).toContain("Add to Phone");
     expect(html).toContain("Keep this digital card on your phone");
     expect(html).toContain("<button");
-    expect(html).toContain('aria-label="Keep Profile');
+    expect(html).toContain('aria-label="Add to Phone');
   });
 
   it("shows no install modal, no manual hint, and no wallet wording initially", () => {
@@ -69,11 +107,12 @@ describe("KeepProfileButton markup", () => {
 
   it("keeps the CTA usable in dark mode with accessible targets", () => {
     const html = render(true);
-    expect(html).toContain("Keep Profile");
+    expect(html).toContain("Add to Phone");
     expect(html).toContain("min-h-[68px]");
   });
 
-  it("exports the exact desktop guidance copy", () => {
+  it("exports the exact desktop and non-Safari guidance copy", () => {
     expect(DESKTOP_KEEP_MESSAGE).toBe("Open this profile on your phone to keep it.");
+    expect(IOS_NON_SAFARI_NOTE).toContain("Only Safari on iPhone");
   });
 });

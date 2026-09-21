@@ -96,6 +96,22 @@ describe("renderProfileIcon", () => {
     expect(meta.height).toBe(512);
   });
 
+  it("pads the 512 maskable variant so edges carry the accent backdrop", async () => {
+    vi.mocked(getCachedPublicProfileByCode).mockResolvedValue(ACTIVE_DATA as never);
+    const source = await widePng();
+    const body = Uint8Array.from(source);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 200 })),
+    );
+    const rendered = await renderProfileIcon("A8K29MPQ2Z", "icon-512.png");
+    expect(rendered).not.toBeNull();
+    // Corner pixel must be the accent backdrop (#123456 from ACTIVE_DATA),
+    // proving the safe-zone pad — not a stretched face.
+    const { data } = await sharp(rendered?.png).raw().toBuffer({ resolveWithObject: true });
+    expect([data[0], data[1], data[2]]).toEqual([0x12, 0x34, 0x56]);
+  });
+
   it("falls back to the initials tile when no avatar exists", async () => {
     vi.mocked(getCachedPublicProfileByCode).mockResolvedValue({
       profile: { ...ACTIVE_PROFILE, avatar_path: null },

@@ -16,6 +16,15 @@ export type RenderedIcon = {
   file: ProfileIconFile;
 };
 
+/**
+ * The 512 entry doubles as the manifest's maskable icon
+ * (`purpose: "any maskable"`): keep the subject inside the center ~80%
+ * safe zone so Android adaptive cropping (circle/squircle) never clips a
+ * face, padding outward with the profile accent.
+ */
+export const MASKABLE_ICON_FILE: ProfileIconFile = "icon-512.png";
+export const MASKABLE_INNER_RATIO = 0.8;
+
 async function loadSharp(): Promise<typeof import("sharp").default | null> {
   try {
     const mod = await import("sharp");
@@ -58,13 +67,29 @@ export async function renderProfileIcon(
   }
   if (!data) return null;
 
+  const maskable = file === MASKABLE_ICON_FILE;
+  const inner = maskable ? Math.round(px * MASKABLE_INNER_RATIO) : px;
+  const backdrop = iconBackground(data.profile.accent_color);
+  const finish = (input: Buffer): Promise<Buffer> => {
+    let pipeline = sharp(input).resize(inner, inner, { fit: "cover", position: "centre" });
+    if (maskable) {
+      const total = px - inner;
+      const leading = Math.floor(total / 2);
+      pipeline = pipeline.extend({
+        top: leading,
+        left: leading,
+        bottom: total - leading,
+        right: total - leading,
+        background: backdrop,
+      });
+    }
+    return pipeline.png().toBuffer();
+  };
+
   const avatarBytes = await fetchAvatarBytes(data.profile.avatar_path);
   if (avatarBytes) {
     try {
-      const png = await sharp(avatarBytes)
-        .resize(px, px, { fit: "cover", position: "centre" })
-        .png()
-        .toBuffer();
+      const png = await finish(avatarBytes);
       return { png, file };
     } catch {
       // Fall through to the initials tile.
@@ -72,12 +97,8 @@ export async function renderProfileIcon(
   }
 
   try {
-    const svg = iconFallbackSvg(
-      iconInitials(data.profile.display_name),
-      iconBackground(data.profile.accent_color),
-      px,
-    );
-    const png = await sharp(Buffer.from(svg, "utf8")).resize(px, px).png().toBuffer();
+    const svg = iconFallbackSvg(iconInitials(data.profile.display_name), backdrop, inner);
+    const png = await finish(Buffer.from(svg, "utf8"));
     return { png, file };
   } catch {
     return null;

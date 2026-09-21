@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
-import { manifestThemeColor } from "@/features/pwa/manifest";
+import { manifestShortName, manifestThemeColor } from "@/features/pwa/manifest";
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileByCode } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
@@ -54,6 +54,15 @@ export async function generateMetadata({ params }: IdentityPageProps): Promise<M
     manifest: manifestPath,
     themeColor: manifestThemeColor(data.profile.accent_color),
     icons: { apple: `/u/${data.profile.public_code}/apple-touch-icon.png` },
+    // Apple home-screen web-app support: fullscreen-capable launch from
+    // the installed icon, default status bar, profile short name. The
+    // modern unprefixed equivalent rides along via `other`.
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: manifestShortName(data.profile.display_name),
+    },
+    other: { "mobile-web-app-capable": "yes" },
     openGraph: {
       title: publicProfileTitle(data.profile),
       description: publicProfileDescription(data.profile),

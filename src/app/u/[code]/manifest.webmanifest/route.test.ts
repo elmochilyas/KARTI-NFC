@@ -51,15 +51,21 @@ describe("GET /u/[code]/manifest.webmanifest", () => {
     expect(manifest.start_url).toBe("/u/A8K29MPQ2Z");
     expect(manifest.id).toBe("/u/A8K29MPQ2Z");
     expect(manifest.display).toBe("standalone");
+    expect(manifest.scope).toBe("/u/A8K29MPQ2Z");
     expect(manifest.theme_color).toBe("#123456");
-    const icons = manifest.icons as { src: string; sizes: string; type: string }[];
-    expect(icons).toHaveLength(2);
+    const icons = manifest.icons as { src: string; sizes: string; type: string; purpose?: string }[];
+    expect(icons).toHaveLength(3);
     expect(icons[0]).toMatchObject({
       sizes: "192x192",
       type: "image/png",
     });
     expect(icons[0]?.src).toContain("/u/A8K29MPQ2Z/icon-192.png");
     expect(icons[1]?.src).toContain("/u/A8K29MPQ2Z/icon-512.png");
+    expect(icons[2]).toMatchObject({
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "any maskable",
+    });
   });
 
   it("never points start_url at a slug or an NFC /t/ destination", async () => {

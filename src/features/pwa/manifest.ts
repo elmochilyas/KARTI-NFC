@@ -29,6 +29,8 @@ export type ProfileManifestIcon = {
   src: string;
   sizes: string;
   type: string;
+  /** e.g. "any maskable" for the adaptive 512 entry; omitted otherwise. */
+  purpose?: string;
 };
 
 export type ProfileManifest = {
@@ -37,6 +39,8 @@ export type ProfileManifest = {
   description: string;
   id: string;
   start_url: string;
+  /** Navigation containment for the standalone window (Phase 23). */
+  scope: string;
   display: typeof MANIFEST_DISPLAY;
   background_color: string;
   theme_color: string;
@@ -88,6 +92,9 @@ export function buildProfileManifest(input: ProfileManifestInput): ProfileManife
     description: bio === "" ? MANIFEST_DESCRIPTION_FALLBACK : bio.slice(0, 140),
     id: startUrl,
     start_url: startUrl,
+    // Standalone windows stay inside this profile's identity URL — the
+    // installed card never navigates into a generic scope.
+    scope: startUrl,
     display: MANIFEST_DISPLAY,
     background_color: MANIFEST_BACKGROUND_COLOR,
     theme_color: manifestThemeColor(input.accentColor),
@@ -101,6 +108,15 @@ export function buildProfileManifest(input: ProfileManifestInput): ProfileManife
         src: manifestIconUrl(input.appUrl, input.publicCode, "icon-512.png"),
         sizes: "512x512",
         type: "image/png",
+      },
+      // Adaptive-icon entry for Android launchers: the 512 route renders
+      // with a maskable safe-zone pad (see iconImage.ts), so this entry
+      // survives circle/squircle cropping. Same bytes URL, purpose only.
+      {
+        src: manifestIconUrl(input.appUrl, input.publicCode, "icon-512.png"),
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any maskable",
       },
     ],
   };

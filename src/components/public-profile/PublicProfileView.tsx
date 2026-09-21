@@ -11,12 +11,14 @@ import {
 } from "./brandIcons";
 import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
 import { KeepProfileButton } from "./KeepProfileButton";
+import { PwaDiagnostics } from "./PwaDiagnostics";
 import { ShareProfileButton } from "./ShareProfileButton";
 import type { PublicLink, PublicProfile } from "@/features/profiles/public";
 
 /**
  * Premium hero-first public profile view — server-rendered except the tiny
- * Share + Keep islands. Section order: hero → quick tiles → information →
+ * Share + Keep islands (plus the dev-only PWA diagnostics island, inert in
+ * production). Section order: hero → quick tiles → information →
  * about → more links → keep this card → share → footer. Content-driven:
  * every section omits itself cleanly when its data is absent. No fake data.
  * Keep Profile installs THIS profile as a home-screen app via its
@@ -57,77 +59,95 @@ function Hero({
   avatarUrl,
   coverUrl,
   isBusiness,
+  dark,
 }: {
   profile: PublicProfile;
   avatarUrl: string | null;
   coverUrl: string | null;
   isBusiness: boolean;
+  dark: boolean;
 }) {
   const categoryParts = [profile.job_title?.trim(), profile.company_name?.trim()].filter(
     (part): part is string => !!part && part !== profile.display_name.trim(),
   );
   const category = categoryParts.join(" • ").toUpperCase() || null;
   const tagline = profile.bio?.trim() || null;
+  // Premium avatar treatment: crisp white ring (reads on any cover color)
+  // + soft accent halo + deep soft shadow. Same in both themes so the
+  // avatar anchors the cover/sheet seam instead of melting into it.
+  const avatarHalo = {
+    boxShadow:
+      "0 18px 44px rgba(2,12,27,0.35), 0 0 0 6px color-mix(in srgb, var(--karti-accent) 16%, transparent)",
+  } as const;
+  const nameClass = dark ? "text-neutral-50" : "text-[#0F172A]";
+  const taglineClass = dark ? "text-neutral-300" : "text-[#475569]";
 
   return (
-    <section aria-label="Profile cover" className="relative overflow-hidden">
-      {coverUrl ? (
-        <Image
-          src={coverUrl}
-          alt=""
-          aria-hidden="true"
-          fill
-          priority
-          fetchPriority="high"
-          sizes="(max-width: 480px) 100vw, 480px"
-          className="object-cover brightness-[0.8]"
-        />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(130% 80% at 50% -10%, color-mix(in srgb, var(--karti-accent) 45%, transparent) 0%, transparent 55%), linear-gradient(165deg, #0b1c33 0%, #060d18 70%)",
-          }}
-        />
-      )}
-      {/* Layered legibility scrim: softens the photo so the avatar + name
-          stay the focus, and lifts body-text contrast on any cover. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/85"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent"
-      />
-      <div className="relative flex min-h-[220px] flex-col items-center justify-end px-6 pt-14 pb-16 text-center">
+    <>
+      <section
+        aria-label="Profile cover"
+        className={`relative h-52 w-full overflow-hidden border-b sm:h-60 ${
+          dark
+            ? "border-white/10 shadow-[0_16px_28px_-20px_rgba(0,0,0,0.9)]"
+            : "border-[#E2E8F0] shadow-[0_1px_0_rgba(15,35,60,0.04),0_16px_28px_-20px_rgba(15,35,60,0.35)]"
+        }`}
+      >
+        {coverUrl ? (
+          <Image
+            src={coverUrl}
+            alt=""
+            aria-hidden="true"
+            fill
+            priority
+            fetchPriority="high"
+            sizes="(max-width: 480px) 100vw, 480px"
+            className="object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(130% 80% at 50% -10%, color-mix(in srgb, var(--karti-accent) 45%, transparent) 0%, transparent 55%), linear-gradient(165deg, #0b1c33 0%, #060d18 70%)",
+            }}
+          />
+        )}
+      </section>
+      <section
+        aria-label="Profile identity"
+        className="relative flex flex-col items-center px-6 pt-0 pb-3 text-center"
+      >
         {isBusiness ? (
           avatarUrl ? (
-            <span className="flex h-24 w-24 items-center justify-center rounded-[26px] bg-white p-1 shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-2 ring-white/70">
+            <span
+              className="-mt-14 flex h-28 w-28 items-center justify-center rounded-[28px] bg-white p-1.5 ring-4 ring-white"
+              style={avatarHalo}
+            >
               <Image
                 src={avatarUrl}
                 alt={`${profile.display_name} logo`}
-                width={192}
-                height={192}
-                sizes="96px"
+                width={224}
+                height={224}
+                sizes="112px"
                 // LCP discipline: exactly one preloaded image per view. Cover
                 // owns priority when present; otherwise the avatar is the LCP
                 // and takes it. Never two `priority` images on one tap.
                 priority={!coverUrl}
                 fetchPriority={coverUrl ? "auto" : "high"}
                 loading={coverUrl ? "eager" : undefined}
-                className="h-full w-full rounded-[21px] object-cover"
+                className="h-full w-full rounded-[22px] object-cover"
               />
             </span>
           ) : (
             <span
               aria-hidden="true"
-              className="flex h-24 w-24 items-center justify-center rounded-[26px] text-3xl font-extrabold text-white shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-2 ring-white/70"
+              className="-mt-14 flex h-28 w-28 items-center justify-center rounded-[28px] text-4xl font-extrabold text-white ring-4 ring-white"
               style={{
                 background:
                   "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 55%, black))",
+                boxShadow:
+                  "0 18px 44px rgba(2,12,27,0.35), 0 0 0 6px color-mix(in srgb, var(--karti-accent) 16%, transparent)",
               }}
             >
               {initialsOf(profile.display_name)}
@@ -137,48 +157,55 @@ function Hero({
           <Image
             src={avatarUrl}
             alt={`${profile.display_name} profile photo`}
-            width={192}
-            height={192}
-            sizes="96px"
+            width={224}
+            height={224}
+            sizes="112px"
             priority={!coverUrl}
             fetchPriority={coverUrl ? "auto" : "high"}
             loading={coverUrl ? "eager" : undefined}
-            className="h-24 w-24 rounded-full object-cover shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-4 ring-white"
+            className="-mt-14 h-28 w-28 rounded-full object-cover ring-4 ring-white"
+            style={avatarHalo}
           />
         ) : (
           <span
             aria-hidden="true"
-            className="flex h-24 w-24 items-center justify-center rounded-full text-4xl font-extrabold text-white shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-4 ring-white"
+            className="-mt-14 flex h-28 w-28 items-center justify-center rounded-full text-5xl font-extrabold text-white ring-4 ring-white"
             style={{
               background:
                 "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 55%, black))",
+              boxShadow:
+                "0 18px 44px rgba(2,12,27,0.35), 0 0 0 6px color-mix(in srgb, var(--karti-accent) 16%, transparent)",
             }}
           >
             {initialsOf(profile.display_name)}
           </span>
         )}
         <h1
-          className="mt-3 max-w-full text-[28px] leading-[1.05] font-extrabold tracking-tight break-words text-white"
-          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.65)" }}
+          className={`mt-4 max-w-full text-[30px] leading-[1.05] font-extrabold tracking-tight break-words text-balance ${nameClass}`}
         >
           {profile.display_name}
         </h1>
         {category ? (
-          <p className="mt-2 inline-flex max-w-full items-center justify-center rounded-full border border-white/30 bg-white/20 px-3 py-1 text-center text-[10px] font-bold tracking-[0.14em] break-words text-white uppercase backdrop-blur-sm">
+          <p
+            className="mt-2.5 inline-flex max-w-full items-center justify-center rounded-full px-3.5 py-1.5 text-center text-[10px] font-bold tracking-[0.14em] break-words uppercase"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--karti-accent) 12%, transparent)",
+              color: "var(--karti-accent)",
+            }}
+          >
             {category}
           </p>
         ) : null}
         {tagline ? (
           <p
-            className="mt-2 line-clamp-3 max-w-[26rem] text-[14px] leading-snug break-words text-white/95"
-            style={{ textShadow: "0 1px 14px rgba(0,0,0,0.65)" }}
+            className={`mt-2.5 max-w-[26rem] text-[14px] leading-relaxed break-words ${taglineClass}`}
             title={tagline}
           >
             {tagline}
           </p>
         ) : null}
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -259,7 +286,7 @@ function QuickTiles({ actions, dark }: { actions: QuickAction[]; dark: boolean }
   return (
     <nav
       aria-label="Quick actions"
-      className="karti-rise relative z-10 -mt-10 grid w-full gap-2"
+      className="karti-rise grid w-full gap-2"
       style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}
     >
       {actions.map((action) => {
@@ -388,12 +415,16 @@ export function PublicProfileView({
             : "bg-[#F4F8FC] shadow-[0_40px_100px_-32px_rgba(15,35,60,0.4)] ring-black/5"
         }`}
       >
-        <Hero profile={profile} avatarUrl={avatarUrl} coverUrl={coverUrl} isBusiness={isBusiness} />
+        <Hero
+          profile={profile}
+          avatarUrl={avatarUrl}
+          coverUrl={coverUrl}
+          isBusiness={isBusiness}
+          dark={dark}
+        />
 
         <div
-          className={`relative rounded-t-[28px] px-4 pt-4 pb-8 ${
-            dark ? "bg-neutral-950" : "bg-[#F4F8FC]"
-          }`}
+          className={`relative px-4 pt-5 pb-8 ${dark ? "bg-neutral-950" : "bg-[#F4F8FC]"}`}
         >
           <QuickTiles actions={quickActions} dark={dark} />
 
@@ -552,13 +583,16 @@ export function PublicProfileView({
             ) : null}
 
             <section
-              aria-label="Keep this card"
+              aria-label="Keep this digital card"
               className="karti-rise"
               style={{ animationDelay: "220ms" }}
             >
               <h2 className={`px-1 text-xs font-bold tracking-[0.18em] uppercase ${mutedClass}`}>
-                Keep this card
+                Keep this digital card
               </h2>
+              <p className={`mt-1 px-1 text-[13px] leading-snug font-medium ${mutedClass}`}>
+                Add it to your phone for quick access anytime
+              </p>
               <div className="mt-2.5">
                 <KeepProfileButton dark={dark} accent={accent} />
               </div>
@@ -571,6 +605,7 @@ export function PublicProfileView({
             <div className="pt-1 text-center">
               <KartiAttribution dark={dark} />
             </div>
+            <PwaDiagnostics />
           </div>
         </div>
       </div>
