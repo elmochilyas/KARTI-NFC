@@ -2198,6 +2198,63 @@ See ADR-044.
 
 ---
 
+# Phase 19 — Public Profile Mobile Card UX (top tiles + hero + connect + share)
+
+Premium mobile-first contact-card pass. UI/components/styling only: no
+database, profile-data, route, resolver, vCard, or security-model changes.
+
+## 19.1 Top action cards
+
+- [x] 3 equal cards in a row (Instagram | WhatsApp | Call via existing
+      `pickQuickActions` order), centered icon + title + short sublabel.
+- [x] Equal widths (`repeat(n, minmax(0, 1fr))`), `min-h-[110px]`,
+      320px+ responsive (13px/11px type, `px-2`, `min-w-0`, `break-words`).
+- [x] Natural wrapping, no ellipsis (`truncate` removed from tiles).
+- [x] Human sublabels: Instagram "View profile", WhatsApp "Chat now",
+      Call "Tap to call", Website "Visit website", generic "Tap to open".
+
+## 19.2 Real brand icons + interaction + a11y
+
+- [x] Instagram official gradient tile, WhatsApp official green circle,
+      phone glyph for Call in an accent-tinted circle (48px, centered).
+- [x] Other social glyphs keep official colors; X/TikTok adapt to theme.
+- [x] Hover lift on desktop, `active:scale-[0.96]` press on mobile,
+      `focus-visible` rings, `aria-label` ("Label — sublabel") on every tile.
+
+## 19.3 Hero
+
+- [x] Reduced photo dominance (`brightness-[0.8]` + stronger
+      `from-black/70 via-black/30 to-black/85` scrim + bottom gradient).
+- [x] Improved text contrast (white/95 tagline, stronger text shadows,
+      higher-contrast category pill).
+- [x] Profile photo stays the focus (80px → 96px avatar/logo, thicker
+      ring, deeper shadow).
+- [x] Category/tagline wrap (`line-clamp-3`, `break-words`) instead of
+      truncating.
+
+## 19.4 Connect cards + Share final CTA
+
+- [x] Connect rows use human CTAs (`connectSublabel`): LinkedIn
+      "Connect with me" (no technical hostname), Instagram "View profile",
+      per-brand CTAs elsewhere, generic "Tap to open".
+- [x] Share is the strong bottom action: "Share my profile" /
+      "Send my digital card", accent fill, `min-h-[68px]`, `rounded-[20px]`.
+- [x] Dashboard inert preview copy aligned ("Share my profile").
+
+### Phase 19 gate
+
+- [x] Typecheck passes.
+- [x] Lint passes.
+- [x] Tests pass (35 files / 388 tests, incl. new `PublicProfileViewCards.test.ts`).
+- [x] Production build passes.
+- [ ] `format:check` — pre-existing repo-wide CRLF baseline failure (identical at HEAD; documented, not introduced here).
+- [ ] Screenshots comparison — no screenshot tooling in this environment (markup assertions + operator eyeball pass at 320/390px pending).
+
+> 2026-09-21: implemented + verified per plan. Human confirmations:
+> on-device tap/eyeball at 320/390px + screenshots comparison.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

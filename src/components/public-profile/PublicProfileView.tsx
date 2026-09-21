@@ -6,6 +6,7 @@ import {
   pickQuickActions,
   QuickTileIcon,
   RowBrandIcon,
+  type BrandKey,
   type QuickAction,
 } from "./brandIcons";
 import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
@@ -18,7 +19,7 @@ import type { PublicLink, PublicProfile } from "@/features/profiles/public";
  * about → more links → share → footer. Content-driven: every section omits
  * itself cleanly when its data is absent. No fake data. Contact saving is
  * deliberately not the primary action (vCard endpoint kept for later use);
- * the final CTA is Share Profile.
+ * the final CTA is Share my profile.
  */
 
 function isHttpUrl(url: string): boolean {
@@ -77,7 +78,7 @@ function Hero({
           fill
           priority
           sizes="(max-width: 480px) 100vw, 480px"
-          className="object-cover"
+          className="object-cover brightness-[0.8]"
         />
       ) : (
         <div
@@ -85,32 +86,38 @@ function Hero({
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(130% 80% at 50% -10%, color-mix(in srgb, var(--karti-accent) 60%, transparent) 0%, transparent 55%), linear-gradient(165deg, #0b1c33 0%, #060d18 70%)",
+              "radial-gradient(130% 80% at 50% -10%, color-mix(in srgb, var(--karti-accent) 45%, transparent) 0%, transparent 55%), linear-gradient(165deg, #0b1c33 0%, #060d18 70%)",
           }}
         />
       )}
+      {/* Layered legibility scrim: softens the photo so the avatar + name
+          stay the focus, and lifts body-text contrast on any cover. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/75"
+        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/85"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent"
       />
       <div className="relative flex min-h-[220px] flex-col items-center justify-end px-6 pt-14 pb-16 text-center">
         {isBusiness ? (
           avatarUrl ? (
-            <span className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-white p-1 shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-1 ring-white/40">
+            <span className="flex h-24 w-24 items-center justify-center rounded-[26px] bg-white p-1 shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-2 ring-white/70">
               <Image
                 src={avatarUrl}
                 alt={`${profile.display_name} logo`}
-                width={160}
-                height={160}
-                sizes="80px"
+                width={192}
+                height={192}
+                sizes="96px"
                 loading="eager"
-                className="h-full w-full rounded-[19px] object-cover"
+                className="h-full w-full rounded-[21px] object-cover"
               />
             </span>
           ) : (
             <span
               aria-hidden="true"
-              className="flex h-20 w-20 items-center justify-center rounded-[24px] text-2xl font-extrabold text-white shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-1 ring-white/40"
+              className="flex h-24 w-24 items-center justify-center rounded-[26px] text-3xl font-extrabold text-white shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-2 ring-white/70"
               style={{
                 background:
                   "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 55%, black))",
@@ -123,16 +130,16 @@ function Hero({
           <Image
             src={avatarUrl}
             alt={`${profile.display_name} profile photo`}
-            width={160}
-            height={160}
-            sizes="80px"
+            width={192}
+            height={192}
+            sizes="96px"
             loading="eager"
-            className="h-20 w-20 rounded-full object-cover shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-[3px] ring-white"
+            className="h-24 w-24 rounded-full object-cover shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-4 ring-white"
           />
         ) : (
           <span
             aria-hidden="true"
-            className="flex h-20 w-20 items-center justify-center rounded-full text-3xl font-extrabold text-white shadow-[0_14px_36px_rgba(0,0,0,0.45)] ring-[3px] ring-white"
+            className="flex h-24 w-24 items-center justify-center rounded-full text-4xl font-extrabold text-white shadow-[0_18px_44px_rgba(0,0,0,0.55)] ring-4 ring-white"
             style={{
               background:
                 "linear-gradient(135deg, var(--karti-accent), color-mix(in srgb, var(--karti-accent) 55%, black))",
@@ -143,19 +150,19 @@ function Hero({
         )}
         <h1
           className="mt-3 max-w-full text-[28px] leading-[1.05] font-extrabold tracking-tight break-words text-white"
-          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.55)" }}
+          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.65)" }}
         >
           {profile.display_name}
         </h1>
         {category ? (
-          <p className="mt-2 inline-flex max-w-full items-center truncate rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10px] font-bold tracking-[0.14em] text-white uppercase backdrop-blur-sm">
+          <p className="mt-2 inline-flex max-w-full items-center justify-center rounded-full border border-white/30 bg-white/20 px-3 py-1 text-center text-[10px] font-bold tracking-[0.14em] break-words text-white uppercase backdrop-blur-sm">
             {category}
           </p>
         ) : null}
         {tagline ? (
           <p
-            className="mt-2 max-w-[26rem] truncate text-[14px] leading-snug break-words text-white/90"
-            style={{ textShadow: "0 1px 12px rgba(0,0,0,0.5)" }}
+            className="mt-2 line-clamp-3 max-w-[26rem] text-[14px] leading-snug break-words text-white/95"
+            style={{ textShadow: "0 1px 14px rgba(0,0,0,0.65)" }}
             title={tagline}
           >
             {tagline}
@@ -177,46 +184,96 @@ function tileSublabel(action: QuickAction): string | null {
     case "email":
       return "Send mail";
     case "whatsapp":
-      return "Chat instantly";
+      return "Chat now";
     case "instagram":
       return "View profile";
     case "website":
-      return prettyWebsite(action.href);
+      return "Visit website";
     default:
-      return "Open";
+      return "Tap to open";
+  }
+}
+
+/**
+ * Human call-to-action subtitles for the Connect rows. Social brands get
+ * a friendly CTA ("Connect with me") instead of a technical hostname;
+ * generic links fall back to "Tap to open".
+ */
+function connectSublabel(brand: BrandKey, url: string): string {
+  switch (brand) {
+    case "linkedin":
+      return "Connect with me";
+    case "instagram":
+      return "View profile";
+    case "whatsapp":
+      return "Chat now";
+    case "facebook":
+      return "Follow me";
+    case "tiktok":
+      return "Watch videos";
+    case "youtube":
+      return "Watch channel";
+    case "x":
+      return "Follow me";
+    case "telegram":
+      return "Message me";
+    case "snapchat":
+      return "Add me";
+    case "google":
+      return "Leave a review";
+    case "maps":
+      return "Get directions";
+    case "booking":
+      return "Book now";
+    case "call":
+      return "Tap to call";
+    case "email":
+      return "Send mail";
+    case "website":
+      return "Visit website";
+    default:
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        return host ? `Open ${host}` : "Tap to open";
+      } catch {
+        return "Tap to open";
+      }
   }
 }
 
 function QuickTiles({ actions, dark }: { actions: QuickAction[]; dark: boolean }) {
   if (actions.length === 0) return null;
   const tileClass = dark
-    ? "border-white/15 bg-[#0e2238]/95 text-white shadow-[0_12px_32px_rgba(7,20,35,0.5)] backdrop-blur hover:bg-[#14304f]"
-    : "border-[#E7EDF4] bg-white text-text shadow-[0_12px_32px_rgba(15,35,60,0.14)] hover:bg-[#F8FAFD]";
-  const subClass = dark ? "text-white/60" : "text-muted";
+    ? "border-white/15 bg-[#0e2238]/95 text-white shadow-[0_12px_32px_rgba(7,20,35,0.5)] backdrop-blur hover:bg-[#14304f] hover:shadow-[0_16px_40px_rgba(7,20,35,0.6)]"
+    : "border-[#E7EDF4] bg-white text-text shadow-[0_12px_32px_rgba(15,35,60,0.14)] hover:bg-[#F8FAFD] hover:shadow-[0_16px_40px_rgba(15,35,60,0.2)]";
+  const subClass = dark ? "text-white/65" : "text-muted";
   return (
     <nav
       aria-label="Quick actions"
-      className="karti-rise relative z-10 -mt-10 grid gap-2.5"
+      className="karti-rise relative z-10 -mt-10 grid w-full gap-2"
       style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}
     >
       {actions.map((action) => {
         const sub = tileSublabel(action);
+        const accessibleName = sub ? `${action.label} — ${sub}` : action.label;
         const body = (
           <>
             <QuickTileIcon brand={action.brand} dark={dark} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-left text-[14px] leading-tight font-bold">
+            <span className="flex w-full min-w-0 flex-col items-center">
+              <span className="block w-full text-center text-[13px] leading-tight font-bold break-words">
                 {action.label}
               </span>
               {sub ? (
-                <span className={`block truncate text-left text-[11px] font-medium ${subClass}`}>
+                <span
+                  className={`mt-0.5 block w-full text-center text-[11px] leading-snug font-medium break-words ${subClass}`}
+                >
                   {sub}
                 </span>
               ) : null}
             </span>
           </>
         );
-        const classes = `flex min-h-[76px] items-center gap-2.5 rounded-[18px] border px-3 py-2.5 transition hover:-translate-y-0.5 active:scale-[0.97] ${tileClass}`;
+        const classes = `flex min-h-[110px] w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-[20px] border px-2 py-3 text-center transition duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current active:scale-[0.96] ${tileClass}`;
         return action.external ? (
           <a
             key={action.id}
@@ -224,12 +281,19 @@ function QuickTiles({ actions, dark }: { actions: QuickAction[]; dark: boolean }
             target="_blank"
             rel="noopener noreferrer"
             className={classes}
-            title={sub ? `${action.label} — ${sub}` : action.label}
+            aria-label={accessibleName}
+            title={accessibleName}
           >
             {body}
           </a>
         ) : (
-          <a key={action.id} href={action.href} className={classes} title={action.label}>
+          <a
+            key={action.id}
+            href={action.href}
+            className={classes}
+            aria-label={accessibleName}
+            title={accessibleName}
+          >
             {body}
           </a>
         );
@@ -446,34 +510,40 @@ export function PublicProfileView({
                   Connect
                 </h2>
                 <nav aria-label="More links" className="mt-2.5 flex flex-col gap-2">
-                  {moreLinks.map((link) => (
-                    <a
-                      key={link.id}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex min-h-[60px] items-center gap-3 rounded-[18px] border px-3.5 py-2 transition hover:-translate-y-px active:scale-[0.99] ${cardClass}`}
-                    >
-                      <RowBrandIcon brand={detectBrand(link)} dark={dark} />
-                      <span className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-[15px] font-bold">{link.label}</span>
-                        <span className={`block truncate text-xs font-medium ${mutedClass}`}>
-                          {prettyWebsite(link.url)}
+                  {moreLinks.map((link) => {
+                    const brand = detectBrand(link);
+                    const cta = connectSublabel(brand, link.url);
+                    return (
+                      <a
+                        key={link.id}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${link.label} — ${cta}`}
+                        title={`${link.label} — ${cta}`}
+                        className={`flex min-h-[60px] items-center gap-3 rounded-[18px] border px-3.5 py-2 transition hover:-translate-y-px active:scale-[0.99] ${cardClass}`}
+                      >
+                        <RowBrandIcon brand={brand} dark={dark} />
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="block truncate text-[15px] font-bold">{link.label}</span>
+                          <span className={`block truncate text-xs font-medium ${mutedClass}`}>
+                            {cta}
+                          </span>
                         </span>
-                      </span>
-                      <LuChevronRight
-                        size={18}
-                        aria-hidden="true"
-                        className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
-                      />
-                    </a>
-                  ))}
+                        <LuChevronRight
+                          size={18}
+                          aria-hidden="true"
+                          className={`shrink-0 ${dark ? "text-neutral-500" : "text-muted"}`}
+                        />
+                      </a>
+                    );
+                  })}
                 </nav>
               </section>
             ) : null}
 
             <div className="karti-rise" style={{ animationDelay: "240ms" }}>
-              <ShareProfileButton title={profile.display_name} dark={dark} />
+              <ShareProfileButton title={profile.display_name} dark={dark} accent={accent} />
             </div>
 
             <div className="pt-1 text-center">
