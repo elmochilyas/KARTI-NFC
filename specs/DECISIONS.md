@@ -1183,3 +1183,12 @@ remaining variable.
 If the editor opens, intent work ends. If `(I)` persists, Samsung rejects
 both MIME flavors and the Downloads floor (already in this build) is the
 shipped answer; no further intent variants are planned.
+
+> 2026-09-21 outcome (moratorium in effect): operator retest on merged PR
+> #10 — fresh tab, post-deploy, Samsung + Chrome — still fails with repeat
+> `(I)` plus a dead "Open Downloads" button. The pre-decision above now
+> applies: programmatic intent/share work is CLOSED (share-Files, INSERT
+> both flavors, VIEW both variants, VIEW_DOWNLOADS all exhausted on this
+> build). Remaining paths are operator-device experiments only: My Files
+> last-hop check, Samsung Internet tap test, Chrome Canary preferred-app
+> flag. No code changes ship for this flow until one of those reports back.
