@@ -61,7 +61,10 @@ afterEach(() => {
 function findView(element: unknown) {
   const root = element as { props: { children: unknown } };
   const children = root.props.children as unknown[];
-  const flat = children.flat(Infinity as 1) as { type?: unknown; props?: Record<string, unknown> }[];
+  const flat = children.flat(Infinity as 1) as {
+    type?: unknown;
+    props?: Record<string, unknown>;
+  }[];
   const view = flat.find((child) => child?.type === PublicProfileView);
   if (!view) throw new Error("PublicProfileView not found in page output");
   return view.props as Record<string, unknown>;

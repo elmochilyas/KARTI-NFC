@@ -89,10 +89,7 @@ export async function getPublicProfileBySlug(
       if ("profile_links" in row && Array.isArray(row.profile_links)) {
         const links = (row.profile_links as EmbeddedLinkRow[])
           .filter((link) => link.enabled === true)
-          .sort(
-            (a, b) =>
-              a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at),
-          )
+          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
           .map((link) => ({
             id: link.id,
             type: link.type,

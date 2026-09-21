@@ -31,10 +31,14 @@ async function fetchPublicProfile(slug: string): Promise<PublicProfileData | nul
   return getPublicProfileBySlug(slug, supabase);
 }
 
-export const getCachedPublicProfileBySlug = unstable_cache(fetchPublicProfile, ["public-profile-by-slug"], {
-  tags: [PUBLIC_PROFILES_TAG],
-  revalidate: false,
-});
+export const getCachedPublicProfileBySlug = unstable_cache(
+  fetchPublicProfile,
+  ["public-profile-by-slug"],
+  {
+    tags: [PUBLIC_PROFILES_TAG],
+    revalidate: false,
+  },
+);
 
 /** Purge all cached public profiles after any profile/link write.
  *

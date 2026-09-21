@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { PublicProfileView } from "@/components/public-profile/PublicProfileView";
-import {
-  publicProfileDescription,
-  publicProfileTitle,
-} from "@/features/profiles/public";
+import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
 import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
 import { isSupabaseConfigured } from "@/lib/env";
