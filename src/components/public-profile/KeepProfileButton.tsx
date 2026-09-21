@@ -187,7 +187,9 @@ export function KeepProfileButton({
           <span className="block text-[16px] leading-tight font-extrabold break-words">
             {installing ? "Preparing…" : "Keep Profile"}
           </span>
-          <span className={`mt-0.5 block text-[13px] leading-snug font-medium break-words ${mutedClass}`}>
+          <span
+            className={`mt-0.5 block text-[13px] leading-snug font-medium break-words ${mutedClass}`}
+          >
             Keep this digital card on your phone
           </span>
         </span>

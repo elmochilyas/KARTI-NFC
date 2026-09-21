@@ -20,10 +20,10 @@ async function loadSharp(): Promise<typeof import("sharp").default | null> {
   try {
     const mod = await import("sharp");
     const candidate =
-      (mod as unknown as { default?: unknown }).default ?? (mod as unknown as { sharp?: unknown }).sharp ?? mod;
-    return typeof candidate === "function"
-      ? (candidate as typeof import("sharp").default)
-      : null;
+      (mod as unknown as { default?: unknown }).default ??
+      (mod as unknown as { sharp?: unknown }).sharp ??
+      mod;
+    return typeof candidate === "function" ? (candidate as typeof import("sharp").default) : null;
   } catch {
     return null;
   }

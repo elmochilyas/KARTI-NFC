@@ -69,7 +69,10 @@ describe("renderProfileIcon", () => {
     vi.mocked(getCachedPublicProfileByCode).mockResolvedValue(ACTIVE_DATA as never);
     const source = await widePng();
     const body = Uint8Array.from(source);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 200 })),
+    );
     const rendered = await renderProfileIcon("a8k29mpq2z", "icon-192.png");
     expect(rendered).not.toBeNull();
     expect(rendered?.png.subarray(0, 8)).toEqual(PNG_SIGNATURE);
@@ -83,7 +86,10 @@ describe("renderProfileIcon", () => {
     vi.mocked(getCachedPublicProfileByCode).mockResolvedValue(ACTIVE_DATA as never);
     const source = await widePng();
     const body = Uint8Array.from(source);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 200 })),
+    );
     const rendered = await renderProfileIcon("A8K29MPQ2Z", "icon-512.png");
     const meta = await sharp(rendered?.png).metadata();
     expect(meta.width).toBe(512);

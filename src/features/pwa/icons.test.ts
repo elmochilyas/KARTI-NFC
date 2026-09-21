@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  PROFILE_ICON_SIZES,
-  iconBackground,
-  iconFallbackSvg,
-  iconInitials,
-} from "./icons";
+import { PROFILE_ICON_SIZES, iconBackground, iconFallbackSvg, iconInitials } from "./icons";
 
 describe("PROFILE_ICON_SIZES", () => {
   it("serves square install icons plus the iOS touch icon", () => {

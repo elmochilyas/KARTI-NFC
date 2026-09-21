@@ -134,6 +134,6 @@ describe("manifestThemeColor", () => {
     expect(manifestThemeColor("red")).toBe(MANIFEST_DEFAULT_THEME_COLOR);
     expect(manifestThemeColor("#fff")).toBe(MANIFEST_DEFAULT_THEME_COLOR);
     expect(manifestThemeColor("#12345678")).toBe(MANIFEST_DEFAULT_THEME_COLOR);
-    expect(manifestThemeColor('javascript:alert(1)')).toBe(MANIFEST_DEFAULT_THEME_COLOR);
+    expect(manifestThemeColor("javascript:alert(1)")).toBe(MANIFEST_DEFAULT_THEME_COLOR);
   });
 });
