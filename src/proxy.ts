@@ -77,5 +77,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Narrow matcher: dashboard + login only. Public hits (/t/[code], /[slug],
+  // marketing, images) never invoke this Edge function — zero proxy cost on
+  // the NFC tap path. Previously a broad negative-lookahead matcher ran Edge
+  // on every public request for a pathname check that always fell through.
+  matcher: ["/dashboard", "/dashboard/:path*", "/login"],
 };

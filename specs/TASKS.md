@@ -2255,6 +2255,49 @@ database, profile-data, route, resolver, vCard, or security-model changes.
 
 ---
 
+# Phase 20 — NFC Tap Performance Bundle (tap path + full app)
+
+Zero-stale constraint: dashboard edits stay instantly visible (no TTL
+caching). `307 + no-store` redirect kept (ADR-024). See ADR-045.
+
+## 20.1 Tap-path quick wins
+
+- [x] Proxy matcher narrowed to dashboard/login (public taps skip Edge).
+- [x] Single admin client per public request (pure URL builder, no probe client).
+- [x] `optimizePackageImports` for react-icons/lucide-react + `poweredByHeader: false`.
+- [x] One preloaded LCP image (cover XOR avatar) + `fetchPriority` + storage preconnect.
+
+## 20.2 Single-RTT data (embed + fallback, never fail a tap)
+
+- [x] Resolver: card + destination profile in one embed query, legacy two-query fallback.
+- [x] Public profile: profile + links in one embed query (JS filter/sort), legacy fallback.
+- [x] Migration `20260922_perf_public_reads` (3 composite indexes, additive only) applied live + verified.
+- [x] Embed syntax verified live via anon PostgREST (both queries OK, 0 rows under default-deny RLS).
+
+## 20.3 Zero-stale cross-request cache
+
+- [x] `publicCache.ts`: tagged `unstable_cache` (`revalidate: false`, purge-only) + `updateTag` purge helper.
+- [x] `/[slug]` serves from cache; profile/link dashboard writes purge instantly (slug renames covered by global tag).
+- [x] Resolver stays `no-store` (card switches bypass cache by construction).
+
+## 20.4 Dashboard/build hardening
+
+- [x] `qrcode` dynamically imported (out of initial dashboard chunk, never in public bundle).
+- [x] `Server-Timing` on `/t/[code]` redirect (sampling, never blocking).
+
+### Phase 20 gate
+
+- [x] Typecheck passes.
+- [x] Lint passes.
+- [x] Tests pass (36 files / 400 tests, incl. embed fast-path + cache + zero-client URL tests).
+- [x] Production build passes (`/[slug]` + `/t/[code]` dynamic as intended).
+- [ ] `format:check` — pre-existing repo-wide CRLF baseline failure (untouched files warn identically; no new debt).
+- [ ] Operator confirms ~1-2s tap on real device + destination-switch invariance (PROFILE→EXTERNAL→PROFILE, slug rename, DISABLED→404).
+
+> 2026-09-21: implemented + verified per plan (typecheck/lint/test/build green, indexes + embed syntax verified live, temp files removed). Human confirmations: real-device tap timing + 320/390px eyeball.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

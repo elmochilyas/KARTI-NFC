@@ -8,6 +8,11 @@ type ResolverRouteContext = {
   params: Promise<{ code: string }>;
 };
 
+// Explicit: resolver is per-tap dynamic, never static, never ISR. Destination
+// edits must take effect immediately (ADR-024).
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * GET /t/[code] — permanent card redirect resolver (ADR-003, ADR-024).
  *
@@ -18,6 +23,7 @@ type ResolverRouteContext = {
  * Every failure collapses to the branded unavailable page (no leaks).
  */
 export async function GET(_request: Request, { params }: ResolverRouteContext) {
+  const started = Date.now();
   const { code } = await params;
 
   let supabase;
@@ -41,5 +47,8 @@ export async function GET(_request: Request, { params }: ResolverRouteContext) {
 
   const response = NextResponse.redirect(target, { status: 307 });
   response.headers.set("Cache-Control", "no-store");
+  // Observability only: total resolver ms (validate + DB + redirect build).
+  // Sampled server-side via Vercel logs; never blocks the redirect.
+  response.headers.set("Server-Timing", `resolver;dur=${Date.now() - started}`);
   return response;
 }

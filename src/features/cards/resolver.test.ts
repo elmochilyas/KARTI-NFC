@@ -34,6 +34,19 @@ function fakeDb(card: Row | null, profile: Row | null): ResolverDb {
   } as unknown as ResolverDb;
 }
 
+/**
+ * Single-table fake for the embed fast path: every `from()` call answers
+ * with the same canned card row (which may carry an embedded `profiles`
+ * value), so the test can assert the resolver needed exactly one query.
+ */
+function embeddedCardTable(card: Row | null) {
+  const api: Record<string, unknown> = {};
+  api.select = vi.fn(() => api);
+  api.eq = vi.fn(() => api);
+  api.maybeSingle = vi.fn(async () => ({ data: card, error: null }));
+  return api;
+}
+
 describe("resolveCardDestination", () => {
   const ACTIVE_PROFILE: Row = { id: "profile-1", slug: "ahmed-benali", status: "ACTIVE" };
 
@@ -157,5 +170,45 @@ describe("resolveCardDestination", () => {
         fakeDb({ ...ACTIVE_PROFILE_CARD, destination_profile_id: null }, null),
       ),
     ).toEqual({ ok: false, reason: "INVALID_DESTINATION" });
+  });
+
+  describe("single-RTT embed fast path", () => {
+    it("resolves PROFILE from the embed without a second query", async () => {
+      const from = vi.fn((name: string) =>
+        name === "cards"
+          ? embeddedCardTable({
+              ...ACTIVE_PROFILE_CARD,
+              profiles: { slug: "ahmed-benali", status: "ACTIVE" },
+            })
+          : embeddedCardTable(null),
+      );
+      const db = { from } as unknown as ResolverDb;
+      const result = await resolveCardDestination("ABCDEFGH", db);
+      expect(result).toEqual({ ok: true, kind: "PROFILE", target: "/ahmed-benali" });
+      expect(from).toHaveBeenCalledTimes(1);
+      expect(from).toHaveBeenCalledWith("cards");
+    });
+
+    it("returns PROFILE_UNAVAILABLE for embedded inactive/missing profiles in one RTT", async () => {
+      for (const profiles of [{ slug: "x", status: "DRAFT" }, null]) {
+        const from = vi.fn(() => embeddedCardTable({ ...ACTIVE_PROFILE_CARD, profiles }));
+        const db = { from } as unknown as ResolverDb;
+        expect(await resolveCardDestination("ABCDEFGH", db)).toEqual({
+          ok: false,
+          reason: "PROFILE_UNAVAILABLE",
+        });
+        expect(from).toHaveBeenCalledTimes(1);
+      }
+    });
+
+    it("returns NOT_FOUND for missing cards without a second query", async () => {
+      const from = vi.fn(() => embeddedCardTable(null));
+      const db = { from } as unknown as ResolverDb;
+      expect(await resolveCardDestination("ZZZZZZZZ", db)).toEqual({
+        ok: false,
+        reason: "NOT_FOUND",
+      });
+      expect(from).toHaveBeenCalledTimes(1);
+    });
   });
 });

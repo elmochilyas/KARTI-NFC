@@ -16,6 +16,22 @@ export const PUBLIC_PROFILE_COLUMNS =
 
 export const PUBLIC_LINK_COLUMNS = "id, type, label, url, sort_order" as const;
 
+// Single-RTT embed: profile + links via the profile_links FK. `enabled` and
+// `created_at` ride along for JS-side filtering/sorting, then are stripped
+// so the public shape stays exactly PUBLIC_LINK_COLUMNS.
+const PUBLIC_PROFILE_WITH_LINKS_COLUMNS =
+  `${PUBLIC_PROFILE_COLUMNS}, profile_links!profile_links_profile_id_fkey(id, type, label, url, sort_order, enabled, created_at)` as const;
+
+type EmbeddedLinkRow = {
+  id: string;
+  type: string;
+  label: string;
+  url: string;
+  sort_order: number;
+  enabled: boolean;
+  created_at: string;
+};
+
 export type PublicProfile = {
   id: string;
   profile_type: string;
@@ -55,6 +71,51 @@ export async function getPublicProfileBySlug(
 ): Promise<PublicProfileData | null> {
   const slug = normalizeSlug(rawSlug);
   if (slug === "" || isReservedSlug(slug)) return null;
+
+  // Fast path: one RTT — profile + links in a single PostgREST request.
+  // Disabled links are filtered and ordering applied in JS (link counts are
+  // tiny; one RTT cross-region beats two sequential RTTs). Falls back to the
+  // legacy two-query path when the embed key is absent.
+  try {
+    const { data: embedded, error: embeddedError } = await supabase
+      .from("profiles")
+      .select(PUBLIC_PROFILE_WITH_LINKS_COLUMNS)
+      .eq("slug", slug)
+      .eq("status", "ACTIVE")
+      .maybeSingle();
+    if (!embeddedError) {
+      if (!embedded) return null;
+      const row = embedded as unknown as Record<string, unknown>;
+      if ("profile_links" in row && Array.isArray(row.profile_links)) {
+        const links = (row.profile_links as EmbeddedLinkRow[])
+          .filter((link) => link.enabled === true)
+          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+          .map((link) => ({
+            id: link.id,
+            type: link.type,
+            label: link.label,
+            url: link.url,
+            sort_order: link.sort_order,
+          }));
+        const { profile_links: _dropped, ...profile } = row as Record<string, unknown> & {
+          profile_links?: unknown;
+        };
+        void _dropped;
+        return {
+          profile: {
+            ...(profile as Omit<PublicProfile, "theme"> & { theme: string }),
+            theme: (profile as { theme: string }).theme === "dark" ? "dark" : "light",
+          },
+          links,
+        };
+      }
+      // Embed key absent (older mock / unexpected shape) → legacy path below.
+      // A definitive null already returned above — no double query.
+    }
+    // Embed error → fall through to legacy. Never fail a tap here.
+  } catch {
+    // Fall through to legacy path.
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")

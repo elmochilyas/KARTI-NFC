@@ -4,9 +4,13 @@ import {
   AVATAR_MAX_DIM,
   COVER_MAX_DIM,
   IMMUTABLE_CACHE_CONTROL,
+  PROFILE_ASSETS_BUCKET,
   detectImageKind,
   isManagedAssetPath,
+  publicAssetPathUrl,
+  publicAssetUrl,
   removeAsset,
+  storageOrigin,
   uploadAsset,
   type StorageDb,
 } from "./storage";
@@ -212,5 +216,61 @@ describe("uploadAsset server normalize (sharp)", () => {
     const result = await uploadAsset(PROFILE_ID, "cover", wide, adminDb({ upload }));
     expect(result.ok).toBe(false);
     expect(upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("zero-client public asset URLs (tap path)", () => {
+  const ENV_KEY = "NEXT_PUBLIC_SUPABASE_URL";
+  const previous = process.env[ENV_KEY];
+
+  function withEnv(value: string | undefined, fn: () => void) {
+    if (value === undefined) delete process.env[ENV_KEY];
+    else process.env[ENV_KEY] = value;
+    try {
+      fn();
+    } finally {
+      if (previous === undefined) delete process.env[ENV_KEY];
+      else process.env[ENV_KEY] = previous;
+    }
+  }
+
+  it("builds the same URL as getPublicUrl without a client", () => {
+    withEnv("https://xyz.supabase.co", () => {
+      const path = "profiles/abc/avatar/0123456789abcdef.webp";
+      const viaClient = publicAssetUrl(
+        {
+          storage: {
+            from: () => ({
+              getPublicUrl: (p: string) => ({
+                data: {
+                  publicUrl: `https://xyz.supabase.co/storage/v1/object/public/${PROFILE_ASSETS_BUCKET}/${p}`,
+                },
+              }),
+            }),
+          },
+        } as unknown as StorageDb,
+        path,
+      );
+      expect(publicAssetPathUrl(path)).toBe(viaClient);
+    });
+  });
+
+  it("returns null for null paths and missing config", () => {
+    withEnv("https://xyz.supabase.co", () => {
+      expect(publicAssetPathUrl(null)).toBeNull();
+    });
+    withEnv(undefined, () => {
+      expect(publicAssetPathUrl("profiles/a/avatar/b.webp")).toBeNull();
+      expect(storageOrigin()).toBeNull();
+    });
+  });
+
+  it("exposes the storage origin for preconnect", () => {
+    withEnv("https://xyz.supabase.co", () => {
+      expect(storageOrigin()).toBe("https://xyz.supabase.co");
+    });
+    withEnv("https://xyz.supabase.co/", () => {
+      expect(storageOrigin()).toBe("https://xyz.supabase.co");
+    });
   });
 });

@@ -117,6 +117,55 @@ describe("getPublicProfileBySlug", () => {
     );
     expect(weird?.profile.theme).toBe("light");
   });
+
+  it("resolves profile + links from the single-RTT embed (filters disabled, sorts)", async () => {
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({
+        data: {
+          ...ACTIVE_ROW,
+          profile_links: [
+            {
+              id: "l2",
+              type: "website",
+              label: "Site",
+              url: "https://x.com",
+              sort_order: 1,
+              enabled: true,
+              created_at: "2026-01-02T00:00:00Z",
+            },
+            {
+              id: "l0",
+              type: "instagram",
+              label: "Hidden",
+              url: "https://ig.com/hidden",
+              sort_order: 0,
+              enabled: false,
+              created_at: "2026-01-01T00:00:00Z",
+            },
+            {
+              id: "l1",
+              type: "instagram",
+              label: "IG",
+              url: "https://ig.com",
+              sort_order: 0,
+              enabled: true,
+              created_at: "2026-01-01T00:00:00Z",
+            },
+          ],
+        },
+        error: null,
+      })),
+    }));
+    const db = { from } as unknown as PublicDb;
+    const result = await getPublicProfileBySlug("ahmed-benali", db);
+    expect(result?.links.map((l) => l.id)).toEqual(["l1", "l2"]);
+    expect(result?.links.every((l) => !("enabled" in l))).toBe(true);
+    // Exactly one table hit — no profile_links round-trip.
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledWith("profiles");
+  });
 });
 
 describe("getPublicProfileRowBySlug (vCard profile-only loader)", () => {
