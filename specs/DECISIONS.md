@@ -1111,3 +1111,43 @@ re-observed on tap. No copy, helper-signature, or endpoint changes.
 If `(S)` repeats after this, the rejection is fast (not expiry) and the
 next pivot is intent-first ordering on Android. If `(I)` appears instead,
 the intent leg is the problem, not share.
+
+---
+
+## ADR-041 — INSERT-intent first on Android (direct editor open)
+
+**Status:** Accepted
+**Date:** 2026-09-20
+
+### Context
+
+`(S)` repeated on a fresh tab after the fetch warming shipped: `share()`
+rejects fast, with no UI, on Samsung + Chrome + Samsung Contacts. The
+share-with-File path is a dead end on the target device, and the old
+VIEW-at-remote-URL intent is theoretically fragile there too (an `https`
+data URI fails the data test against MIME-only importer filters).
+
+### Decision
+
+- Android-Chrome taps fire an `INSERT` intent first, synchronously in the
+  gesture: `intent://vnd.android.cursor.dir/raw_contact/#Intent` with
+  `action.INSERT` and `S.name/phone/email/company/job_title` extras from
+  the official Insert contract. Type-only (no data URI) sidesteps
+  scheme/host matching; no category keeps DEFAULT-only editor filters
+  resolving. This opens the Contacts editor prefilled — no fetch, no
+  activation race, immune to subrequest blockers. Fields ride as props
+  from the server component (same source as the vCard builder; already
+  public on-page — no new exposure, no new endpoint).
+- The attempt is armed in `sessionStorage`; a fallback reload consumes the
+  flag and restores the coded fallback instead of a silent refresh.
+- Share auto-attempt is removed on this path (proven broken on target);
+  share stays for non-Chrome Android and capable iOS/desktop. The old VIEW
+  helper is deleted. iOS/desktop behavior is unchanged.
+
+### Consequences
+
+One tap → prefilled editor is the best flow any website can offer (the OS
+confirmation tap stays, by design). If `(I)` appears on-device, Samsung
+Contacts rejects INSERT and the next pivot is a MIME-variant VIEW revival.
+Helpers are pure and unit-tested, including extras encoding and the
+single-shot stale-tolerant storage flag.

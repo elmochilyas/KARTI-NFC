@@ -9,9 +9,10 @@ import {
   type QuickAction,
 } from "./brandIcons";
 import { KartiAttribution, mailHref, telHref } from "./ProfilePreview";
-import { SaveContactAction } from "./SaveContactAction";
+import { SaveContactAction, type InsertContactFields } from "./SaveContactAction";
 import { ShareProfileButton } from "./ShareProfileButton";
 import type { PublicLink, PublicProfile } from "@/features/profiles/public";
+import { pickTelNumber } from "@/domain/vcard";
 
 /**
  * Premium hero-first public profile view — 100% server-rendered except the
@@ -296,6 +297,15 @@ export function PublicProfileView({
   // `.vcf` suffix helps OS sniffers hand the response to Contacts (ADR-038);
   // the route serves the byte-identical inline vCard for both URL forms.
   const vcardHref = `/api/vcard/${profile.slug}.vcf`;
+  // Prefilled editor fields for the Android INSERT fast-path (ADR-041).
+  // Same source the vCard builder uses; all fields already public on-page.
+  const contact: InsertContactFields = {
+    name: profile.display_name,
+    phone: pickTelNumber(profile.phone, profile.whatsapp),
+    email: profile.email?.trim() || null,
+    company: profile.company_name?.trim() || null,
+    title: profile.job_title?.trim() || null,
+  };
 
   return (
     <main
@@ -327,7 +337,7 @@ export function PublicProfileView({
           <QuickTiles actions={quickActions} dark={dark} />
 
           <div className="mt-4 flex flex-col gap-4">
-            <SaveContactAction href={vcardHref} accent={accent} variant="cta" />
+            <SaveContactAction href={vcardHref} accent={accent} variant="cta" contact={contact} />
 
             {hasInfo ? (
               <section
@@ -487,7 +497,7 @@ export function PublicProfileView({
         </div>
       </div>
       <div className="pointer-events-none sticky bottom-0 z-20 mx-auto w-full max-w-[480px] px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <SaveContactAction href={vcardHref} accent={accent} variant="sticky" />
+        <SaveContactAction href={vcardHref} accent={accent} variant="sticky" contact={contact} />
       </div>
     </main>
   );
