@@ -2298,6 +2298,42 @@ caching). `307 + no-store` redirect kept (ADR-024). See ADR-045.
 
 ---
 
+# Phase 21 — Digital Wallet Card Saving (Add to Wallet)
+
+One CTA, platform auto-detected, no wallet choice. See ADR-046.
+
+## 21.1 Stable identity
+
+- [x] `profiles.public_code` (10-char, UNIQUE NOT NULL + DEFAULT generator, migration `20260923`) applied live + backfill verified.
+- [x] `/u/[code]` page (same view/data/metadata + canonical) + canonical on slug pages.
+- [x] `u` reserved in slugs.
+- [x] Wallet QR/barcode payloads embed `/u/{publicCode}` only (tests pin: never `/t/`).
+
+## 21.2 Wallet feature
+
+- [x] `src/features/wallet/`: types + `detectPlatform` (iOS/Android/desktop, iPadOS hint) + `actions` orchestration.
+- [x] Apple: generic pass model (sanitized fields, stable serial, QR barcode) + P12 split + sharp artwork + passkit signing; `.pkpass` MIME/headers.
+- [x] Google: GenericObject + RS256 save-JWT (jose) + `pay.google.com/gp/v/save/` link; stateless (one-time class by operator).
+- [x] `GET /api/wallet/[code]`: ACTIVE-only, iOS→pass, Android→302, desktop→400 modal signal, unknown→404, failures generic + no-store.
+- [x] Server-only credentials (`env-server` + `server-only`); credential-gated CTA (never fake); isolation tests extended.
+
+## 21.3 UI
+
+- [x] `WalletCtaCard` + `AddToWalletButton` island (anchor when ready, QR/Copy modal otherwise) above Share; inert `WalletCtaPreview` in editor.
+- [x] Fallbacks: desktop phone-modal, unconfigured → Copy/Share, generation error generic copy.
+
+## 21.4 Tests + verification
+
+- [x] 64 new tests (platform matrix, hostile-field escaping, P12 round-trip, full signed-buffer ZIP/shape, JWT verify, route matrix, page/canonical, no-secret-leakage).
+- [x] `typecheck`, `lint`, `test` (47 files / 464 tests), `build` green (`/u/[code]` + `/api/wallet/[code]` dynamic).
+- [x] Live prod-server matrix: `/u/{code}` 200 (name + CTA + canonical, no `/t/`), unknown→404, iOS-no-creds→500 generic + no-store, desktop→400 JSON, unknown→404.
+- [ ] `format:check` — repo-wide CRLF baseline; new files prettier-clean (verified per-file).
+- [ ] Operator: provision Apple cert + WWDR, Google issuer + service account + GenericClass; on-device install sheets (iPhone + Android); `pnpm db:types` re-run with token (absorbs 3-line backport).
+
+> 2026-09-21: implemented + verified per plan. Deps added: `passkit-generator`, `jose`, `node-forge` (+ `@types/node-forge` dev). Human confirmations: on-device wallet install + 390px eyeball + credential provisioning.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

@@ -14,6 +14,7 @@ const PROFILE: PublicProfile = {
   id: "123e4567-e89b-12d3-a456-426614174001",
   profile_type: "PERSON",
   slug: "ahmed-benali",
+  public_code: "ABCD234567",
   display_name: "Ahmed Benali",
   job_title: "Developer",
   company_name: "Atlas",

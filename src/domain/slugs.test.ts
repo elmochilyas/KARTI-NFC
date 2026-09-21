@@ -29,7 +29,7 @@ describe("normalizeSlug", () => {
 });
 
 describe("isReservedSlug", () => {
-  it.each(["admin", "dashboard", "login", "logout", "api", "auth", "t", "new"])(
+  it.each(["admin", "dashboard", "login", "logout", "api", "auth", "t", "u", "new"])(
     "reserves application route %s",
     (slug) => {
       expect(isReservedSlug(slug)).toBe(true);

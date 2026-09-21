@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache, updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPublicProfileBySlug, type PublicProfileData } from "./public";
+import { getPublicProfileByCode, getPublicProfileBySlug, type PublicProfileData } from "./public";
 
 /**
  * Zero-stale cross-request cache for the public profile tap path.
@@ -34,6 +34,30 @@ async function fetchPublicProfile(slug: string): Promise<PublicProfileData | nul
 export const getCachedPublicProfileBySlug = unstable_cache(
   fetchPublicProfile,
   ["public-profile-by-slug"],
+  {
+    tags: [PUBLIC_PROFILES_TAG],
+    revalidate: false,
+  },
+);
+
+async function fetchPublicProfileByCode(code: string): Promise<PublicProfileData | null> {
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    return null;
+  }
+  return getPublicProfileByCode(code, supabase);
+}
+
+/**
+ * Cached wallet-identity loader (/u/{publicCode}, ADR-046). Same global tag
+ * as the slug loader, so every dashboard write purges both — zero stale on
+ * either URL shape.
+ */
+export const getCachedPublicProfileByCode = unstable_cache(
+  fetchPublicProfileByCode,
+  ["public-profile-by-code"],
   {
     tags: [PUBLIC_PROFILES_TAG],
     revalidate: false,

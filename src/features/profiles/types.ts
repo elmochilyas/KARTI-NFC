@@ -52,10 +52,10 @@ export type ProfileResult<T> =
     };
 
 export const PROFILE_DETAIL_COLUMNS =
-  "id, client_id, profile_type, slug, display_name, job_title, company_name, bio, avatar_path, cover_path, phone, whatsapp, email, website, address, maps_url, accent_color, theme, status, created_at, updated_at" as const;
+  "id, client_id, profile_type, slug, public_code, display_name, job_title, company_name, bio, avatar_path, cover_path, phone, whatsapp, email, website, address, maps_url, accent_color, theme, status, created_at, updated_at" as const;
 
 export const PROFILE_SUMMARY_COLUMNS =
-  "id, client_id, profile_type, slug, display_name, status, updated_at" as const;
+  "id, client_id, profile_type, slug, public_code, display_name, status, updated_at" as const;
 
 export const PROFILE_LINK_COLUMNS =
   "id, profile_id, type, label, url, icon, sort_order, enabled, created_at, updated_at" as const;

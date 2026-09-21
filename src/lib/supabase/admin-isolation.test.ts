@@ -41,11 +41,39 @@ describe("service-role isolation", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("no client component imports wallet server modules or secrets", () => {
+    // types.ts + detectPlatform.ts are pure and island-safe; apple/google
+    // services, actions, and env-server carry keys and must stay server-only.
+    const offenders: string[] = [];
+    for (const file of sourceFiles(SRC_ROOT)) {
+      const content = fs.readFileSync(file, "utf8");
+      if (!content.includes('"use client"')) continue;
+      if (
+        content.includes("features/wallet/apple") ||
+        content.includes("features/wallet/google") ||
+        content.includes("features/wallet/actions") ||
+        content.includes("lib/env-server") ||
+        content.includes("PRIVATE KEY") ||
+        content.includes("P12") ||
+        content.includes("passTypeId") ||
+        content.includes("serviceAccount")
+      ) {
+        offenders.push(path.relative(SRC_ROOT, file));
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("the browser-safe env module has no server-only import and no secret reads", () => {
     const env = fs.readFileSync(path.join(SRC_ROOT, "lib", "env.ts"), "utf8");
     expect(env).not.toMatch(/from ["']server-only["']|import ["']server-only["']/);
     expect(env).not.toContain("process.env.SUPABASE_SERVICE_ROLE_KEY");
     expect(env).not.toContain("NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY");
+    // Wallet credentials are server-only (ADR-046).
+    expect(env).not.toContain("APPLE_PASS_");
+    expect(env).not.toContain("APPLE_WWDR_");
+    expect(env).not.toContain("GOOGLE_WALLET_");
+    expect(env).not.toContain("GOOGLE_SERVICE_ACCOUNT_");
   });
 
   it("server secrets live only behind the server-only guard", () => {

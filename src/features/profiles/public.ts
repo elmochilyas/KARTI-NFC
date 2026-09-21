@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isReservedSlug, normalizeSlug } from "@/domain/slugs";
+import { isValidPublicCodeFormat, normalizePublicCode } from "@/domain/publicCode";
 import type { Database } from "@/types/database";
 import type { ProfileTheme } from "./schema";
 import type { ProfileLinkRow } from "./types";
@@ -14,13 +15,25 @@ export type PublicDb = SupabaseClient<Database>;
 export const PUBLIC_PROFILE_COLUMNS =
   "id, profile_type, slug, display_name, job_title, company_name, bio, avatar_path, cover_path, phone, whatsapp, email, website, address, maps_url, accent_color, theme, status" as const;
 
+// Stable identity column (migration 20260923, ADR-046). The generated
+// Database type predates it (regen blocked: no SUPABASE_ACCESS_TOKEN here),
+// so rows carrying it are handled via PublicProfileRowWithCode casts —
+// never by hand-editing src/types/database.ts.
+export const PUBLIC_CODE_COLUMN = "public_code" as const;
+
+export type PublicProfileRowWithCode = Record<string, unknown> & {
+  public_code: string;
+};
+
 export const PUBLIC_LINK_COLUMNS = "id, type, label, url, sort_order" as const;
 
-// Single-RTT embed: profile + links via the profile_links FK. `enabled` and
-// `created_at` ride along for JS-side filtering/sorting, then are stripped
-// so the public shape stays exactly PUBLIC_LINK_COLUMNS.
-const PUBLIC_PROFILE_WITH_LINKS_COLUMNS =
-  `${PUBLIC_PROFILE_COLUMNS}, profile_links!profile_links_profile_id_fkey(id, type, label, url, sort_order, enabled, created_at)` as const;
+// Identity projection: the public allowlist plus the immutable public_code
+// (wallet identity /u/{publicCode}, ADR-046). Kept as a separate constant
+// so the pinned 18-column allowlist test stays exact.
+export const PUBLIC_IDENTITY_COLUMNS = `${PUBLIC_PROFILE_COLUMNS}, ${PUBLIC_CODE_COLUMN}` as const;
+
+const PUBLIC_IDENTITY_WITH_LINKS_COLUMNS =
+  `${PUBLIC_IDENTITY_COLUMNS}, profile_links!profile_links_profile_id_fkey(id, type, label, url, sort_order, enabled, created_at)` as const;
 
 type EmbeddedLinkRow = {
   id: string;
@@ -36,6 +49,8 @@ export type PublicProfile = {
   id: string;
   profile_type: string;
   slug: string;
+  /** Immutable identity code (migration 20260923) — powers /u/{publicCode}. */
+  public_code: string;
   display_name: string;
   job_title: string | null;
   company_name: string | null;
@@ -60,6 +75,42 @@ export type PublicProfileData = {
 };
 
 /**
+ * Map a projected row (slug or code loader, embed or legacy shape) to the
+ * public shape. public_code is NOT NULL in the database, so it is always
+ * present at runtime; the cast bridges the generated Database type until
+ * `pnpm db:types` is re-run with credentials (ADR-013: generated file stays
+ * hand-untouched). Theme falls back to light for unexpected values.
+ */
+function toPublicProfile(row: Record<string, unknown>): PublicProfile {
+  const { profile_links: _dropped, ...rest } = row as Record<string, unknown> & {
+    profile_links?: unknown;
+  };
+  void _dropped;
+  const source = rest as Omit<PublicProfile, "theme" | "public_code"> & {
+    theme: string;
+    public_code?: unknown;
+  };
+  return {
+    ...source,
+    public_code: typeof source.public_code === "string" ? source.public_code : "",
+    theme: source.theme === "dark" ? "dark" : "light",
+  };
+}
+
+function sortEmbeddedLinks(rows: EmbeddedLinkRow[]): PublicLink[] {
+  return rows
+    .filter((link) => link.enabled === true)
+    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+    .map((link) => ({
+      id: link.id,
+      type: link.type,
+      label: link.label,
+      url: link.url,
+      sort_order: link.sort_order,
+    }));
+}
+
+/**
  * Load an ACTIVE public profile by slug. Returns null for unknown,
  * reserved, DRAFT, or INACTIVE slugs — without revealing which case it is.
  * Only enabled links, in sort_order. Inject any client (tests use fakes);
@@ -76,10 +127,11 @@ export async function getPublicProfileBySlug(
   // Disabled links are filtered and ordering applied in JS (link counts are
   // tiny; one RTT cross-region beats two sequential RTTs). Falls back to the
   // legacy two-query path when the embed key is absent.
+  // Identity projection (includes public_code) in both shapes.
   try {
     const { data: embedded, error: embeddedError } = await supabase
       .from("profiles")
-      .select(PUBLIC_PROFILE_WITH_LINKS_COLUMNS)
+      .select(PUBLIC_IDENTITY_WITH_LINKS_COLUMNS)
       .eq("slug", slug)
       .eq("status", "ACTIVE")
       .maybeSingle();
@@ -87,26 +139,9 @@ export async function getPublicProfileBySlug(
       if (!embedded) return null;
       const row = embedded as unknown as Record<string, unknown>;
       if ("profile_links" in row && Array.isArray(row.profile_links)) {
-        const links = (row.profile_links as EmbeddedLinkRow[])
-          .filter((link) => link.enabled === true)
-          .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-          .map((link) => ({
-            id: link.id,
-            type: link.type,
-            label: link.label,
-            url: link.url,
-            sort_order: link.sort_order,
-          }));
-        const { profile_links: _dropped, ...profile } = row as Record<string, unknown> & {
-          profile_links?: unknown;
-        };
-        void _dropped;
         return {
-          profile: {
-            ...(profile as Omit<PublicProfile, "theme"> & { theme: string }),
-            theme: (profile as { theme: string }).theme === "dark" ? "dark" : "light",
-          },
-          links,
+          profile: toPublicProfile(row),
+          links: sortEmbeddedLinks(row.profile_links as EmbeddedLinkRow[]),
         };
       }
       // Embed key absent (older mock / unexpected shape) → legacy path below.
@@ -119,7 +154,7 @@ export async function getPublicProfileBySlug(
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select(PUBLIC_PROFILE_COLUMNS)
+    .select(PUBLIC_IDENTITY_COLUMNS)
     .eq("slug", slug)
     .eq("status", "ACTIVE")
     .maybeSingle();
@@ -137,10 +172,69 @@ export async function getPublicProfileBySlug(
   if (linksError) return null;
 
   return {
-    profile: {
-      ...profile,
-      theme: profile.theme === "dark" ? "dark" : "light",
-    },
+    profile: toPublicProfile(profile as unknown as Record<string, unknown>),
+    links: links ?? [],
+  };
+}
+
+/**
+ * Load an ACTIVE public profile by immutable public_code (`/u/{publicCode}`,
+ * wallet identity, ADR-046). Same gating and projection as the slug loader:
+ * unknown, malformed, DRAFT, or INACTIVE codes return null without revealing
+ * which. Slugs stay human-friendly; codes stay forever.
+ */
+export async function getPublicProfileByCode(
+  rawCode: unknown,
+  supabase: PublicDb,
+): Promise<PublicProfileData | null> {
+  if (typeof rawCode !== "string") return null;
+  const code = normalizePublicCode(rawCode);
+  if (!isValidPublicCodeFormat(code)) return null;
+
+  // Fast path: one RTT — profile + links via the links embed.
+  try {
+    const { data: embedded, error: embeddedError } = await supabase
+      .from("profiles")
+      .select(PUBLIC_IDENTITY_WITH_LINKS_COLUMNS)
+      .eq("public_code", code)
+      .eq("status", "ACTIVE")
+      .maybeSingle();
+    if (!embeddedError) {
+      if (!embedded) return null;
+      const row = embedded as unknown as Record<string, unknown>;
+      if ("profile_links" in row && Array.isArray(row.profile_links)) {
+        return {
+          profile: toPublicProfile(row),
+          links: sortEmbeddedLinks(row.profile_links as EmbeddedLinkRow[]),
+        };
+      }
+      // Embed key absent → legacy path below (null already returned above).
+    }
+  } catch {
+    // Fall through to legacy path.
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(PUBLIC_IDENTITY_COLUMNS)
+    .eq("public_code", code)
+    .eq("status", "ACTIVE")
+    .maybeSingle();
+
+  if (profileError || !profile) return null;
+
+  const { data: links, error: linksError } = await supabase
+    .from("profile_links")
+    .select(PUBLIC_LINK_COLUMNS)
+    .eq("profile_id", (profile as unknown as Record<string, string>).id)
+    .eq("enabled", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (linksError) return null;
+
+  return {
+    profile: toPublicProfile(profile as unknown as Record<string, unknown>),
     links: links ?? [],
   };
 }
@@ -149,7 +243,9 @@ export async function getPublicProfileBySlug(
  * Profile-only loader for the vCard route (no links RTT).
  * Same ACTIVE-only gating as getPublicProfileBySlug — returns null for
  * unknown, reserved, DRAFT, or INACTIVE slugs without revealing which.
- * The vCard body needs contact columns only, never link rows.
+ * The vCard body needs contact columns only, never link rows. Identity
+ * projection keeps the PublicProfile shape complete (public_code unused
+ * by vCard output, but present for type unity).
  */
 export async function getPublicProfileRowBySlug(
   rawSlug: string,
@@ -160,17 +256,14 @@ export async function getPublicProfileRowBySlug(
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select(PUBLIC_PROFILE_COLUMNS)
+    .select(PUBLIC_IDENTITY_COLUMNS)
     .eq("slug", slug)
     .eq("status", "ACTIVE")
     .maybeSingle();
 
   if (profileError || !profile) return null;
 
-  return {
-    ...profile,
-    theme: profile.theme === "dark" ? "dark" : "light",
-  };
+  return toPublicProfile(profile as unknown as Record<string, unknown>);
 }
 
 /** True when the profile carries enough contact data for a Save Contact CTA. */

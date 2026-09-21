@@ -14,6 +14,7 @@ const BASE_PROFILE: PublicProfile = {
   id: "123e4567-e89b-12d3-a456-426614174001",
   profile_type: "PERSON",
   slug: "layla-haddad",
+  public_code: "ABCD234567",
   display_name: "Layla Haddad",
   job_title: "Designer",
   company_name: "Studio Nord",

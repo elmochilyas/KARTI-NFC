@@ -1307,3 +1307,50 @@ page instead of 2 sequential RTTs; dashboard edits stay instantly visible.
 Over-purge cost (any edit refetches every slug once) is negligible at
 single-admin scale. RLS, service-role isolation, `307` semantics, and the
 permanent-URL invariant are unchanged.
+
+## ADR-046 — Digital wallet card saving (Add to Wallet)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Native contact saving proved inconsistent across iOS/Android (ADR-037–043,
+intent-work moratorium), and Share is a share action, not a keep action.
+The product needs "keep this card on the phone" via OS wallets with ONE
+cta and no platform choice. Slugs are renamable, so wallet cards need an
+immutable identity distinct from both the slug and the mutable NFC
+destination.
+
+### Decision
+
+- Stable identity: `profiles.public_code` (10-char, card-code alphabet,
+  UNIQUE NOT NULL + DEFAULT generator, migration `20260923`), served at
+  `/u/{publicCode}` (same view/data as slug pages, canonical link on both).
+  Wallet QR/barcode payloads embed ONLY `/u/{publicCode}` — never
+  `/t/{shortCode}`. `u` added to reserved slugs.
+- `src/features/wallet/`: pure `detectPlatform` (UA + userAgentData hints),
+  secret-free model builders (`apple/generatePass`, `google/generateLink`),
+  server-only services (P12 split via node-forge + passkit-generator
+  signing; jose RS256 save-JWT, stateless — class created once by operator),
+  `actions.ts` orchestration. Route `GET /api/wallet/[code]`: iOS → signed
+  `.pkpass` (`application/vnd.apple.pkpass`, no-store), Android → 302 save
+  link, desktop → 400 phone-modal signal, failures generic.
+- Credential-gated CTA (operator decision): the island renders the live
+  anchor only when the visitor's platform backend is configured; otherwise
+  the QR/Copy modal. No fake button, no dead anchor. Static serials
+  (`karti-{publicCode}`) make re-saves update in place; no push updates
+  (documented limitation).
+- New deps: `passkit-generator`, `jose`, `node-forge` (+ `@types/node-forge`
+  dev). No device/installation/visitor tracking tables — forbidden.
+
+### Consequences
+
+Real passes require operator provisioning (Apple Pass Type ID cert +
+WWDR; Google Wallet issuer + service account + one-time GenericClass);
+until then the CTA degrades per the gate. `src/types/database.ts` carries
+a 3-line manual backport of `public_code` (marked, byte-identical to future
+generator output) because `pnpm db:types` needs `SUPABASE_ACCESS_TOKEN`,
+unavailable here — re-running it absorbs the backport; the generated file
+was restored untouched otherwise. On-device install sheets remain
+operator-verified (no devices here).

@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  getPublicProfileByCode,
   getPublicProfileBySlug,
   getPublicProfileRowBySlug,
   hasContactData,
+  PUBLIC_IDENTITY_COLUMNS,
   PUBLIC_LINK_COLUMNS,
   PUBLIC_PROFILE_COLUMNS,
   publicProfileDescription,
@@ -14,6 +16,7 @@ const ACTIVE_ROW = {
   id: "123e4567-e89b-12d3-a456-426614174001",
   profile_type: "PERSON",
   slug: "ahmed-benali",
+  public_code: "ABCD234567",
   display_name: "Ahmed Benali",
   job_title: "Developer",
   company_name: "Atlas",
@@ -161,8 +164,72 @@ describe("getPublicProfileBySlug", () => {
     const db = { from } as unknown as PublicDb;
     const result = await getPublicProfileBySlug("ahmed-benali", db);
     expect(result?.links.map((l) => l.id)).toEqual(["l1", "l2"]);
+    expect(result?.profile.public_code).toBe("ABCD234567");
     expect(result?.links.every((l) => !("enabled" in l))).toBe(true);
     // Exactly one table hit — no profile_links round-trip.
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledWith("profiles");
+  });
+});
+
+describe("getPublicProfileByCode (wallet identity /u/{publicCode})", () => {
+  it("returns ACTIVE profiles with public_code and links in database order", async () => {
+    const db = fakeDb(ACTIVE_ROW, [
+      { id: "l1", type: "instagram", label: "IG", url: "https://ig.com", sort_order: 0 },
+    ]);
+    const result = await getPublicProfileByCode("abcd234567", db);
+    expect(result?.profile.public_code).toBe("ABCD234567");
+    expect(result?.profile.slug).toBe("ahmed-benali");
+    expect(result?.links.map((l) => l.id)).toEqual(["l1"]);
+    expect(result?.profile).not.toHaveProperty("notes");
+    expect(result?.profile).not.toHaveProperty("client_id");
+  });
+
+  it("returns null for DRAFT, INACTIVE, and unknown codes", async () => {
+    for (const row of [
+      { ...ACTIVE_ROW, status: "DRAFT" },
+      { ...ACTIVE_ROW, status: "INACTIVE" },
+      null,
+    ]) {
+      expect(await getPublicProfileByCode("ABCD234567", fakeDb(row))).toBeNull();
+    }
+  });
+
+  it("returns null for malformed codes without querying", async () => {
+    const from = vi.fn();
+    const db = { from } as unknown as PublicDb;
+    for (const bad of [null, 42, "", "!!!", "ABCDEFGH", "ahmed-benali", "KARTI-000123"]) {
+      expect(await getPublicProfileByCode(bad, db)).toBeNull();
+    }
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("resolves profile + links from the single-RTT embed", async () => {
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({
+        data: {
+          ...ACTIVE_ROW,
+          profile_links: [
+            {
+              id: "l1",
+              type: "website",
+              label: "Site",
+              url: "https://x.com",
+              sort_order: 0,
+              enabled: true,
+              created_at: "2026-01-01T00:00:00Z",
+            },
+          ],
+        },
+        error: null,
+      })),
+    }));
+    const db = { from } as unknown as PublicDb;
+    const result = await getPublicProfileByCode("ABCD234567", db);
+    expect(result?.profile.public_code).toBe("ABCD234567");
+    expect(result?.links.map((l) => l.id)).toEqual(["l1"]);
     expect(from).toHaveBeenCalledTimes(1);
     expect(from).toHaveBeenCalledWith("profiles");
   });
@@ -225,6 +292,15 @@ describe("public projection allowlist", () => {
     expect(new Set(PUBLIC_LINK_COLUMNS.split(",").map((c) => c.trim()))).toEqual(
       new Set(["id", "type", "label", "url", "sort_order"]),
     );
+  });
+
+  it("identity projection adds only public_code (still no admin fields)", () => {
+    expect(new Set(PUBLIC_IDENTITY_COLUMNS.split(",").map((c) => c.trim()))).toEqual(
+      new Set([...PUBLIC_PROFILE_COLUMNS.split(",").map((c) => c.trim()), "public_code"]),
+    );
+    expect(PUBLIC_IDENTITY_COLUMNS).not.toContain("client_id");
+    expect(PUBLIC_IDENTITY_COLUMNS).not.toContain("notes");
+    expect(PUBLIC_IDENTITY_COLUMNS).not.toContain("created_at");
   });
 });
 
