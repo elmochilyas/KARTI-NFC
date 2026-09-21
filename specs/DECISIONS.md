@@ -1151,3 +1151,35 @@ confirmation tap stays, by design). If `(I)` appears on-device, Samsung
 Contacts rejects INSERT and the next pivot is a MIME-variant VIEW revival.
 Helpers are pure and unit-tested, including extras encoding and the
 single-shot stale-tolerant storage flag.
+
+---
+
+## ADR-042 — INSERT `contact` MIME flavor + guided Downloads floor
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Fresh-tab, post-deploy tap on Samsung + Chrome still showed `(I)`: with a
+visible reload, Chrome attempted the INSERT resolution and Samsung
+Contacts declined `vnd.android.cursor.dir/raw_contact`. Delivery is proven
+working (fallback reloaded and restored the UI); the MIME flavor is the
+remaining variable.
+
+### Decision
+
+- Switch the INSERT type to `vnd.android.cursor.dir/contact`, matching
+  field reports of working Chrome-launched editor intents; extras,
+  fallback, gating, and arming are unchanged.
+- Add a guided floor to the failure UI: an Android-Chrome-only (mount-
+  gated, SSR-clean) "Open Downloads" button firing `VIEW_DOWNLOADS` as a
+  sync in-tap intent, so the worst case is Save → Open Downloads → tap the
+  `.vcf` into the vendor importer — Samsung-to-Samsung native, no dead
+  ends. The download link stays for every other browser.
+
+### Consequences
+
+If the editor opens, intent work ends. If `(I)` persists, Samsung rejects
+both MIME flavors and the Downloads floor (already in this build) is the
+shipped answer; no further intent variants are planned.

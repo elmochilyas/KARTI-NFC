@@ -753,6 +753,14 @@ A task is DONE only when:
 > (iPhone Safari / Android Chrome / Samsung Internet) still needs the
 > operator — no devices here.
 >
+> 2026-09-21 (INSERT `contact` flavor + Downloads floor, ADR-042): fresh
+> post-deploy tap showed `(I)` *with* reload — delivery works, Samsung
+> declined `raw_contact`. Switched type to `vnd.android.cursor.dir/contact`
+> (field-reported working flavor); added mount-gated "Open Downloads"
+> button (VIEW_DOWNLOADS intent) so the floor is guided Samsung-native.
+> Pending gate + operator tap confirmation (editor open = done; repeat
+> `(I)` = floor stands, intent work ends).
+>
 > 2026-09-20 (INSERT-first on Android, ADR-041): `(S)` repeated on a fresh
 > tab after warming shipped — share-with-File rejects fast on Samsung +
 > Chrome, warming can't fix that. Android-Chrome taps now fire a sync

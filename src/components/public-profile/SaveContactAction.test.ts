@@ -8,6 +8,7 @@ import {
   SaveContactAction,
   SaveContactFallback,
   buildInsertContactIntentUrl,
+  buildViewDownloadsIntentUrl,
   consumeSaveAttempt,
   markSaveAttempt,
   shouldAttemptAndroidIntent,
@@ -78,6 +79,12 @@ describe("SaveContactAction", () => {
     expect(SAVE_CONTACT_OPENING_TIMEOUT_MS).toBeGreaterThanOrEqual(2000);
     expect(SAVE_CONTACT_OPENING_TIMEOUT_MS).toBeLessThanOrEqual(10000);
   });
+
+  it("keeps the Downloads floor out of SSR markup (mount-gated, no hydration mismatch)", () => {
+    for (const variant of ["cta", "sticky"] as const) {
+      expect(render(variant)).not.toContain("Open Downloads");
+    }
+  });
 });
 
 describe("SaveContactFallback", () => {
@@ -105,6 +112,35 @@ describe("SaveContactFallback", () => {
     }
     const withoutReason = renderToStaticMarkup(createElement(SaveContactFallback, { href: HREF }));
     expect(withoutReason).not.toMatch(/\([SID]\)/);
+  });
+
+  it("offers the guided Downloads floor only when wired", () => {
+    const withButton = renderToStaticMarkup(
+      createElement(SaveContactFallback, { href: HREF, reason: "I", onOpenDownloads: () => {} }),
+    );
+    expect(withButton).toContain("Open Downloads");
+    expect(withButton).toContain("<button");
+    expect(withButton).toContain('type="button"');
+    const withoutButton = renderToStaticMarkup(
+      createElement(SaveContactFallback, { href: HREF, reason: "I" }),
+    );
+    expect(withoutButton).not.toContain("Open Downloads");
+    expect(withoutButton).not.toContain("<button");
+  });
+});
+
+describe("buildViewDownloadsIntentUrl", () => {
+  it("opens the system Downloads list with an encoded fallback", () => {
+    expect(buildViewDownloadsIntentUrl("https://karti.app/ilyas-el-moch")).toBe(
+      "intent:#Intent;action=android.intent.action.VIEW_DOWNLOADS" +
+        ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Filyas-el-moch;end",
+    );
+  });
+
+  it("rejects malformed and non-HTTP(S) fallbacks", () => {
+    expect(buildViewDownloadsIntentUrl("not a url")).toBeNull();
+    expect(buildViewDownloadsIntentUrl("javascript:alert(1)")).toBeNull();
+    expect(buildViewDownloadsIntentUrl("file:///sdcard/Download")).toBeNull();
   });
 });
 
@@ -140,7 +176,7 @@ describe("buildInsertContactIntentUrl", () => {
         FALLBACK,
       ),
     ).toBe(
-      "intent://vnd.android.cursor.dir/raw_contact/" +
+      "intent://vnd.android.cursor.dir/contact/" +
         "#Intent;action=android.intent.action.INSERT" +
         ";S.name=Ahmed%20Benali" +
         ";S.phone=%2B212%20600%20000000" +
@@ -153,7 +189,7 @@ describe("buildInsertContactIntentUrl", () => {
 
   it("skips blank optional fields", () => {
     expect(buildInsertContactIntentUrl({ name: "Ahmed" }, FALLBACK)).toBe(
-      "intent://vnd.android.cursor.dir/raw_contact/" +
+      "intent://vnd.android.cursor.dir/contact/" +
         "#Intent;action=android.intent.action.INSERT" +
         ";S.name=Ahmed" +
         ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Fahmed-benali;end",
@@ -164,7 +200,7 @@ describe("buildInsertContactIntentUrl", () => {
         FALLBACK,
       ),
     ).toBe(
-      "intent://vnd.android.cursor.dir/raw_contact/" +
+      "intent://vnd.android.cursor.dir/contact/" +
         "#Intent;action=android.intent.action.INSERT" +
         ";S.name=Ahmed" +
         ";S.browser_fallback_url=https%3A%2F%2Fkarti.app%2Fahmed-benali;end",
