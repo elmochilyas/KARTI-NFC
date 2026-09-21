@@ -12,11 +12,14 @@ import { foregroundOnAccent } from "./ProfilePreview";
  * `text/vcard` response and opens the native contact preview. On top of that,
  * the click handler attempts faster paths first:
  *
- * 1. Chrome-on-Android INSERT `intent://` (ADR-041) — opens the Contacts
- *    editor directly with fields prefilled. Synchronous in the tap gesture:
- *    no fetch, no activation race, immune to subrequest blockers. The
- *    attempt is armed in sessionStorage so a fallback reload restores the
- *    failure UI instead of a silent refresh;
+ * 1. Chrome-on-Android INSERT `intent://` (ADR-041/042) — opens the
+ *    Contacts editor directly with fields prefilled (`contact` MIME flavor
+ *    per field reports of working editor intents). Synchronous in the tap
+ *    gesture: no fetch, no activation race, immune to subrequest blockers.
+ *    The attempt is armed in sessionStorage so a fallback reload restores
+ *    the failure UI instead of a silent refresh. The failure UI adds an
+ *    "Open Downloads" floor (VIEW_DOWNLOADS intent) for a guided last
+ *    resort: tap the `.vcf` into the vendor importer;
  * 2. Web Share Level 2 with a `.vcf` File (non-Chrome-Android, iOS where
  *    capable) — the OS share sheet offers “Save to Contacts / Create New
  *    Contact” directly. The fetch is warmed on pointerdown/focus so `share()`
@@ -81,9 +84,11 @@ export type InsertContactFields = {
  * directly with fields prefilled (`action.INSERT`, type-only opaque URI).
  * Type-only (no data URI) sidesteps scheme/host filter matching entirely;
  * no category is declared so DEFAULT-only editor filters resolve (an intent
- * with no categories passes every filter's category test). Returns null
- * when the name is blank or the fallback is not HTTP(S). Exported for unit
- * tests.
+ * with no categories passes every filter's category test). The `contact`
+ * MIME flavor matches field reports of working Chrome-launched editor
+ * intents (ADR-042; the `raw_contact` flavor went unresolvable on Samsung
+ * Contacts). Returns null when the name is blank or the fallback is not
+ * HTTP(S). Exported for unit tests.
  */
 export function buildInsertContactIntentUrl(
   fields: InsertContactFields,
@@ -105,7 +110,7 @@ export function buildInsertContactIntentUrl(
     ["job_title", fields.title],
   ];
   let url =
-    "intent://vnd.android.cursor.dir/raw_contact/" +
+    "intent://vnd.android.cursor.dir/contact/" +
     "#Intent" +
     ";action=android.intent.action.INSERT" +
     `;S.name=${encodeURIComponent(name)}`;
@@ -114,6 +119,28 @@ export function buildInsertContactIntentUrl(
     if (trimmed) url += `;S.${key}=${encodeURIComponent(trimmed)}`;
   }
   return url + `;S.browser_fallback_url=${encodeURIComponent(fallback.toString())};end`;
+}
+
+/**
+ * Build a Chrome-Android `intent://` URL that opens the system Downloads
+ * list (`action.VIEW_DOWNLOADS`, opaque URI, no category). Used as the
+ * guided floor under the Save fallback: the downloaded `.vcf` opens in the
+ * vendor's own Contacts importer from there. Returns null when the fallback
+ * is not HTTP(S). Exported for unit tests.
+ */
+export function buildViewDownloadsIntentUrl(absoluteFallbackUrl: string): string | null {
+  let fallback: URL;
+  try {
+    fallback = new URL(absoluteFallbackUrl);
+  } catch {
+    return null;
+  }
+  if (fallback.protocol !== "http:" && fallback.protocol !== "https:") return null;
+  return (
+    "intent:#Intent" +
+    ";action=android.intent.action.VIEW_DOWNLOADS" +
+    `;S.browser_fallback_url=${encodeURIComponent(fallback.toString())};end`
+  );
 }
 
 /** sessionStorage key arming the reload-proof fallback (intent attempts). */
@@ -206,19 +233,41 @@ export type SaveContactFailureReason = "S" | "I" | "D";
 export function SaveContactFallback({
   href,
   reason,
+  onOpenDownloads,
 }: {
   href: string;
   /** Delivery path that failed; shown as a subtle diagnostic code. */
   reason?: SaveContactFailureReason;
+  /**
+   * Guided floor for intent-capable browsers: opens the system Downloads
+   * list so the `.vcf` can be tapped into the vendor importer. Rendered
+   * only when provided (Chrome-Android, post-mount — never SSR).
+   */
+  onOpenDownloads?: () => void;
 }) {
+  // Fragment: the parent island already provides the aria-live region, and
+  // a <button> cannot live inside a <p>.
   return (
-    <p className="mt-2 text-center text-[13px] font-medium" role="status">
-      Couldn&apos;t open Contacts.{" "}
-      <a href={href} className="font-bold underline underline-offset-2">
-        Download the file, then open it from your notifications to save it
-      </a>
-      {reason ? <span className="opacity-60"> ({reason})</span> : null}
-    </p>
+    <>
+      <p className="mt-2 text-center text-[13px] font-medium" role="status">
+        Couldn&apos;t open Contacts.{" "}
+        <a href={href} className="font-bold underline underline-offset-2">
+          Download the file, then open it from your notifications to save it
+        </a>
+        {reason ? <span className="opacity-60"> ({reason})</span> : null}
+      </p>
+      {onOpenDownloads ? (
+        <p className="mt-1.5 text-center">
+          <button
+            type="button"
+            onClick={onOpenDownloads}
+            className="text-[13px] font-bold underline underline-offset-2"
+          >
+            Open Downloads
+          </button>
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -238,6 +287,9 @@ export function SaveContactAction({
 }) {
   const [state, setState] = useState<SaveContactState>("idle");
   const [reason, setReason] = useState<SaveContactFailureReason | null>(null);
+  // Client-only: enables the guided "Open Downloads" floor for
+  // intent-capable browsers. False through SSR/hydration by design.
+  const [canOpenDownloads, setCanOpenDownloads] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * Warmed vCard fetch, started on pointerdown/focus so the tap-time await
@@ -271,11 +323,23 @@ export function SaveContactAction({
       }
     }
     window.addEventListener("pagehide", clear);
-    // A fallback reload after an intent attempt restores the failure UI
-    // (with its reason code) instead of a silent refresh. Deferred past the
-    // first client render so hydration matches SSR and no cascading render
-    // fires inside the effect body.
+    // Deferred past the first client render so hydration matches SSR and no
+    // cascading render fires inside the effect body.
     const restore = setTimeout(() => {
+      // Guided floor: enable "Open Downloads" for intent-capable browsers.
+      try {
+        const nav = navigator as unknown as NavigatorWithUserAgentData;
+        setCanOpenDownloads(
+          shouldAttemptAndroidIntent(
+            nav.userAgent ?? navigator.userAgent,
+            nav.userAgentData?.platform,
+          ),
+        );
+      } catch {
+        setCanOpenDownloads(false);
+      }
+      // A fallback reload after an intent attempt restores the failure UI
+      // (with its reason code) instead of a silent refresh.
       if (consumeSaveAttempt(window.sessionStorage) !== null) {
         setState("failed");
         setReason("I");
@@ -311,6 +375,23 @@ export function SaveContactAction({
       const intent = buildInsertContactIntentUrl(fields, window.location.href);
       if (!intent) return false;
       markSaveAttempt(window.sessionStorage, "insert");
+      window.location.href = intent;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Guided floor: opens the system Downloads list so the `.vcf` can be
+   * tapped into the vendor importer. Sync in the tap gesture, armed like
+   * every intent attempt. Returns true when attempted.
+   */
+  function openDownloadsList(): boolean {
+    try {
+      const intent = buildViewDownloadsIntentUrl(window.location.href);
+      if (!intent) return false;
+      markSaveAttempt(window.sessionStorage, "view");
       window.location.href = intent;
       return true;
     } catch {
@@ -398,7 +479,11 @@ export function SaveContactAction({
           {label}
         </a>
         {state === "failed" ? (
-          <SaveContactFallback href={href} reason={reason ?? undefined} />
+          <SaveContactFallback
+            href={href}
+            reason={reason ?? undefined}
+            onOpenDownloads={canOpenDownloads ? openDownloadsList : undefined}
+          />
         ) : null}
       </div>
     );
@@ -422,7 +507,13 @@ export function SaveContactAction({
         <LuUserPlus size={22} aria-hidden="true" className="shrink-0" />
         {label}
       </a>
-      {state === "failed" ? <SaveContactFallback href={href} reason={reason ?? undefined} /> : null}
+      {state === "failed" ? (
+        <SaveContactFallback
+          href={href}
+          reason={reason ?? undefined}
+          onOpenDownloads={canOpenDownloads ? openDownloadsList : undefined}
+        />
+      ) : null}
     </div>
   );
 }
