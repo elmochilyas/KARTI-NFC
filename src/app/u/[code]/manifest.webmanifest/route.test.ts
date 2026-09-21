@@ -53,7 +53,12 @@ describe("GET /u/[code]/manifest.webmanifest", () => {
     expect(manifest.display).toBe("standalone");
     expect(manifest.scope).toBe("/u/A8K29MPQ2Z");
     expect(manifest.theme_color).toBe("#123456");
-    const icons = manifest.icons as { src: string; sizes: string; type: string; purpose?: string }[];
+    const icons = manifest.icons as {
+      src: string;
+      sizes: string;
+      type: string;
+      purpose?: string;
+    }[];
     expect(icons).toHaveLength(3);
     expect(icons[0]).toMatchObject({
       sizes: "192x192",

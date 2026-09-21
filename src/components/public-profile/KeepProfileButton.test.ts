@@ -75,9 +75,7 @@ describe("detectInstallEnvironment", () => {
 describe("ctaTitleForEnvironment", () => {
   it("never promises installation where none exists", () => {
     expect(ctaTitleForEnvironment("ios-safari", false)).toBe("Add to Home Screen");
-    expect(ctaTitleForEnvironment("ios-other", false)).toBe(
-      "Open in Safari to save this card",
-    );
+    expect(ctaTitleForEnvironment("ios-other", false)).toBe("Open in Safari to save this card");
     expect(ctaTitleForEnvironment("android", false)).toBe("Install Digital Card");
     expect(ctaTitleForEnvironment("desktop", false)).toBe("Add to Phone");
     expect(ctaTitleForEnvironment(null, false)).toBe("Add to Phone");

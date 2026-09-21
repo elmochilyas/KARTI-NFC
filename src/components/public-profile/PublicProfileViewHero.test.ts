@@ -40,7 +40,9 @@ function render(
       profile,
       links: [],
       avatarUrl: opts.avatarUrl ?? null,
-      coverUrl: opts.coverUrl ?? "https://example.supabase.co/storage/v1/object/public/profile-assets/cover.webp",
+      coverUrl:
+        opts.coverUrl ??
+        "https://example.supabase.co/storage/v1/object/public/profile-assets/cover.webp",
     }),
   );
 }

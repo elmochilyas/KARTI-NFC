@@ -140,7 +140,12 @@ export function PwaDiagnostics() {
       aria-label="PWA diagnostics (development only)"
     >
       <summary className="cursor-pointer font-bold">
-        PWA check {checks.length === 0 ? "(running…)" : failures === 0 ? "✓ all pass" : `✗ ${failures} failing`}
+        PWA check{" "}
+        {checks.length === 0
+          ? "(running…)"
+          : failures === 0
+            ? "✓ all pass"
+            : `✗ ${failures} failing`}
       </summary>
       <ul className="mt-2 flex flex-col gap-1.5">
         {checks.map((c) => (

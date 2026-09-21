@@ -423,9 +423,7 @@ export function PublicProfileView({
           dark={dark}
         />
 
-        <div
-          className={`relative px-4 pt-5 pb-8 ${dark ? "bg-neutral-950" : "bg-[#F4F8FC]"}`}
-        >
+        <div className={`relative px-4 pt-5 pb-8 ${dark ? "bg-neutral-950" : "bg-[#F4F8FC]"}`}>
           <QuickTiles actions={quickActions} dark={dark} />
 
           <div className="mt-4 flex flex-col gap-4">

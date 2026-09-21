@@ -93,8 +93,7 @@ describe("generateMetadata /u/[code]", () => {
     expect(icons?.apple).toBe("/u/ABCD234567/apple-touch-icon.png");
     // Apple home-screen support: capable + status bar + short title.
     const appleWebApp = meta.appleWebApp as
-      | { capable?: boolean; statusBarStyle?: string; title?: string }
-      | undefined;
+      { capable?: boolean; statusBarStyle?: string; title?: string } | undefined;
     expect(appleWebApp?.capable).toBe(true);
     expect(appleWebApp?.statusBarStyle).toBe("default");
     expect(appleWebApp?.title).toBe("Ahmed");
