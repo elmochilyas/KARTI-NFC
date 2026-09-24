@@ -1502,6 +1502,12 @@ keep overlaps bounded/constant-height (avatar-only).
 > accent halo + deep shadow in both themes; drops the sheet-matched ring
 > (invisible on white covers). Spacing rebalanced (name `mt-4` 30px,
 > pill/tagline `mt-2.5`, identity `pb-3`, sheet `pt-5`).
+>
+> 2026-09-21 addendum (Phase 25 sections foundation): the hero/actions/links
+> blocks render through `ProfileSectionRenderer` (data-driven order from
+> `profile_sections`); default order renders the identical DOM. Hero stays
+> pinned to the top slot (full-bleed cover cannot sit mid-sheet without a
+> design pass); reorder moves actions/links within the sheet.
 
 ---
 
@@ -1546,3 +1552,599 @@ correct standalone web-app on iOS Safari, with honest fallbacks
 everywhere else. Identity model, resolver, NFC/QR, wallet backlog, and
 database are untouched. On-device install confirmation stays with the
 operator.
+
+---
+
+## ADR-051 — Profile sections foundation (hero/actions/links)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+The public profile rendered a hardcoded hero → actions → links order. The
+product needs a flexible section builder (maps, menus, gallery later)
+without a visual redesign now and without breaking the permanent-URL,
+ACTIVE-only, or zero-stale contracts.
+
+### Decision
+
+- New `public.profile_sections` table (`profile_id`, `type`, `position`,
+  `enabled`, `settings jsonb`, timestamps): TEXT + CHECK foundation types
+  (`hero|actions|links`), `UNIQUE(profile_id, type)` (exactly one of each
+  in the foundation) + `UNIQUE(profile_id, position)` (unambiguous order),
+  cascade on profile delete, RLS admin-only (`(select private.is_admin())`),
+  anon default-deny. Idempotent backfill seeds hero(1)/actions(2)/links(3).
+- `settings` defaults to `{}` and is never projected on the public path —
+  a future public display key must be allowlisted deliberately.
+- Reorder uses a two-phase position write (park at 1000+i, then assign
+  1-based) so `UNIQUE(profile_id, position)` never fires transiently.
+- Public loader carries sections on the single-RTT embed with a legacy
+  fallback; zero rows → canonical default order; rows present but all
+  disabled → empty (explicit, no resurrection). Unknown types pass through
+  data but render nothing.
+- `ProfileSectionRenderer` owns order; section components are verbatim
+  extractions (default DOM identical). Keep/Share/attribution stay fixed
+  after sections. Hero is pinned to the top slot in the foundation —
+  full-bleed cover art cannot sit mid-sheet without a design pass, so
+  reorder moves actions/links within the sheet.
+- New profiles seed foundation rows best-effort (never fails creation);
+  section writes purge the global public cache tag (zero-stale preserved).
+
+### Consequences
+
+Future section types extend the CHECK (and revisit the per-type unique)
+deliberately. A free-position hero needs a design pass first. Migration
+`20260925` must be applied live; until then the dashboard shows a notice
+and the public path renders defaults.
+
+---
+
+## ADR-052 — Section registry + builder architecture (no new rendered sections)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Phase 25 proved data-driven ordering for a fixed trio. The builder needs a
+catalog (Business/Personal/Media blocks), an Add flow, richer manager UX,
+and drag-and-drop — without implementing any new rendered section yet and
+without changing the public UI.
+
+### Decision
+
+- **Split registry (bundle hygiene):** `sectionCatalog.ts` (features) holds
+  pure data — type, label, description, category, status, lucide icon,
+  default settings — importable from server services and client components
+  alike. The component half (`resolveSection` + adapters) lives in
+  `ProfileSections.tsx`, pairing a catalog entry with its renderer.
+  Admin bundles never absorb public render code through the catalog.
+- **11 catalog types, 3 live:** hero/actions/links stay the only rendered
+  sections. Location, Opening Hours, Menu, Catalog, About, CV, Experience,
+  Gallery are `planned` with `{}` defaults and null components; the
+  renderer skips null components without crashing.
+- **Singleton-per-type preserved:** migration `20260926` only widens the
+  CHECK. `UNIQUE(profile_id, type)` stands — gallery-style repeatable
+  sections must revisit it deliberately when they ship.
+- **Service-permits / modal-gates split:** `addProfileSection` accepts any
+  registry type (singleton-guarded); the Add modal lists planned types as
+  Coming soon with no persistence call. Flipping a catalog status to live
+  unlocks Add with zero service changes.
+- **Delete asymmetry:** foundation trio can be hidden, never deleted
+  (`deleteProfileSection` rejects them); planned rows are removable
+  (two-tap confirm, non-foundation rows only).
+- **Native HTML5 DnD, no library:** handle-only dragging with drop
+  indicator; up/down buttons remain the keyboard and touch path (the DnD
+  API has no touch support). Shared pure `moveSectionId` helper keeps drag
+  and button paths to one ordering semantic.
+- **Settings placeholder:** per-card disclosure stating settings arrive
+  with each section's implementation — explicit copy instead of fake
+  inputs or dead controls.
+
+### Consequences
+
+New sections ship as: catalog status flip + component + map entry +
+settings UI — no manager, service, or migration-shape changes for
+singleton types. Migration `20260926` must be applied live (file-only
+here); until then the new types are rejected by the old CHECK and the
+dashboard keeps its unreachable-table notice path.
+
+---
+
+## ADR-053 — Section settings engine (schema-allowlisted settings)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Sections need per-type configuration (visibility toggles today, richer
+controls later) without leaking admin internals to the public profile and
+without every new section reinventing validation, editing, and projection.
+
+### Decision
+
+- **Schemas own the shape:** `sectionSettings.ts` declares one zod schema
+  per live section (hero: showTagline/showCategory; actions:
+  showQuickTiles/showAbout; links: showSubtitles — all default-visible, so
+  current UI is preserved bit-for-bit). Zod strips unknown keys (ignored)
+  and rejects bad value types.
+- **Schema is the public allowlist:** the public loader sanitizes stored
+  settings through the same schemas before projecting. Only declared
+  display keys can ever reach `PublicSection.settings`; smuggled,
+  admin-only, or unknown keys are structurally stripped, and invalid
+  shapes reset to defaults (never fail a tap). Planned/unknown types
+  project `{}`.
+- **Registry carries editors + audiences:** catalog entries add
+  `settingsComponent` (live editors wired, planned null) and
+  `supportedProfiles` (business blocks BUSINESS-only, personal blocks
+  PERSON-only, core + gallery both). `SectionSettingsRenderer` loads the
+  editor dynamically; the manager shows the arrives-with-implementation
+  placeholder where no editor exists.
+- **Split persistence rules:** `updateSectionSettings` validates against
+  the type schema (planned types accept `{}` only); `addProfileSection`
+  enforces the audience split against the profile's type; every write
+  purges the public cache tag (zero-stale preserved).
+- **No migration:** `profile_sections.settings jsonb` already exists.
+
+### Consequences
+
+A new section ships settings by adding its schema + editor + audience —
+no loader, service-shape, or table changes. Defaults must always equal
+the no-settings render so backfill-era rows stay identical. No business
+sections are implemented in this phase; their catalog rows stay planned.
+
+---
+
+## ADR-054 — First real sections: Location + Opening Hours
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+The Phase 26/27 engine (registry, schemas, editors, sanitized projection)
+had no real consumer beyond the foundation trio. Location and Opening
+Hours are the first BUSINESS-only blocks, exercising the full lifecycle:
+catalog → Add → configure → sanitized render → reorder/hide/remove.
+
+### Decision
+
+- **Location:** title/address/coordinates/showMap/buttonLabel settings;
+  public renderer shows an address card with Google Maps (primary button)
+  and Apple Maps (link) URLs built from an encoded `lat,lng` (preferred)
+  or address query. No iframe, no API keys, no third-party scripts.
+  Empty target collapses the section (content-driven, like all sections).
+- **Opening Hours:** IANA timezone (validated via `Intl`) + 7-day rows
+  (closed flag, HH:MM open/close); public renderer lists the week,
+  highlights today (`aria-current="date"`), and shows an Open-now/Closed
+  badge computed server-side in the schedule's timezone. Undeterminable
+  states render no badge rather than a wrong one.
+- **No migration:** both types were already in the Phase 26 CHECK;
+  flipping catalog `status` to live + adding schema/editor/component is
+  the entire shipment. Singleton-per-type and audience gating unchanged.
+- **Modal Add goes live for live types:** compatible, not-yet-added live
+  entries show a working Add button (singleton + audience enforced
+  server-side regardless); planned entries stay Coming soon.
+
+### Consequences
+
+The engine's ship path is proven: Menu/Catalog/About/CV/Experience/
+Gallery follow the same four-file pattern (schema, editor, renderer,
+catalog flip). Coordinates are display routing data, not secrets — but
+like all settings they pass through the schema allowlist all the same.
+
+---
+
+## ADR-055 — Collection sections: Menu + Catalog on settings JSONB
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Restaurants and businesses need item collections (menu dishes, catalog
+products) with photos and prices, without new tables, without a new
+bucket, and without duplicating logic between two near-identical
+sections.
+
+### Decision
+
+- **One shared engine:** `collectionItemSchema`/`collectionCategorySchema`
+  (id/image/name/description/price/available; categories ≤20, items ≤50)
+  back both `menuSettingsSchema` ("Our Menu") and `catalogSettingsSchema`
+  ("Products", currency default MAD). One `CollectionEditor`, one
+  `CollectionView` — Menu/Catalog are thin wrappers differing only in
+  placeholders and fallback headings.
+- **Section-scoped images, same bucket:** `{clientId}/sections/{type}/`
+  under `profile-assets`; identical validation (MIME, magic bytes, size),
+  sharp normalize (1024 cap), immutable cache. Uploads are
+  ownership-verified (profile must belong to the client); the managed-path
+  delete gate covers the new shape; settings saves best-effort-remove
+  orphaned item photos (never fails the save). Only referenced images
+  render — no listing surface.
+- **RESTAURANT forward-declared:** no such profile type exists (canonical
+  types stay PERSON|BUSINESS, no migration), so menu declares
+  `["RESTAURANT", "BUSINESS"]` and the audience gate matches BUSINESS
+  today — automatically extending if the profile type ever arrives.
+- **Catalog modal split preserved:** the uploader is injected through
+  editor context (never imported) so the registry stays importable from
+  client components and server services without tripping the server-only
+  boundary (caught live: a direct server-action import poisoned 12 suites).
+- **Public collapse rules:** unavailable/nameless items hidden, emptied
+  categories dropped, empty collections render nothing.
+
+### Consequences
+
+About/CV/Experience/Gallery reuse the established patterns. Item-photo
+orphans are removed on save, not on upload — replacing a photo then
+abandoning the draft keeps the old file (safe order, same as avatars).
+
+---
+
+## ADR-057 — Personal sections with a private CV bucket
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+PERSON profiles need biography, work history, and a downloadable CV. CVs
+are the first non-image uploads and must never be directly reachable —
+unlike avatars, a document URL must not work when pasted anywhere.
+
+### Decision
+
+- **About/Experience as settings:** title + plain-text content (2000 cap);
+  jobs (company/role required, YYYY-MM dates with end-after-start
+  refinement, descriptions). Collapsible when empty, like all sections.
+- **Private documents bucket:** `profile-documents` (private, PDF-only,
+  5 MB) carries deliberately NO read policy for any API role — default
+  deny. The only read path is the service-role download inside
+  `GET /api/cv/[slug]`, which re-resolves the ACTIVE profile, validates
+  the managed-document path shape, and streams `inline` with `no-store`.
+  All failures share one generic 404.
+- **Path never leaves the server:** the public projection strips `file`
+  and exposes only a `hasFile` presence flag; the renderer links the
+  slug endpoint. The stored path embeds the client UUID, so exposing it
+  would leak internal ids even if the bytes stayed protected.
+- **PDF pipeline mirrors images:** MIME allowlist, `%PDF-` magic bytes,
+  size cap, ownership check, server-generated names — but stores original
+  bytes (sharp never touches PDFs). Deletes route by path shape to the
+  correct bucket; orphan cleanup covers documents.
+- **Uploader injection preserved:** the CV editor receives its uploader
+  through context (never imported), keeping the registry importable from
+  both sides of the server-only boundary.
+
+### Consequences
+
+Gallery is the last planned type. Migration `20260928` must be applied
+live with a bucket-privacy check (anonymous GET on a document URL must
+403/404). Until then CV uploads fail closed at the storage layer.
+
+---
+
+## ADR-058 — Gallery completes the section registry
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Gallery was the final `planned` catalog entry. Visual collections need
+multi-upload, alt text, reordering, and two server-rendered layouts —
+without client JS on the public page and without new storage.
+
+### Decision
+
+- **Schema-gated image refs:** gallery images carry managed-path refs
+  (shape-checked in zod, authoritative in the delete gate) plus alt text.
+  The renderer resolves only non-blank, schema-shaped refs to public
+  URLs; anything else never reaches an `<img src>`.
+- **Layouts without JS:** `grid` (responsive 2→3 columns, square crops)
+  and `masonry` (pure-CSS columns) both server-render; lazy loading via
+  the native attribute. Empty galleries collapse.
+- **Editor reuses the image pipeline:** multi-file upload through the
+  injected uploader (gallery scope), previews, alt editing, confirm
+  remove, up/down reorder, blank-slot adds. Removed-on-save photos join
+  the existing orphan cleanup.
+- **All four use cases, one audience pair:** gallery supports PERSON +
+  BUSINESS, which covers personal, business, restaurant, and store
+  profiles (the latter two are BUSINESS-typed). No audience or migration
+  changes were needed — gallery predates the Phase 26 type CHECK.
+
+### Consequences
+
+The registry has no planned types left: every catalog entry is live with
+an editor and a renderer. Future blocks follow the proven five-file
+pattern (schema, editor, renderer, adapters, catalog flip).
+
+---
+
+## ADR-059 — Builder UX: preview, completion, presets (no arch changes)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+Section management worked but felt operational: no live preview of
+section edits, no guidance on what "done" means, no onboarding after
+creation, and layout variants required hand-editing settings.
+
+### Decision
+
+- **Same renderer, inert islands:** `BuilderPreview` reuses
+  `ProfileSectionRenderer` (identical order/visibility/settings
+  semantics) with the existing inert Share/Keep previews — the live
+  islands share `window.location.href`, which would be a dashboard URL
+  in the builder. Updates ride `router.refresh()`, never navigation.
+- **One completion source:** `computeCompletion` (required 20pts,
+  recommended 10pts) feeds both the progress card and
+  `onboardingSteps`, so checklist and bar agree structurally. Location
+  counts only with a real target (coordinates or address); gallery only
+  with real photos; disabled sections never count.
+- **Checklist without tables:** onboarding shows for DRAFT profiles;
+  dismissal persists in localStorage per profile (no new tables, no
+  RLS surface). All-done collapses to nothing.
+- **Presets are validated settings:** registry `presets` merge over
+  current values through the normal save path (validation still
+  applies); a test proves every preset validates. Variants are real but
+  restrained: actions tiles/buttons, menu cards/list, gallery
+  grid/masonry — no whole-profile redesign.
+
+### Consequences
+
+Builder UX adds no tables, no routes, no RLS or projection changes. The
+edit page widens to a manager + sticky-preview grid on desktop.
+
+---
+
+## ADR-056 — Profile templates (creation-time seeding, metadata column)
+
+**Status:** Accepted
+**Date:** 2026-09-21
+
+### Context
+
+New profiles need one-tap section presets (personal/business/restaurant/
+store) without coupling the template to the live sections afterwards.
+Operators also need to see which preset a profile came from.
+
+### Decision
+
+- **Registry + one-shot seeding:** `profileTemplates.ts` declares the
+  four templates (sections + enabled flags + settings overrides).
+  `seedTemplateSections` inserts ONLY missing types after the current max
+  position — existing rows (disabled, customized, or foreign) stay
+  byte-identical, reruns insert nothing. Creation resolves explicit
+  compatible choice → type default, and never fails over a bad id.
+- **Metadata column, not a driver:** `profiles.template` (+ CHECK,
+  backfilled from profile type) records the choice.
+  `updateProfileTemplate` updates only that column — the function
+  structurally issues no `profile_sections` query, pinned by a
+  table-call test. Changing templates never recreates sections.
+- **UI split:** template picker lives in the creation wizard (filtered by
+  profile type, reset on type change); the edit page shows a reference
+  switcher with explicit never-touches-sections copy.
+- **Audience coherence:** every template section is addable on the
+  template's profile type (registry test pins this), so seeded rows
+  always pass the add gate's rules.
+
+### Consequences
+
+Gallery seeds as an enabled row that renders nothing until implemented
+(consistent with the planned-type posture). Migration `20260927` must be
+applied live (file-only here); until then creation falls back gracefully
+(insert without the column fails → UNKNOWN, no partial profile — same as
+any schema drift, covered by the migration-first workflow).
+
+---
+
+## ADR-060 — Pre-migration profile loader tolerance (Phase 33 incident fix)
+
+**Status:** Accepted
+**Date:** 2026-09-22
+
+### Context
+
+The live database never received migrations 20260925–20260928
+(`profile_sections`, widened section CHECK, `profiles.template`,
+private documents bucket). Dashboard profile reads therefore ran against
+rows without the `template` column and a missing sections table. Any
+loader that demanded the new columns answered PGRST204 ("Could not find
+the column in the schema cache"), which the client page collapses to a
+phantom "No profile configured yet" empty state and the creation page
+collapses to "Could not load the profile." — for profiles that exist
+and were working before Phase 25–33.
+
+### Decision
+
+- Reads degrade, never fail, on schema drift: `getProfileByClientId` /
+  `getProfileById` (and create/update/status post-write selects) try
+  `PROFILE_DETAIL_COLUMNS` first and retry with
+  `PROFILE_DETAIL_COLUMNS_LEGACY` (no `public_code`) on a missing-identity-
+  column error. Rows without a code normalize `public_code` to `""`
+  (dashboard keeps loading; `/u/` fail-closes to 404 until migration
+  20260923 lands — the safe direction). No read path invents or persists
+  identity codes; minting stays with the DB DEFAULT generator + backfill.
+- Template resolves, never nulls: `resolveProfileTemplate(stored,
+  profileType)` keeps stored-compatible metadata, else derives from the
+  profile type (personal/business). The edit page feeds the resolved id
+  to the switcher; `getProfileTemplateColumn` stays the tolerant
+  metadata read (null = unavailable).
+- Sections stay best-effort: `seedTemplateSections` fails closed (false,
+  no throw) when the table is absent; the public loader renders
+  `DEFAULT_PUBLIC_SECTIONS`; the edit page shows the migration notice
+  (table missing) or the one-click restore (rows missing).
+- Creation flow needs no routing change: once the loader resolves old
+  profiles, Case B (existing profile) redirects to the editor and Case A
+  (no profile) creates with the template insert-retry + best-effort
+  seeding.
+
+### Consequences
+
+Old profiles load, edit, and build with zero data changes and zero
+forced recreates. The additive migrations (20260925–20260928) are still
+required to unlock sections/templates/documents — file-only here,
+operator applies + live JWT matrix. Regression pinned by
+`profileRegression.test.ts` (11 cases: legacy/modern/missing-data).
+
+---
+
+## ADR-061 � Unified profile editor: one draft, one preview, one save
+
+**Status:** Accepted
+**Date:** 2026-09-22
+
+### Context
+
+After Phases 25�33 the edit page held two editors (standalone
+`SectionsManager` + Identity?Review wizard), two previews (server-fed
+`BuilderPreview` + a legacy-kit draft preview), and scattered saves
+(profile / link / settings / template / status). The flexible section
+architecture is worth keeping; its UX placement was not.
+
+### Decision
+
+- ONE draft: `unifiedDraft.ts` (pure reducer + public-shape adapter) shared
+  by every step and the preview. Keystrokes re-render the preview with no
+  save and no `router.refresh()`.
+- ONE preview: the real `ProfileSectionRenderer` in the `BuilderPreview`
+  phone frame, draft-fed, sticky on desktop, tab + full-screen sheet on
+  mobile. The legacy `ProfilePreview`-kit approximation is deleted.
+- ONE save: `saveUnifiedDraftAction` persists profile columns + link
+  end-state + section end-state (creates/updates/deletes/toggles/exact-set
+  reorder via the unchanged services), one revalidate + one cache purge.
+  Diff logic lives in testable `unifiedSavePlan.ts`. Status changes,
+  template metadata, and storage uploads stay immediate (visibility gate /
+  reference metadata / storage must pre-exist).
+- Steps: Identity (type + template + naming + images), Contact (data +
+  actions config), Links (full manager), Sections (content cards + single
+  page order, hero pinned, core rows link to their steps), Appearance
+  (theme/accent/visual presets), Review (completion + link + status + NFC).
+- One additive settings key: `maxQuickActions` (1�3, default 3) in the
+  actions schema, honored by `pickQuickActions(limit)` and the renderer.
+  No migration (JSONB), no behavior change at default.
+- `storagePaths.ts` split: pure URL helpers move out of `storage.ts` so
+  the client-rendered preview chain never pulls sharp into the browser
+  bundle (`storage.ts` re-exports; all importers keep working).
+
+### Consequences
+
+- No DB model change; all ownership/RLS/validation behavior preserved
+  (services reused, not rewritten).
+- Dirty tracking + `beforeunload` guard; step navigation never drops edits.
+- New profiles keep the save-once gate for links/sections/uploads.
+- Fail-closed concurrent-edit detection ("changed elsewhere, reload").
+
+---
+
+## ADR-062 � Explicit primary actions + single mobile preview path
+
+**Status:** Accepted
+**Date:** 2026-09-22
+
+### Context
+
+Phase 34 left two gaps: mobile had both Edit/Preview tabs and a Preview
+sheet (redundant), and the top-action order was still derived implicitly
+(Instagram ? WhatsApp ? Call ? �), so operators could not choose or order
+what visitors see first.
+
+### Decision
+
+- Mobile: tabs deleted. The editor is always visible; the header Preview
+  button opens a full-screen sheet with the same draft-fed renderer. The
+  side preview stays mounted-but-hidden below desktop (one renderer while
+  the sheet is closed), so no state is lost opening/closing.
+- `actions.primaryActions`: explicit ordered refs (`call | whatsapp |
+  email | website`, `link:<uuid>`, max 20) in settings JSONB � no new
+  table. `resolvePrimaryActions` is the single resolver for the public
+  renderer and the admin preview (explicit order wins, stale refs skipped,
+  empty = legacy order, always capped). `primaryAvailability` gates what
+  is selectable; `sanitizePrimaryRefs` cleans on save (temp `link:draft-�`
+  refs are remapped server-side after link creation).
+- `maxQuickActions` widened 1�4 (default 3). The draft adapter carries
+  `enabled` so disabled links vanish from tiles AND Connect in preview,
+  exactly like the public loader.
+- Contact card UI (visible/hidden/unavailable + segmented count) writes
+  only the draft; the unified Save persists everything, no extra buttons.
+
+### Consequences
+
+- Existing profiles (no `primaryActions`) render byte-identically.
+- Dead refs can never produce broken cards (resolver skips, save cleans).
+- Promoting an unsaved link works end-to-end via the temp?real remap.
+
+---
+
+## ADR-063 � Draft-native section editing + keyless OSM maps
+
+**Status:** Accepted
+**Date:** 2026-09-22
+
+### Context
+
+Phase 34 sections staged edits behind per-section Save buttons over
+bare-`{}` defaults, so new blocks were unconfigurable and invisible until
+saved. Location had no real map experience.
+
+### Decision
+
+- All 11 section editors are controlled (`settings` in, `onChange` out,
+  every keystroke commits to the draft). No editor persists anything;
+  uploads stay immediate with paths staged in draft. One save persists all.
+- Add instantiates Zod schema defaults; new rows auto-expand + focus.
+- Location gains `mapsUrl` (Google/Apple allowlist) + `mapZoom`; target
+  resolution is coords ? link ? address. The map card is a keyless OSM
+  embed built from sanitized numbers (lazy iframe); address-only renders
+  card + vendor links; user URLs/HTML never reach an embed.
+- Admin preview renders per-type empty guidance via a
+  `previewPlaceholders` flag; public rendering collapses as before �
+  same components.
+- Save failures carry `sectionId`; the Sections step expands, scrolls to,
+  focuses, and annotates the card.
+
+### Consequences
+
+- Typing anywhere in Sections updates the phone preview with no save.
+- Existing rows/profiles byte-identical (defaults only fill at add/save).
+- OSM reachability is the only new runtime dependency (links fallback).
+
+---
+
+## ADR-064 � Map-link-only Location with SSRF-safe resolution
+
+**Status:** Accepted
+**Date:** 2026-09-22
+
+### Context
+
+Manual coordinate/zoom fields leaked implementation detail and invited
+bad pins. The operator should paste one Maps link; Karti resolves exact
+coordinates internally.
+
+### Decision
+
+- Editor exposes title/address/maps-link/show-map/button only.
+  Coordinates resolve via `resolveMapsLinkAction` (debounced + blur):
+  short hosts resolve server-side, everything else extracts directly,
+  failures show one shared message and never guess or geocode.
+- Short-link fetching is SSRF-hardened: HTTPS-only, allowlisted hops,
+  per-hop DNS verification with private-range blocking, =4 hops,
+  timeout-guarded, no response bodies. Pure core (`mapLinks.ts`) takes
+  injected fetch/DNS so the matrix runs offline.
+- Coordinates persist in the existing JSONB keys (storage model
+  unchanged); the OSM embed and directions prefer the original safe
+  link, else coordinates-based vendor URLs. OSM attribution rendered.
+- Resolver injected through settings context � the catalog keeps its
+  server-action-free import boundary (vitest-safe).
+
+### Consequences
+
+- No map API keys, no paid services, no new tables.
+- Legacy coordinate rows render unchanged; clearing a link clears only
+  detected pins.
+- Live short-link resolution still needs an operator network check.
