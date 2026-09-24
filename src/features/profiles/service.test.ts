@@ -369,7 +369,8 @@ describe("skipAuth pre-verified path (Track A)", () => {
     expect(getClaims).not.toHaveBeenCalled();
   });
 
-  it("updateProfile skips the slug-availability query when the slug is unchanged", async () => {    const current = { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" };
+  it("updateProfile skips the slug-availability query when the slug is unchanged", async () => {
+    const current = { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" };
     const updated = { ...current, display_name: "Ahmed Benali" };
     const getClaims = vi.fn(async () => ({ data: { claims: { sub: "a" } }, error: null }));
     let calls = 0;
@@ -431,7 +432,7 @@ describe("profile templates (Phase 30)", () => {
       stub.limit = chain;
       stub.insert = (rows: unknown) => {
         (name === "profiles" ? profileInserts : sectionInserts).push(
-          ...(Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[],
+          ...((Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[]),
         );
         return stub;
       };
@@ -479,7 +480,11 @@ describe("profile templates (Phase 30)", () => {
     expect(unknown.profileInserts[0]?.template).toBe("business");
 
     const mismatch = createDb();
-    await createProfileInternal(CLIENT_ID, { ...BUSINESS_INPUT, template: "personal" }, mismatch.db);
+    await createProfileInternal(
+      CLIENT_ID,
+      { ...BUSINESS_INPUT, template: "personal" },
+      mismatch.db,
+    );
     expect(mismatch.profileInserts[0]?.template).toBe("business");
 
     const person = createDb();
@@ -499,7 +504,12 @@ describe("profile templates (Phase 30)", () => {
   }
 
   it("updates template metadata without touching profile_sections", async () => {
-    const row = { id: PROFILE_ID, client_id: CLIENT_ID, profile_type: "BUSINESS", template: "business" };
+    const row = {
+      id: PROFILE_ID,
+      client_id: CLIENT_ID,
+      profile_type: "BUSINESS",
+      template: "business",
+    };
     const { db, from } = templateDb({ ...row, template: "restaurant" });
     const result = await updateProfileTemplate(PROFILE_ID, CLIENT_ID, "restaurant", db);
     expect(result.ok).toBe(true);
@@ -510,15 +520,30 @@ describe("profile templates (Phase 30)", () => {
   });
 
   it("rejects unknown templates, mismatched types, cross-client and anonymous callers", async () => {
-    const row = { id: PROFILE_ID, client_id: CLIENT_ID, profile_type: "BUSINESS", template: "business" };
+    const row = {
+      id: PROFILE_ID,
+      client_id: CLIENT_ID,
+      profile_type: "BUSINESS",
+      template: "business",
+    };
     const unknown = await updateProfileTemplate(PROFILE_ID, CLIENT_ID, "nope", templateDb(row).db);
     expect(unknown.ok).toBe(false);
 
-    const mismatch = await updateProfileTemplate(PROFILE_ID, CLIENT_ID, "personal", templateDb(row).db);
+    const mismatch = await updateProfileTemplate(
+      PROFILE_ID,
+      CLIENT_ID,
+      "personal",
+      templateDb(row).db,
+    );
     expect(mismatch.ok).toBe(false);
     if (!mismatch.ok) expect(mismatch.error.code).toBe("VALIDATION_ERROR");
 
-    const cross = await updateProfileTemplate(PROFILE_ID, "223e4567-e89b-12d3-a456-426614174002", "restaurant", templateDb(row).db);
+    const cross = await updateProfileTemplate(
+      PROFILE_ID,
+      "223e4567-e89b-12d3-a456-426614174002",
+      "restaurant",
+      templateDb(row).db,
+    );
     expect(cross.ok).toBe(false);
     if (!cross.ok) expect(cross.error.code).toBe("NOT_FOUND");
 

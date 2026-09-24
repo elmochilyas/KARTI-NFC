@@ -156,24 +156,18 @@ export const BUILTIN_ACTION_IDS = ["call", "whatsapp", "email", "website"] as co
 
 export type BuiltinActionId = (typeof BUILTIN_ACTION_IDS)[number];
 
-export type PrimaryRef =
-  | { kind: "builtin"; id: BuiltinActionId }
-  | { kind: "link"; id: string };
+export type PrimaryRef = { kind: "builtin"; id: BuiltinActionId } | { kind: "link"; id: string };
 
 /** Parse one stored ref; null = shape-invalid (strip/ignore). */
 export function parsePrimaryRef(ref: unknown): PrimaryRef | null {
   if (typeof ref !== "string") return null;
   const value = ref.trim();
-  if (
-    value === "call" ||
-    value === "whatsapp" ||
-    value === "email" ||
-    value === "website"
-  ) {
+  if (value === "call" || value === "whatsapp" || value === "email" || value === "website") {
     return { kind: "builtin", id: value };
   }
-  const match =
-    /^link:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(value);
+  const match = /^link:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+    value,
+  );
   if (match?.[1]) return { kind: "link", id: match[1].toLowerCase() };
   return null;
 }
@@ -249,10 +243,7 @@ export function primaryAvailability(input: {
   };
 }
 
-export function isPrimaryRefAvailable(
-  ref: PrimaryRef,
-  availability: PrimaryAvailability,
-): boolean {
+export function isPrimaryRefAvailable(ref: PrimaryRef, availability: PrimaryAvailability): boolean {
   if (ref.kind === "builtin") return availability[ref.id];
   return availability.linkIds.has(ref.id);
 }
@@ -394,9 +385,7 @@ export function pickQuickActions(input: QuickActionInput): {
  * absent refs fall back to the legacy default order. The result is always
  * capped at `limit`.
  */
-export function resolvePrimaryActions(
-  input: QuickActionInput & { primaryActions?: unknown },
-): {
+export function resolvePrimaryActions(input: QuickActionInput & { primaryActions?: unknown }): {
   actions: QuickAction[];
   consumedIds: Set<string>;
 } {

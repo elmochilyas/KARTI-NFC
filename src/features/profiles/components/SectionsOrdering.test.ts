@@ -30,10 +30,7 @@ describe("moveSectionId (shared drag + button order helper)", () => {
 });
 
 describe("AddSectionModal catalog", () => {
-  function render(
-    added: string[] = ["hero", "actions", "links"],
-    profileType = "PERSON",
-  ): string {
+  function render(added: string[] = ["hero", "actions", "links"], profileType = "PERSON"): string {
     return renderToStaticMarkup(
       createElement(AddSectionModal, {
         open: true,

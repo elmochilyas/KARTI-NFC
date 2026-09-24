@@ -184,14 +184,8 @@ function isMissingIdentityColumn(error: unknown): boolean {
  * profiles created before templates (Phase 30) always resolve to a valid
  * template instead of null/crash.
  */
-export function resolveProfileTemplate(
-  stored: unknown,
-  profileType: string,
-): ProfileTemplateId {
-  if (
-    isProfileTemplateId(stored) &&
-    getProfileTemplate(stored)?.profileType === profileType
-  ) {
+export function resolveProfileTemplate(stored: unknown, profileType: string): ProfileTemplateId {
+  if (isProfileTemplateId(stored) && getProfileTemplate(stored)?.profileType === profileType) {
     return stored;
   }
   return defaultTemplateFor(profileType);

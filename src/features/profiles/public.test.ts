@@ -315,7 +315,8 @@ describe("hasContactData", () => {
   });
 });
 
-describe("publicProfileTitle + publicProfileDescription", () => {  it("builds titles with and without company", () => {
+describe("publicProfileTitle + publicProfileDescription", () => {
+  it("builds titles with and without company", () => {
     expect(publicProfileTitle({ display_name: "Ahmed", company_name: "Atlas" })).toBe(
       "Ahmed — Atlas | Karti",
     );

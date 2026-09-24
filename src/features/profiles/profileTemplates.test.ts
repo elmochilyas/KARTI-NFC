@@ -52,7 +52,15 @@ function fakeSeedDb(
 const PROFILE_ID = "123e4567-e89b-12d3-a456-426614174003";
 
 function row(type: string, position: number, extra: Row = {}): Row {
-  return { id: `sec-${type}`, profile_id: PROFILE_ID, type, position, enabled: true, settings: {}, ...extra };
+  return {
+    id: `sec-${type}`,
+    profile_id: PROFILE_ID,
+    type,
+    position,
+    enabled: true,
+    settings: {},
+    ...extra,
+  };
 }
 
 describe("profile template registry", () => {
@@ -105,11 +113,11 @@ describe("profile template registry", () => {
     expect(defaultTemplateFor("BUSINESS")).toBe("business");
     expect(defaultTemplateFor("???")).toBe("personal");
     expect(compatibleTemplates("PERSON").map((t) => t.id)).toEqual(["personal"]);
-    expect(compatibleTemplates("BUSINESS").map((t) => t.id).sort()).toEqual([
-      "business",
-      "restaurant",
-      "store",
-    ]);
+    expect(
+      compatibleTemplates("BUSINESS")
+        .map((t) => t.id)
+        .sort(),
+    ).toEqual(["business", "restaurant", "store"]);
     expect(isProfileTemplateId("restaurant")).toBe(true);
     expect(isProfileTemplateId("nope")).toBe(false);
     expect(getProfileTemplate("nope")).toBeNull();

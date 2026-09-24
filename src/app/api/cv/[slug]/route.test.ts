@@ -38,13 +38,19 @@ const ACTIVE_ROW = {
  * profile_sections honors profile/type/enabled filters; storage.download
  * serves PDF bytes for the known path only.
  */
-function fakeDb(options: {
-  profile?: Record<string, unknown> | null;
-  sectionSettings?: unknown;
-  sectionEnabled?: boolean;
-  downloadError?: boolean;
-} = {}): PublicDb {
-  const { profile = ACTIVE_ROW, sectionSettings = { file: CV_PATH }, sectionEnabled = true } = options;
+function fakeDb(
+  options: {
+    profile?: Record<string, unknown> | null;
+    sectionSettings?: unknown;
+    sectionEnabled?: boolean;
+    downloadError?: boolean;
+  } = {},
+): PublicDb {
+  const {
+    profile = ACTIVE_ROW,
+    sectionSettings = { file: CV_PATH },
+    sectionEnabled = true,
+  } = options;
   const profileFilters: [string, unknown][] = [];
   const profileQuery: Record<string, unknown> = {
     select: vi.fn(() => profileQuery),
@@ -55,14 +61,22 @@ function fakeDb(options: {
     maybeSingle: vi.fn(async () => {
       const matches =
         profile !== null &&
-        profileFilters.every(([column, value]) => (profile as Record<string, unknown>)[column] === value);
+        profileFilters.every(
+          ([column, value]) => (profile as Record<string, unknown>)[column] === value,
+        );
       if (!matches) return { data: null, error: null };
       return {
         data: {
           ...profile,
           profile_links: [],
           profile_sections: [
-            { id: "sec-cv", type: "cv", position: 4, enabled: sectionEnabled, settings: sectionSettings },
+            {
+              id: "sec-cv",
+              type: "cv",
+              position: 4,
+              enabled: sectionEnabled,
+              settings: sectionSettings,
+            },
           ],
         },
         error: null,
@@ -83,7 +97,9 @@ function fakeDb(options: {
         ["type", "cv"],
         ["enabled", true],
       ];
-      const matches = wanted.every(([c, v]) => sectionFilters.some(([fc, fv]) => fc === c && fv === v));
+      const matches = wanted.every(([c, v]) =>
+        sectionFilters.some(([fc, fv]) => fc === c && fv === v),
+      );
       if (!matches) return { data: null, error: null };
       return { data: { settings: sectionSettings }, error: null };
     }),
@@ -112,16 +128,17 @@ describe("resolveCvFilePath", () => {
     expect(resolveCvFilePath(null)).toBeNull();
     expect(resolveCvFilePath({ file: "https://evil.com/cv.pdf" })).toBeNull();
     expect(resolveCvFilePath({ file: `${CLIENT_ID}/sections/cv/evil.pdf` })).toBeNull();
-    expect(
-      resolveCvFilePath({ file: "profiles/abc/avatar/abcdef0123456789.png" }),
-    ).toBeNull();
+    expect(resolveCvFilePath({ file: "profiles/abc/avatar/abcdef0123456789.png" })).toBeNull();
   });
 });
 
 describe("GET /api/cv/[slug]", () => {
   it("streams the PDF inline for ACTIVE profiles with a CV", async () => {
     vi.mocked(createAdminClient).mockReturnValue(fakeDb());
-    const res = await GET(new Request("http://localhost:3000/api/cv/ahmed-benali"), ctx("ahmed-benali"));
+    const res = await GET(
+      new Request("http://localhost:3000/api/cv/ahmed-benali"),
+      ctx("ahmed-benali"),
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
     expect(res.headers.get("content-disposition")).toBe('inline; filename="ahmed-benali-cv.pdf"');
@@ -143,7 +160,10 @@ describe("GET /api/cv/[slug]", () => {
     ];
     for (const [name, db] of cases) {
       vi.mocked(createAdminClient).mockReturnValue(db);
-      const res = await GET(new Request(`http://localhost:3000/api/cv/${name}`), ctx(name === "unknown" ? "ghost-slug" : "ahmed-benali"));
+      const res = await GET(
+        new Request(`http://localhost:3000/api/cv/${name}`),
+        ctx(name === "unknown" ? "ghost-slug" : "ahmed-benali"),
+      );
       expect(res.status, name).toBe(404);
       expect(await res.text(), name).toBe("Not found");
     }

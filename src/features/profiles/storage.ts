@@ -6,11 +6,7 @@ export type StorageDb = SupabaseClient<Database>;
 // Client-safe URL helpers live in storagePaths (sharp must never reach the
 // browser bundle via the dashboard live preview). Re-exported here so all
 // existing server imports keep working unchanged.
-import {
-  PROFILE_ASSETS_BUCKET,
-  publicAssetPathUrl,
-  storageOrigin,
-} from "./storagePaths";
+import { PROFILE_ASSETS_BUCKET, publicAssetPathUrl, storageOrigin } from "./storagePaths";
 
 export { PROFILE_ASSETS_BUCKET, publicAssetPathUrl, storageOrigin };
 
@@ -159,11 +155,7 @@ export function assetPath(profileId: string, kind: AssetKind, extension: string)
  * under `{clientId}/sections/{sectionType}/`, separate from identity
  * assets. Server-generated names only — never client filenames.
  */
-export function sectionAssetPath(
-  clientId: string,
-  sectionType: string,
-  extension: string,
-): string {
+export function sectionAssetPath(clientId: string, sectionType: string, extension: string): string {
   const random = crypto.getRandomValues(new Uint8Array(8));
   const suffix = Array.from(random, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${clientId}/sections/${sectionType}/${suffix}.${extension}`;
@@ -247,7 +239,12 @@ async function normalizeImage(
     }
     return { ok: true, bytes: output, contentType: "image/webp", extension: "webp" };
   }
-  return { ok: true, bytes: new Uint8Array(await file.arrayBuffer()), contentType: file.type, extension };
+  return {
+    ok: true,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    contentType: file.type,
+    extension,
+  };
 }
 
 /**
@@ -276,15 +273,13 @@ export async function uploadAsset(
     normalized.extension === "webp" && normalized.contentType === "image/webp"
       ? assetPath(profileId, kind, "webp")
       : assetPath(profileId, kind, checked.extension);
-  const { error } = await supabase.storage.from(PROFILE_ASSETS_BUCKET).upload(
-    path,
-    normalized.bytes as BodyInit,
-    {
+  const { error } = await supabase.storage
+    .from(PROFILE_ASSETS_BUCKET)
+    .upload(path, normalized.bytes as BodyInit, {
       contentType: normalized.contentType,
       cacheControl: IMMUTABLE_CACHE_CONTROL,
       upsert: false,
-    },
-  );
+    });
 
   if (error) {
     return { ok: false, message: "Upload failed. Please try again." };
@@ -330,15 +325,13 @@ export async function uploadSectionImage(
       ? "webp"
       : checked.extension;
   const path = sectionAssetPath(clientId, sectionType, extension);
-  const { error } = await supabase.storage.from(PROFILE_ASSETS_BUCKET).upload(
-    path,
-    normalized.bytes as BodyInit,
-    {
+  const { error } = await supabase.storage
+    .from(PROFILE_ASSETS_BUCKET)
+    .upload(path, normalized.bytes as BodyInit, {
       contentType: normalized.contentType,
       cacheControl: IMMUTABLE_CACHE_CONTROL,
       upsert: false,
-    },
-  );
+    });
   if (error) {
     return { ok: false, message: "Upload failed. Please try again." };
   }
@@ -436,5 +429,3 @@ export function publicAssetUrl(supabase: StorageDb, path: string | null): string
   const { data } = supabase.storage.from(PROFILE_ASSETS_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
-
-

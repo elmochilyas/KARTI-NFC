@@ -97,7 +97,13 @@ export type PublicSection = {
 
 /** Canonical foundation order when a profile carries no section rows yet. */
 export const DEFAULT_PUBLIC_SECTIONS: PublicSection[] = [
-  { id: "hero", type: "hero", position: 1, enabled: true, settings: defaultSectionSettings("hero") },
+  {
+    id: "hero",
+    type: "hero",
+    position: 1,
+    enabled: true,
+    settings: defaultSectionSettings("hero"),
+  },
   {
     id: "actions",
     type: "actions",
@@ -128,10 +134,11 @@ export type PublicProfileData = {
  * hand-untouched). Theme falls back to light for unexpected values.
  */
 function toPublicProfile(row: Record<string, unknown>): PublicProfile {
-  const { profile_links: _droppedLinks, profile_sections: _droppedSections, ...rest } = row as Record<
-    string,
-    unknown
-  > & {
+  const {
+    profile_links: _droppedLinks,
+    profile_sections: _droppedSections,
+    ...rest
+  } = row as Record<string, unknown> & {
     profile_links?: unknown;
     profile_sections?: unknown;
   };

@@ -44,9 +44,7 @@ function CatalogRow({
       </span>
       <span className="min-w-0 flex-1 text-left">
         <span className="block truncate text-[15px] font-bold">{entry.label}</span>
-        <span className="block truncate text-xs font-medium text-muted">
-          {entry.description}
-        </span>
+        <span className="block truncate text-xs font-medium text-muted">{entry.description}</span>
       </span>
       {!compatible ? (
         <span
@@ -123,7 +121,7 @@ export function AddSectionModal({
       }
     }
     if (!open && dialog.open) dialog.close();
-  }, [open ]);
+  }, [open]);
 
   useEffect(() => {
     const dialog = dialogRef.current;

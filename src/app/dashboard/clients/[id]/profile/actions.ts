@@ -39,7 +39,15 @@ import {
 import { MAPS_DETECT_FAILURE_MESSAGE, resolveMapLink } from "@/features/profiles/mapLinks";
 import { FIELD_STEPS } from "@/features/profiles/unifiedDraft";
 import type { ProfileLinkRow, ProfileSectionRow } from "@/features/profiles/types";
-import { isManagedDocumentPath, isManagedSectionImagePath, publicAssetUrl, removeAsset, uploadAsset, uploadDocument, uploadSectionImage } from "@/features/profiles/storage";
+import {
+  isManagedDocumentPath,
+  isManagedSectionImagePath,
+  publicAssetUrl,
+  removeAsset,
+  uploadAsset,
+  uploadDocument,
+  uploadSectionImage,
+} from "@/features/profiles/storage";
 import type { ProfileResult, ProfileRow } from "@/features/profiles/types";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -194,7 +202,8 @@ export async function setStatusAction(
   clientId: string,
   profileId: string,
   status: string,
-): Promise<StatusFormState> {  const supabase = await getServerClient({ requireAuth: true });
+): Promise<StatusFormState> {
+  const supabase = await getServerClient({ requireAuth: true });
   if (!supabase) {
     if (!isSupabaseConfigured()) {
       return { ok: false, message: "Profile management is not configured yet." };
@@ -446,9 +455,8 @@ export async function updateSectionSettingsAction(
   // settings shape; never fails the save.
   if (previous.ok) {
     try {
-      const { isManagedDocumentPath, isManagedSectionImagePath, removeAsset } = await import(
-        "@/features/profiles/storage"
-      );
+      const { isManagedDocumentPath, isManagedSectionImagePath, removeAsset } =
+        await import("@/features/profiles/storage");
       const collect = (value: unknown, out: Set<string>): void => {
         if (typeof value === "string") {
           if (isManagedSectionImagePath(value) || isManagedDocumentPath(value)) out.add(value);
@@ -460,10 +468,7 @@ export async function updateSectionSettingsAction(
       };
       const before = new Set<string>();
       const after = new Set<string>();
-      collect(
-        (previous.data as unknown as { settings?: unknown }).settings ?? null,
-        before,
-      );
+      collect((previous.data as unknown as { settings?: unknown }).settings ?? null, before);
       collect((result.data as unknown as { settings?: unknown }).settings ?? null, after);
       const orphaned = [...before].filter((path) => !after.has(path));
       if (orphaned.length > 0) {
@@ -638,10 +643,10 @@ async function applyLinksDraft(
   if (finalOrder === null) {
     return { ok: false, message: "Could not save the link order. Please try again." };
   }
-  const remaining = current.data
-    .map((l) => l.id)
-    .filter((id) => !plan.deletes.includes(id));
-  const createdIds = plan.creates.map((c) => tempToReal.get(c.tempId)).filter((id) => id !== undefined);
+  const remaining = current.data.map((l) => l.id).filter((id) => !plan.deletes.includes(id));
+  const createdIds = plan.creates
+    .map((c) => tempToReal.get(c.tempId))
+    .filter((id) => id !== undefined);
   const expectedCurrent = [...remaining, ...createdIds];
   if (finalOrder.join() !== expectedCurrent.join()) {
     const result = await reorderProfileLinks(profileId, clientId, finalOrder, supabase);
@@ -720,7 +725,13 @@ async function applySectionsDraft(
     );
     if (!saved.ok) return { ok: false, message: saved.error.message };
     if (!section.enabled) {
-      const toggled = await toggleProfileSection(added.data.id, profileId, clientId, false, supabase);
+      const toggled = await toggleProfileSection(
+        added.data.id,
+        profileId,
+        clientId,
+        false,
+        supabase,
+      );
       if (!toggled.ok) return { ok: false, message: toggled.error.message };
     }
     tempToReal.set(section.tempId, added.data.id);
@@ -746,7 +757,13 @@ async function applySectionsDraft(
   }
 
   for (const section of plan.toggles) {
-    const result = await toggleProfileSection(section.id, profileId, clientId, section.enabled, supabase);
+    const result = await toggleProfileSection(
+      section.id,
+      profileId,
+      clientId,
+      section.enabled,
+      supabase,
+    );
     if (!result.ok) return { ok: false, message: result.error.message, sectionId: section.id };
   }
 
@@ -829,9 +846,7 @@ export async function saveUnifiedDraftAction(
       return {
         ok: false,
         message: result.error.message,
-        step: firstErrorStep(
-          result.error.fieldErrors as Record<string, string> | undefined,
-        ),
+        step: firstErrorStep(result.error.fieldErrors as Record<string, string> | undefined),
         fieldErrors: result.error.fieldErrors as Record<string, string> | undefined,
       };
     }
@@ -848,9 +863,7 @@ export async function saveUnifiedDraftAction(
       return {
         ok: false,
         message: result.error.message,
-        step: firstErrorStep(
-          result.error.fieldErrors as Record<string, string> | undefined,
-        ),
+        step: firstErrorStep(result.error.fieldErrors as Record<string, string> | undefined),
         fieldErrors: result.error.fieldErrors as Record<string, string> | undefined,
       };
     }
@@ -885,7 +898,12 @@ export async function saveUnifiedDraftAction(
     ),
   };
 
-  const sectionsResult = await applySectionsDraft(persisted.id, clientId, sectionsPayload, supabase);
+  const sectionsResult = await applySectionsDraft(
+    persisted.id,
+    clientId,
+    sectionsPayload,
+    supabase,
+  );
   if (!sectionsResult.ok) {
     return {
       ok: false,

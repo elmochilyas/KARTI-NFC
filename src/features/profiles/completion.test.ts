@@ -143,11 +143,9 @@ describe("onboardingSteps", () => {
     expect(viaLinks.find((s) => s.id === "sections")?.done).toBe(true);
     const viaBlock = onboardingSteps(EMPTY_PROFILE, noLinks, [GALLERY]);
     expect(viaBlock.find((s) => s.id === "sections")?.done).toBe(true);
-    const foundationOnly = onboardingSteps(
-      EMPTY_PROFILE,
-      noLinks,
-      [{ type: "hero", enabled: true, settings: {} }],
-    );
+    const foundationOnly = onboardingSteps(EMPTY_PROFILE, noLinks, [
+      { type: "hero", enabled: true, settings: {} },
+    ]);
     expect(foundationOnly.find((s) => s.id === "sections")?.done).toBe(false);
   });
 });

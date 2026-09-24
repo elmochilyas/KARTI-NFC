@@ -287,13 +287,18 @@ describe("section images (Phase 29)", () => {
   const CLIENT_ID = "123e4567-e89b-12d3-a456-426614174001";
   const PROFILE_ID = "123e4567-e89b-12d3-a456-426614174003";
 
-  function sectionDb(options: {
-    authed?: boolean;
-    ownerClientId?: string;
-    upload?: ReturnType<typeof vi.fn>;
-  } = {}) {
-    const { authed = true, ownerClientId = CLIENT_ID, upload = vi.fn(async () => ({ error: null })) } =
-      options;
+  function sectionDb(
+    options: {
+      authed?: boolean;
+      ownerClientId?: string;
+      upload?: ReturnType<typeof vi.fn>;
+    } = {},
+  ) {
+    const {
+      authed = true,
+      ownerClientId = CLIENT_ID,
+      upload = vi.fn(async () => ({ error: null })),
+    } = options;
     return {
       auth: {
         getClaims: async () =>
@@ -324,21 +329,33 @@ describe("section images (Phase 29)", () => {
     expect(isManagedAssetPath(path)).toBe(true);
     // Identity assets keep working through the union gate.
     expect(
-      isManagedAssetPath("profiles/123e4567-e89b-12d3-a456-426614174000/avatar/abcdef0123456789.png"),
+      isManagedAssetPath(
+        "profiles/123e4567-e89b-12d3-a456-426614174000/avatar/abcdef0123456789.png",
+      ),
     ).toBe(true);
   });
 
   it("rejects traversal and foreign shapes in the section gate", () => {
-    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/../other/abcdef0123456789.webp`)).toBe(false);
+    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/../other/abcdef0123456789.webp`)).toBe(
+      false,
+    );
     expect(isManagedSectionImagePath("not-a-uuid/sections/menu/abcdef0123456789.webp")).toBe(false);
-    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/menu/abcdef0123456789.svg`)).toBe(false);
+    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/menu/abcdef0123456789.svg`)).toBe(
+      false,
+    );
     expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/menu/short.webp`)).toBe(false);
     expect(isManagedSectionImagePath("")).toBe(false);
   });
 
   it("uploads real bytes to the section path with webp normalization", async () => {
     const upload = vi.fn(async () => ({ error: null }));
-    const result = await uploadSectionImage(CLIENT_ID, PROFILE_ID, "menu", pngFile(), sectionDb({ upload }));
+    const result = await uploadSectionImage(
+      CLIENT_ID,
+      PROFILE_ID,
+      "menu",
+      pngFile(),
+      sectionDb({ upload }),
+    );
     expect(result.ok).toBe(true);
     expect(upload).toHaveBeenCalledOnce();
     const [path, bytes, options] = upload.mock.calls[0] as unknown as [
@@ -368,7 +385,9 @@ describe("section images (Phase 29)", () => {
   it("rejects bad section types and forged bytes", async () => {
     const upload = vi.fn();
     const db = sectionDb({ upload });
-    expect((await uploadSectionImage(CLIENT_ID, PROFILE_ID, "../evil", pngFile(), db)).ok).toBe(false);
+    expect((await uploadSectionImage(CLIENT_ID, PROFILE_ID, "../evil", pngFile(), db)).ok).toBe(
+      false,
+    );
     const forged = new File(["<html></html>"], "evil.png", { type: "image/png" });
     expect((await uploadSectionImage(CLIENT_ID, PROFILE_ID, "menu", forged, db)).ok).toBe(false);
     expect(upload).not.toHaveBeenCalled();
@@ -414,12 +433,14 @@ describe("documents (Phase 31 CV PDFs)", () => {
   const PROFILE_ID = "123e4567-e89b-12d3-a456-426614174003";
   const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 minimal");
 
-  function docDb(options: {
-    authed?: boolean;
-    ownerClientId?: string;
-    upload?: ReturnType<typeof vi.fn>;
-    remove?: ReturnType<typeof vi.fn>;
-  } = {}) {
+  function docDb(
+    options: {
+      authed?: boolean;
+      ownerClientId?: string;
+      upload?: ReturnType<typeof vi.fn>;
+      remove?: ReturnType<typeof vi.fn>;
+    } = {},
+  ) {
     const {
       authed = true,
       ownerClientId = CLIENT_ID,
@@ -444,7 +465,10 @@ describe("documents (Phase 31 CV PDFs)", () => {
       storage: { from: vi.fn(() => ({ upload, remove })) },
       __upload: upload,
       __remove: remove,
-    } as unknown as StorageDb & { __upload: ReturnType<typeof vi.fn>; __remove: ReturnType<typeof vi.fn> };
+    } as unknown as StorageDb & {
+      __upload: ReturnType<typeof vi.fn>;
+      __remove: ReturnType<typeof vi.fn>;
+    };
   }
 
   function pdfFile() {
@@ -465,7 +489,9 @@ describe("documents (Phase 31 CV PDFs)", () => {
     // Documents are NOT valid image paths and vice versa.
     expect(isManagedSectionImagePath(path)).toBe(false);
     expect(isManagedDocumentPath(`${CLIENT_ID}/sections/cv/abcdef0123456789.webp`)).toBe(false);
-    expect(isManagedDocumentPath(`${CLIENT_ID}/sections/../other/abcdef0123456789.pdf`)).toBe(false);
+    expect(isManagedDocumentPath(`${CLIENT_ID}/sections/../other/abcdef0123456789.pdf`)).toBe(
+      false,
+    );
   });
 
   it("uploads real PDFs to the private bucket with original bytes", async () => {
@@ -503,10 +529,18 @@ describe("documents (Phase 31 CV PDFs)", () => {
     );
     expect(cross.ok).toBe(false);
 
-    const anon = await uploadDocument(CLIENT_ID, PROFILE_ID, "cv", pdfFile(), docDb({ authed: false }));
+    const anon = await uploadDocument(
+      CLIENT_ID,
+      PROFILE_ID,
+      "cv",
+      pdfFile(),
+      docDb({ authed: false }),
+    );
     expect(anon.ok).toBe(false);
 
-    expect((await uploadDocument(CLIENT_ID, PROFILE_ID, "../evil", pdfFile(), docDb())).ok).toBe(false);
+    expect((await uploadDocument(CLIENT_ID, PROFILE_ID, "../evil", pdfFile(), docDb())).ok).toBe(
+      false,
+    );
   });
 
   it("routes document deletes to the private bucket", async () => {

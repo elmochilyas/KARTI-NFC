@@ -28,7 +28,10 @@ const UNAUTHORIZED = {
 };
 
 function sectionNotFound() {
-  return { ok: false as const, error: { code: "NOT_FOUND" as const, message: "Section not found." } };
+  return {
+    ok: false as const,
+    error: { code: "NOT_FOUND" as const, message: "Section not found." },
+  };
 }
 
 /**
@@ -73,7 +76,11 @@ async function getOwnedSection(
   clientId: string,
   supabase: SectionsDb,
 ): Promise<ProfileResult<{ section: ProfileSectionRow }>> {
-  if (!UUID_PATTERN.test(sectionId) || !UUID_PATTERN.test(profileId) || !UUID_PATTERN.test(clientId)) {
+  if (
+    !UUID_PATTERN.test(sectionId) ||
+    !UUID_PATTERN.test(profileId) ||
+    !UUID_PATTERN.test(clientId)
+  ) {
     return sectionNotFound();
   }
   if (!(await requireAdmin(supabase))) return UNAUTHORIZED;
@@ -157,7 +164,10 @@ export async function reorderProfileSections(
   if (orderedIds.length !== existingIds.size || !orderedIds.every((id) => existingIds.has(id))) {
     return {
       ok: false,
-      error: { code: "VALIDATION_ERROR", message: "Order must contain exactly the profile sections." },
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Order must contain exactly the profile sections.",
+      },
     };
   }
 

@@ -82,10 +82,7 @@ describe("BuilderPreview", () => {
   });
 
   it("omits disabled sections exactly like the public page", () => {
-    const html = render([
-      section("s-hero", "hero", 1),
-      section("s-links", "links", 2, false),
-    ]);
+    const html = render([section("s-hero", "hero", 1), section("s-links", "links", 2, false)]);
     expect(html).toContain('aria-label="Profile identity"');
     expect(html).not.toContain('aria-label="Connect"');
   });

@@ -210,7 +210,13 @@ describe("resolvePrimaryActions", () => {
       email: null,
       website: null,
       links: [
-        { id: IG_ID, type: "instagram", label: "IG", url: "https://instagram.com/a", enabled: false },
+        {
+          id: IG_ID,
+          type: "instagram",
+          label: "IG",
+          url: "https://instagram.com/a",
+          enabled: false,
+        },
       ],
       primaryActions: [
         "call",
@@ -236,20 +242,23 @@ describe("resolvePrimaryActions", () => {
 describe("sanitizePrimaryRefs", () => {
   it("keeps only currently resolvable refs", () => {
     expect(
-      sanitizePrimaryRefs(["whatsapp", "call", "link:nope", `link:${"323e4567-e89b-12d3-a456-426614174003"}`], {
-        phone: "+212600000000",
-        whatsapp: null,
-        email: null,
-        website: null,
-        links: [
-          {
-            id: "323e4567-e89b-12d3-a456-426614174003",
-            type: "instagram",
-            label: "IG",
-            url: "https://instagram.com/a",
-          },
-        ],
-      }),
+      sanitizePrimaryRefs(
+        ["whatsapp", "call", "link:nope", `link:${"323e4567-e89b-12d3-a456-426614174003"}`],
+        {
+          phone: "+212600000000",
+          whatsapp: null,
+          email: null,
+          website: null,
+          links: [
+            {
+              id: "323e4567-e89b-12d3-a456-426614174003",
+              type: "instagram",
+              label: "IG",
+              url: "https://instagram.com/a",
+            },
+          ],
+        },
+      ),
     ).toEqual(["call", "link:323e4567-e89b-12d3-a456-426614174003"]);
   });
 });

@@ -48,7 +48,11 @@ export const PROFILE_TEMPLATES: ProfileTemplate[] = [
     label: "Business",
     description: "Company profile with location and opening hours.",
     profileType: "BUSINESS",
-    sections: [...TRIO, { type: "location", enabled: true }, { type: "opening_hours", enabled: true }],
+    sections: [
+      ...TRIO,
+      { type: "location", enabled: true },
+      { type: "opening_hours", enabled: true },
+    ],
     settings: {},
   },
   {

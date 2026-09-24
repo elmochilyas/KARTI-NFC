@@ -88,8 +88,7 @@ function fakeSectionsDb(
       for (const row of pendingRows) {
         const clash = store.sections.some(
           (s) =>
-            s.profile_id === row.profile_id &&
-            (s.type === row.type || s.position === row.position),
+            s.profile_id === row.profile_id && (s.type === row.type || s.position === row.position),
         );
         if (clash) return { data: null, error: { code: "23505" } };
       }
@@ -163,7 +162,10 @@ function fakeSectionsDb(
         if (!first) return { data: null, error: null };
         if (tableName === "profile_sections" && selected.includes("profiles")) {
           const owner = store.profiles.find((p) => p.id === (first as Row).profile_id);
-          return { data: { ...first, profiles: owner ? { client_id: owner.client_id } : null }, error: null };
+          return {
+            data: { ...first, profiles: owner ? { client_id: owner.client_id } : null },
+            error: null,
+          };
         }
         return { data: first, error: null };
       },
@@ -196,7 +198,11 @@ function fakeSectionsDb(
   }
 
   return {
-    auth: { getClaims: vi.fn(async () => (authed ? { data: { claims: { sub: "admin" } } } : { data: null })) },
+    auth: {
+      getClaims: vi.fn(async () =>
+        authed ? { data: { claims: { sub: "admin" } } } : { data: null },
+      ),
+    },
     from: vi.fn((name: string) => table(name as "profiles" | "profile_sections")),
   } as unknown as SectionsDb;
 }
@@ -212,7 +218,11 @@ describe("listProfileSections", () => {
   });
 
   it("requires admin", async () => {
-    const result = await listProfileSections(PROFILE_ID, CLIENT_ID, fakeSectionsDb(fullStore(), { authed: false }));
+    const result = await listProfileSections(
+      PROFILE_ID,
+      CLIENT_ID,
+      fakeSectionsDb(fullStore(), { authed: false }),
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("UNAUTHORIZED");
   });
@@ -277,7 +287,12 @@ describe("reorderProfileSections", () => {
       db(),
     );
     expect(extra.ok).toBe(false);
-    const malformed = await reorderProfileSections(PROFILE_ID, CLIENT_ID, ["nope", HERO_ID, ACTIONS_ID], db());
+    const malformed = await reorderProfileSections(
+      PROFILE_ID,
+      CLIENT_ID,
+      ["nope", HERO_ID, ACTIONS_ID],
+      db(),
+    );
     expect(malformed.ok).toBe(false);
     if (!malformed.ok) expect(malformed.error.code).toBe("VALIDATION_ERROR");
   });
@@ -342,7 +357,13 @@ describe("ensureDefaultSections", () => {
     const store = fullStore();
     const unknownId = "123e4567-e89b-12d3-a456-426614174099";
     store.sections.push(sectionRow(unknownId, "teleport", 4));
-    const result = await toggleProfileSection(unknownId, PROFILE_ID, CLIENT_ID, false, fakeSectionsDb(store));
+    const result = await toggleProfileSection(
+      unknownId,
+      PROFILE_ID,
+      CLIENT_ID,
+      false,
+      fakeSectionsDb(store),
+    );
     expect(result.ok).toBe(false);
   });
 
@@ -359,12 +380,7 @@ describe("ensureDefaultSections", () => {
 describe("addProfileSection", () => {
   it("appends a registry type after the max position, enabled", async () => {
     const store = fullStore();
-    const result = await addProfileSection(
-      PROFILE_ID,
-      CLIENT_ID,
-      "about",
-      fakeSectionsDb(store),
-    );
+    const result = await addProfileSection(PROFILE_ID, CLIENT_ID, "about", fakeSectionsDb(store));
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.type).toBe("about");
@@ -550,7 +566,12 @@ describe("updateSectionSettings", () => {
   });
 
   it("adds gallery sections for both profile audiences", async () => {
-    const person = await addProfileSection(PROFILE_ID, CLIENT_ID, "gallery", fakeSectionsDb(fullStore()));
+    const person = await addProfileSection(
+      PROFILE_ID,
+      CLIENT_ID,
+      "gallery",
+      fakeSectionsDb(fullStore()),
+    );
     expect(person.ok).toBe(true);
   });
 

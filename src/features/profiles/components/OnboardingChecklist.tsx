@@ -59,7 +59,9 @@ export function OnboardingChecklist({
             <span
               aria-hidden="true"
               className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                step.done ? "bg-[var(--karti-accent,#0e7c5b)] text-white" : "bg-surface-muted text-muted"
+                step.done
+                  ? "bg-[var(--karti-accent,#0e7c5b)] text-white"
+                  : "bg-surface-muted text-muted"
               }`}
             >
               {step.done ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4" />}

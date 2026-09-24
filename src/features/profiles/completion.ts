@@ -83,7 +83,7 @@ function hasGalleryPhotos(sections: CompletionSection[]): boolean {
           typeof g === "object" &&
           g !== null &&
           typeof (g as { image?: unknown }).image === "string" &&
-          ((g as { image: string }).image.trim() !== ""),
+          (g as { image: string }).image.trim() !== "",
       )
     );
   });
@@ -144,9 +144,7 @@ export function onboardingSteps(
   const byId = new Map(
     [...completion.required, ...completion.recommended].map((i) => [i.id, i.done]),
   );
-  const hasBeyondFoundation = sections.some(
-    (s) => s.enabled && !isFoundationSectionType(s.type),
-  );
+  const hasBeyondFoundation = sections.some((s) => s.enabled && !isFoundationSectionType(s.type));
   return [
     {
       id: "identity",
