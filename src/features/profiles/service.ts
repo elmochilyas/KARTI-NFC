@@ -2,7 +2,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isReservedSlug, normalizeSlug } from "@/domain/slugs";
 import type { Database } from "@/types/database";
 import { profileSchema, profileStatusSchema, type ProfileInput } from "./schema";
-import { PROFILE_DETAIL_COLUMNS, type ProfileResult, type ProfileRow } from "./types";
+import {
+  defaultTemplateFor,
+  getProfileTemplate,
+  isProfileTemplateId,
+  seedTemplateSections,
+  type ProfileTemplateId,
+} from "./profileTemplates";
+import {
+  PROFILE_DETAIL_COLUMNS,
+  PROFILE_DETAIL_COLUMNS_LEGACY,
+  type ProfileResult,
+  type ProfileRow,
+} from "./types";
 
 export type ProfileDb = SupabaseClient<Database>;
 
@@ -85,11 +97,98 @@ const UNAUTHORIZED = {
   error: { code: "UNAUTHORIZED" as const, message: "Sign in to manage profiles." },
 };
 
+/**
+ * Production regression guard (Phase 33 incident): the live database may
+ * predate migrations that added columns (e.g. `profiles.template`,
+ * migration 20260927). PostgREST answers unknown-column selects/writes
+ * with PGRST204 (schema-cache miss). Callers use this to degrade
+ * gracefully instead of failing pre-migration profiles.
+ */
+export function isMissingColumnError(error: unknown, column: string): boolean {
+  if (error === null || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  if (code === "PGRST204" || code === "42703") return true;
+  const message = (error as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    message.toLowerCase().includes("could not find") &&
+    message.toLowerCase().includes(column.toLowerCase()) &&
+    message.toLowerCase().includes("column")
+  );
+}
+
+/**
+ * Tolerant template-column read. Returns the stored template id, or null
+ * when the column is missing (pre-migration database), the row is absent,
+ * or any error occurs. Never throws — the edit page treats null as
+ * "template metadata unavailable" while the profile itself keeps loading.
+ */
+export async function getProfileTemplateColumn(
+  profileId: string,
+  supabase: ProfileDb,
+): Promise<string | null> {
+  if (!UUID_PATTERN.test(profileId)) return null;
+  try {
+    if (!(await requireAdmin(supabase))) return null;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("template")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const template = (data as unknown as { template?: unknown }).template;
+    return typeof template === "string" ? template : null;
+  } catch {
+    return null;
+  }
+}
+
 function notFound(entity: string) {
   return {
     ok: false as const,
     error: { code: "NOT_FOUND" as const, message: `${entity} not found.` },
   };
+}
+
+/**
+ * Regression guard: normalize a fetched profile row so pre-migration
+ * databases can never crash a loader or editor. `public_code` is NOT NULL
+ * on migrated databases (migration 20260923 backfills + defaults every
+ * row), but a database predating that migration returns rows without the
+ * key at all (legacy-column retry below). Normalizing to "" keeps the
+ * dashboard loading; the public `/u/` route fail-closes to 404 until the
+ * migration lands, which is the safe direction. Never generates-and-
+ * persists here — identity codes are minted by the DB DEFAULT generator
+ * and backfilled by the migration, so a read path must not invent one.
+ */
+function normalizeProfileRow(row: ProfileRow | Omit<ProfileRow, "public_code">): ProfileRow {
+  const publicCode = (row as { public_code?: unknown }).public_code;
+  if (typeof publicCode === "string") return row as ProfileRow;
+  return { ...row, public_code: "" } as ProfileRow;
+}
+
+/**
+ * Whether a PostgREST error is a missing-column schema-cache miss for one
+ * of the profile identity columns added after the MVP foundation
+ * (`public_code` in 20260923, `template` in 20260927 — the latter is never
+ * selected, checked defensively).
+ */
+function isMissingIdentityColumn(error: unknown): boolean {
+  return isMissingColumnError(error, "public_code") || isMissingColumnError(error, "template");
+}
+
+/**
+ * Resolve the effective template for a profile. Stored metadata wins when
+ * it exists and fits the profile type; otherwise derive from the profile
+ * type (personal for PERSON, business for BUSINESS). Guarantees old
+ * profiles created before templates (Phase 30) always resolve to a valid
+ * template instead of null/crash.
+ */
+export function resolveProfileTemplate(stored: unknown, profileType: string): ProfileTemplateId {
+  if (isProfileTemplateId(stored) && getProfileTemplate(stored)?.profileType === profileType) {
+    return stored;
+  }
+  return defaultTemplateFor(profileType);
 }
 
 /**
@@ -175,12 +274,31 @@ export async function getProfileByClientIdInternal(
     .limit(1)
     .maybeSingle();
   if (error) {
+    // Pre-migration database (missing `public_code` column): retry with the
+    // legacy projection so existing profiles keep loading. Any other error
+    // still surfaces as a load failure.
+    if (isMissingIdentityColumn(error)) {
+      const retry = await supabase
+        .from("profiles")
+        .select(PROFILE_DETAIL_COLUMNS_LEGACY)
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (retry.error) {
+        return {
+          ok: false,
+          error: { code: "UNKNOWN", message: "Could not load the profile. Please try again." },
+        };
+      }
+      return { ok: true, data: retry.data ? normalizeProfileRow(retry.data) : null };
+    }
     return {
       ok: false,
       error: { code: "UNKNOWN", message: "Could not load the profile. Please try again." },
     };
   }
-  return { ok: true, data: data ?? null };
+  return { ok: true, data: data ? normalizeProfileRow(data) : null };
 }
 
 /** Public wrapper — same signature as before (verifies admin per call). */
@@ -204,13 +322,29 @@ export async function getProfileByIdInternal(
     .eq("id", profileId)
     .maybeSingle();
   if (error) {
+    // Same pre-migration fallback as getProfileByClientIdInternal.
+    if (isMissingIdentityColumn(error)) {
+      const retry = await supabase
+        .from("profiles")
+        .select(PROFILE_DETAIL_COLUMNS_LEGACY)
+        .eq("id", profileId)
+        .maybeSingle();
+      if (retry.error) {
+        return {
+          ok: false,
+          error: { code: "UNKNOWN", message: "Could not load the profile. Please try again." },
+        };
+      }
+      if (!retry.data) return notFound("Profile");
+      return { ok: true, data: normalizeProfileRow(retry.data) };
+    }
     return {
       ok: false,
       error: { code: "UNKNOWN", message: "Could not load the profile. Please try again." },
     };
   }
   if (!data) return notFound("Profile");
-  return { ok: true, data };
+  return { ok: true, data: normalizeProfileRow(data) };
 }
 
 /** Public wrapper — same signature as before (verifies admin per call). */
@@ -263,31 +397,67 @@ export async function createProfileInternal(
     };
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .insert({
-      ...(explicitId && UUID_PATTERN.test(explicitId) ? { id: explicitId } : {}),
-      client_id: clientId,
-      profile_type: parsed.data.profile_type,
-      slug: availability.data.slug,
-      display_name: parsed.data.display_name,
-      job_title: parsed.data.job_title,
-      company_name: parsed.data.company_name,
-      bio: parsed.data.bio,
-      phone: parsed.data.phone,
-      whatsapp: parsed.data.whatsapp,
-      email: parsed.data.email,
-      website: parsed.data.website,
-      address: parsed.data.address,
-      maps_url: parsed.data.maps_url,
-      accent_color: parsed.data.accent_color,
-      theme: parsed.data.theme,
-      avatar_path: parsed.data.avatar_path,
-      cover_path: parsed.data.cover_path,
-      status: "DRAFT",
-    })
-    .select(PROFILE_DETAIL_COLUMNS)
-    .single();
+  // Template: explicit choice wins when it exists and matches the profile
+  // type; otherwise the type default applies. Unknown ids never fail creation.
+  const requestedTemplate =
+    typeof rawInput === "object" && rawInput !== null
+      ? (rawInput as Record<string, unknown>).template
+      : undefined;
+  let template: ProfileTemplateId = defaultTemplateFor(parsed.data.profile_type);
+  if (
+    isProfileTemplateId(requestedTemplate) &&
+    getProfileTemplate(requestedTemplate)?.profileType === parsed.data.profile_type
+  ) {
+    template = requestedTemplate;
+  }
+
+  const baseRow = {
+    ...(explicitId && UUID_PATTERN.test(explicitId) ? { id: explicitId } : {}),
+    client_id: clientId,
+    profile_type: parsed.data.profile_type,
+    slug: availability.data.slug,
+    display_name: parsed.data.display_name,
+    job_title: parsed.data.job_title,
+    company_name: parsed.data.company_name,
+    bio: parsed.data.bio,
+    phone: parsed.data.phone,
+    whatsapp: parsed.data.whatsapp,
+    email: parsed.data.email,
+    website: parsed.data.website,
+    address: parsed.data.address,
+    maps_url: parsed.data.maps_url,
+    accent_color: parsed.data.accent_color,
+    theme: parsed.data.theme,
+    avatar_path: parsed.data.avatar_path,
+    cover_path: parsed.data.cover_path,
+    status: "DRAFT",
+  };
+
+  async function insertProfile(row: Database["public"]["Tables"]["profiles"]["Insert"]) {
+    return supabase.from("profiles").insert(row).select(PROFILE_DETAIL_COLUMNS).single();
+  }
+
+  async function insertProfileLegacy(row: Database["public"]["Tables"]["profiles"]["Insert"]) {
+    return supabase.from("profiles").insert(row).select(PROFILE_DETAIL_COLUMNS_LEGACY).single();
+  }
+
+  let { data, error } = await insertProfile({ ...baseRow, template });
+  if (error && isMissingColumnError(error, "template")) {
+    // Pre-migration database (Phase 33 incident): the template column does
+    // not exist yet. Retry without it — the profile must still be created;
+    // template metadata can be set after the migration lands.
+    ({ data, error } = await insertProfile(baseRow));
+  }
+  if (error && isMissingIdentityColumn(error)) {
+    // Pre-`public_code` database: the statement fails on the returning
+    // projection (schema-cache miss), so nothing committed — retry the
+    // insert with the legacy projection. New rows on migrated databases
+    // always receive a DB-generated code; legacy rows normalize to "".
+    const legacy = await insertProfileLegacy(baseRow);
+    error = legacy.error;
+    data = legacy.data ? normalizeProfileRow(legacy.data) : null;
+  }
+  if (data) data = normalizeProfileRow(data);
 
   if (error || !data) {
     if (error?.code === "23505") {
@@ -317,6 +487,10 @@ export async function createProfileInternal(
       error: { code: "UNKNOWN", message: "Could not create the profile. Please try again." },
     };
   }
+  // Template sections for the new profile (trio included in every template).
+  // Best-effort: the public loader falls back to the default order when
+  // rows are absent, so a seed failure never fails profile creation.
+  await seedTemplateSections(data.id, template, supabase);
   return { ok: true, data };
 }
 
@@ -372,29 +546,43 @@ export async function updateProfileInternal(
     }
   }
 
-  const { data, error } = await supabase
+  const updatePatch = {
+    profile_type: parsed.data.profile_type,
+    slug: parsed.data.slug,
+    display_name: parsed.data.display_name,
+    job_title: parsed.data.job_title,
+    company_name: parsed.data.company_name,
+    bio: parsed.data.bio,
+    phone: parsed.data.phone,
+    whatsapp: parsed.data.whatsapp,
+    email: parsed.data.email,
+    website: parsed.data.website,
+    address: parsed.data.address,
+    maps_url: parsed.data.maps_url,
+    accent_color: parsed.data.accent_color,
+    theme: parsed.data.theme,
+    avatar_path: parsed.data.avatar_path,
+    cover_path: parsed.data.cover_path,
+  };
+  let { data, error } = await supabase
     .from("profiles")
-    .update({
-      profile_type: parsed.data.profile_type,
-      slug: parsed.data.slug,
-      display_name: parsed.data.display_name,
-      job_title: parsed.data.job_title,
-      company_name: parsed.data.company_name,
-      bio: parsed.data.bio,
-      phone: parsed.data.phone,
-      whatsapp: parsed.data.whatsapp,
-      email: parsed.data.email,
-      website: parsed.data.website,
-      address: parsed.data.address,
-      maps_url: parsed.data.maps_url,
-      accent_color: parsed.data.accent_color,
-      theme: parsed.data.theme,
-      avatar_path: parsed.data.avatar_path,
-      cover_path: parsed.data.cover_path,
-    })
+    .update(updatePatch)
     .eq("id", profileId)
     .select(PROFILE_DETAIL_COLUMNS)
     .maybeSingle();
+
+  if (error && isMissingIdentityColumn(error)) {
+    // Pre-migration database: the update committed (patch touches no new
+    // column); only the returning projection failed. Re-read with the
+    // legacy projection instead of failing the save.
+    const reread = await supabase
+      .from("profiles")
+      .select(PROFILE_DETAIL_COLUMNS_LEGACY)
+      .eq("id", profileId)
+      .maybeSingle();
+    error = reread.error;
+    data = reread.data ? normalizeProfileRow(reread.data) : null;
+  }
 
   if (error) {
     if (error.code === "23505") {
@@ -413,7 +601,7 @@ export async function updateProfileInternal(
     };
   }
   if (!data) return notFound("Profile");
-  return { ok: true, data };
+  return { ok: true, data: normalizeProfileRow(data) };
 }
 
 /** Public wrapper — same signature as before (verifies admin per call). */
@@ -463,12 +651,24 @@ export async function setProfileStatusInternal(
     }
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("profiles")
     .update({ status: parsed.data })
     .eq("id", profileId)
     .select(PROFILE_DETAIL_COLUMNS)
     .maybeSingle();
+
+  if (error && isMissingIdentityColumn(error)) {
+    // Same pre-migration case as updateProfile: status committed, only the
+    // returning projection failed. Re-read legacy instead of failing.
+    const reread = await supabase
+      .from("profiles")
+      .select(PROFILE_DETAIL_COLUMNS_LEGACY)
+      .eq("id", profileId)
+      .maybeSingle();
+    error = reread.error;
+    data = reread.data ? normalizeProfileRow(reread.data) : null;
+  }
 
   if (error) {
     return {
@@ -477,7 +677,7 @@ export async function setProfileStatusInternal(
     };
   }
   if (!data) return notFound("Profile");
-  return { ok: true, data };
+  return { ok: true, data: normalizeProfileRow(data) };
 }
 
 /** Public wrapper — same signature as before (verifies admin per call). */
@@ -488,4 +688,87 @@ export async function setProfileStatus(
   supabase: ProfileDb,
 ): Promise<ProfileResult<ProfileRow>> {
   return setProfileStatusInternal(profileId, clientId, rawStatus, supabase);
+}
+
+/**
+ * Change a profile's template metadata. Updates ONLY the `template` column —
+ * existing sections are never created, modified, moved, or deleted here
+ * (structural guarantee: this function issues no `profile_sections`
+ * query at all). The template takes effect for reference only.
+ */
+export async function updateProfileTemplateInternal(
+  profileId: string,
+  clientId: string,
+  rawTemplate: unknown,
+  supabase: ProfileDb,
+  options?: ProfileAuthOptions,
+): Promise<ProfileResult<ProfileRow>> {
+  if (!UUID_PATTERN.test(profileId) || !UUID_PATTERN.test(clientId)) {
+    return notFound("Profile");
+  }
+  if (!isProfileTemplateId(rawTemplate)) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "Unknown template." },
+    };
+  }
+  if (!(await ensureAdmin(supabase, options))) return UNAUTHORIZED;
+
+  const current = await getProfileByIdInternal(profileId, supabase, options);
+  if (!current.ok) return current;
+  if (current.data.client_id !== clientId) return notFound("Profile");
+  if (getProfileTemplate(rawTemplate)?.profileType !== current.data.profile_type) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "That template does not fit this profile type." },
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ template: rawTemplate })
+    .eq("id", profileId)
+    .select(PROFILE_DETAIL_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingColumnError(error, "template")) {
+      return {
+        ok: false,
+        error: {
+          code: "UNKNOWN",
+          message: "Template switching is unavailable until migration 20260927 is applied.",
+        },
+      };
+    }
+    if (isMissingIdentityColumn(error)) {
+      // Template committed on a DB whose returning projection still lacks
+      // `public_code`: re-read legacy so the switch does not look failed.
+      const reread = await getProfileByIdInternal(profileId, supabase, options);
+      if (!reread.ok) {
+        return {
+          ok: false,
+          error: { code: "UNKNOWN", message: "Could not change the template. Please try again." },
+        };
+      }
+      if (!reread.data) return notFound("Profile");
+      return { ok: true, data: reread.data };
+    }
+    return {
+      ok: false,
+      error: { code: "UNKNOWN", message: "Could not change the template. Please try again." },
+    };
+  }
+  if (!data) return notFound("Profile");
+  return { ok: true, data: normalizeProfileRow(data) };
+}
+
+/** Public wrapper — same signature as before (verifies admin per call). */
+export async function updateProfileTemplate(
+  profileId: string,
+  clientId: string,
+  rawTemplate: unknown,
+  supabase: ProfileDb,
+): Promise<ProfileResult<ProfileRow>> {
+  return updateProfileTemplateInternal(profileId, clientId, rawTemplate, supabase);
 }

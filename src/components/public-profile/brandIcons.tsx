@@ -116,7 +116,13 @@ export type QuickActionInput = {
   whatsapp: string | null;
   email: string | null;
   website: string | null;
-  links: (LinkLike & { id: string })[];
+  links: (LinkLike & { id: string; enabled?: boolean })[];
+  /**
+   * Max quick actions to return (Phase 34: `maxQuickActions` actions-section
+   * setting, Contact-step stepper). Clamped to 1–4; defaults to 3 so every
+   * existing caller renders exactly as before.
+   */
+  limit?: number;
 };
 
 function isHttpUrl(url: string): boolean {
@@ -128,14 +134,154 @@ function isHttpUrl(url: string): boolean {
   }
 }
 
+/** Hard cap for the top-action area (Phase 34.1: segmented 1–4 control). */
+export const MAX_PRIMARY_ACTIONS = 4;
+
+export function clampPrimaryLimit(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(MAX_PRIMARY_ACTIONS, Math.max(1, Math.floor(value)))
+    : 3;
+}
+
+/* ------------------------------------------------------------------ */
+/* Explicit primary actions (Phase 34.1)                               */
+/* ------------------------------------------------------------------ */
+
 /**
- * Pick up to 3 primary quick actions: Instagram link first, then WhatsApp,
- * Call, Email, Website, then remaining links in order. Returns the link ids
- * consumed so the "more links" section can exclude them.
+ * Stable typed refs stored in `actions.primaryActions` (settings JSONB, no
+ * new table). Built-ins address profile columns; links address enabled
+ * profile-link rows. Anything else is shape-invalid and ignored.
  */
-export function pickQuickActions(input: QuickActionInput): {
-  actions: QuickAction[];
-  consumedIds: Set<string>;
+export const BUILTIN_ACTION_IDS = ["call", "whatsapp", "email", "website"] as const;
+
+export type BuiltinActionId = (typeof BUILTIN_ACTION_IDS)[number];
+
+export type PrimaryRef = { kind: "builtin"; id: BuiltinActionId } | { kind: "link"; id: string };
+
+/** Parse one stored ref; null = shape-invalid (strip/ignore). */
+export function parsePrimaryRef(ref: unknown): PrimaryRef | null {
+  if (typeof ref !== "string") return null;
+  const value = ref.trim();
+  if (value === "call" || value === "whatsapp" || value === "email" || value === "website") {
+    return { kind: "builtin", id: value };
+  }
+  const match = /^link:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+    value,
+  );
+  if (match?.[1]) return { kind: "link", id: match[1].toLowerCase() };
+  return null;
+}
+
+/**
+ * Shape-valid stored refs, deduped, order preserved. Draft-temp link refs
+ * (`link:draft-…`, for links added but not yet saved) are optionally kept
+ * verbatim — the unified save remaps them to real ids; the renderer keeps
+ * ignoring them until then.
+ */
+export function readPrimaryRefs(raw: unknown, allowTempIds = false): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    const parsed = parsePrimaryRef(trimmed);
+    if (parsed) {
+      const canonical = parsed.kind === "builtin" ? parsed.id : `link:${parsed.id}`;
+      if (seen.has(canonical)) continue;
+      seen.add(canonical);
+      out.push(canonical);
+      continue;
+    }
+    if (allowTempIds && /^link:draft-.+/.test(trimmed) && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      out.push(trimmed);
+    }
+  }
+  return out;
+}
+
+export type PrimaryAvailability = {
+  call: boolean;
+  whatsapp: boolean;
+  email: boolean;
+  website: boolean;
+  /** Lowercased ids of enabled, renderable links. */
+  linkIds: Set<string>;
+};
+
+/**
+ * Which refs can currently resolve. A built-in is available only while its
+ * column holds a valid value; a link only while it is enabled and has a
+ * renderable label + http(s) URL. Stale refs (value removed, link disabled
+ * or deleted) resolve to nothing — rendering fails safe immediately.
+ */
+export function primaryAvailability(input: {
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  website: string | null;
+  links: (LinkLike & { id: string; enabled?: boolean })[];
+}): PrimaryAvailability {
+  const website = input.website?.trim() ?? "";
+  return {
+    call: input.phone?.trim() ? telHref(input.phone) !== null : false,
+    whatsapp: input.whatsapp?.trim() ? whatsappHref(input.whatsapp) !== null : false,
+    email: input.email?.trim() ? mailHref(input.email) !== null : false,
+    website: website !== "" && isHttpUrl(website),
+    linkIds: new Set(
+      input.links
+        .filter(
+          (link) =>
+            link.enabled !== false &&
+            link.label.trim() !== "" &&
+            link.url.trim() !== "" &&
+            isHttpUrl(link.url),
+        )
+        .map((link) => link.id.toLowerCase()),
+    ),
+  };
+}
+
+export function isPrimaryRefAvailable(ref: PrimaryRef, availability: PrimaryAvailability): boolean {
+  if (ref.kind === "builtin") return availability[ref.id];
+  return availability.linkIds.has(ref.id);
+}
+
+/**
+ * Clean stored refs against live data (save-time hygiene, Phase 34.1).
+ * Shape-valid refs that can no longer resolve (deleted/disabled links,
+ * removed contact values) are dropped; the renderer already ignores them,
+ * so this only keeps the stored JSON honest for the next load.
+ */
+export function sanitizePrimaryRefs(
+  raw: unknown,
+  input: {
+    phone: string | null;
+    whatsapp: string | null;
+    email: string | null;
+    website: string | null;
+    links: (LinkLike & { id: string; enabled?: boolean })[];
+  },
+): string[] {
+  const refs = readPrimaryRefs(raw);
+  if (refs.length === 0) return [];
+  const availability = primaryAvailability(input);
+  return refs.filter((ref) => {
+    const parsed = parsePrimaryRef(ref);
+    return parsed !== null && isPrimaryRefAvailable(parsed, availability);
+  });
+}
+
+/**
+ * Canonical candidate pool in legacy order: Instagram link first, then
+ * WhatsApp, Call, Email, Website, then remaining links in order. Shared by
+ * the legacy picker and the explicit resolver so the default order is
+ * defined exactly once.
+ */
+function buildActionPool(input: QuickActionInput): {
+  pool: QuickAction[];
+  visibleLinks: (LinkLike & { id: string; enabled?: boolean })[];
 } {
   const candidates: QuickAction[] = [];
   const consumedIds = new Set<string>();
@@ -195,7 +341,6 @@ export function pickQuickActions(input: QuickActionInput): {
     });
   }
   for (const link of visibleLinks) {
-    if (candidates.length >= 3) break;
     if (consumedIds.has(link.id)) continue;
     candidates.push({
       id: link.id,
@@ -206,7 +351,71 @@ export function pickQuickActions(input: QuickActionInput): {
     });
     consumedIds.add(link.id);
   }
-  return { actions: candidates.slice(0, 3), consumedIds };
+  return { pool: candidates, visibleLinks };
+}
+
+function consumedLinkIds(actions: QuickAction[]): Set<string> {
+  const ids = new Set<string>();
+  for (const action of actions) {
+    if (!action.id.startsWith("field:")) ids.add(action.id);
+  }
+  return ids;
+}
+
+/**
+ * Legacy picker (default order + cap). Behavior preserved exactly: Instagram
+ * link first, then WhatsApp, Call, Email, Website, then remaining links in
+ * order, capped at `limit`. Profiles without `primaryActions` customization
+ * render byte-identically to before Phase 34.1.
+ */
+export function pickQuickActions(input: QuickActionInput): {
+  actions: QuickAction[];
+  consumedIds: Set<string>;
+} {
+  const limit = clampPrimaryLimit(input.limit);
+  const { pool } = buildActionPool(input);
+  const actions = pool.slice(0, limit);
+  return { actions, consumedIds: consumedLinkIds(actions) };
+}
+
+/**
+ * Single primary-action resolution for the public renderer AND the admin
+ * preview (one implementation, no drift). Explicit `primaryActions` refs
+ * win in stored order (stale/missing refs skipped fail-safe); empty or
+ * absent refs fall back to the legacy default order. The result is always
+ * capped at `limit`.
+ */
+export function resolvePrimaryActions(input: QuickActionInput & { primaryActions?: unknown }): {
+  actions: QuickAction[];
+  consumedIds: Set<string>;
+} {
+  const limit = clampPrimaryLimit(input.limit);
+  const refs = readPrimaryRefs(input.primaryActions);
+  if (refs.length === 0) return pickQuickActions(input);
+
+  const { pool } = buildActionPool(input);
+  const availability = primaryAvailability(input);
+  const byKey = new Map<string, QuickAction>();
+  for (const action of pool) {
+    if (action.id.startsWith("field:")) {
+      const key = action.id === "field:phone" ? "call" : action.id.slice("field:".length);
+      if (!byKey.has(key)) byKey.set(key, action);
+    } else {
+      const key = `link:${action.id.toLowerCase()}`;
+      if (!byKey.has(key)) byKey.set(key, action);
+    }
+  }
+  const actions: QuickAction[] = [];
+  for (const ref of refs) {
+    if (actions.length >= limit) break;
+    const parsed = parsePrimaryRef(ref);
+    if (!parsed || !isPrimaryRefAvailable(parsed, availability)) continue;
+    const key = parsed.kind === "builtin" ? parsed.id : `link:${parsed.id}`;
+    const action = byKey.get(key);
+    if (!action || actions.some((a) => a.id === action.id)) continue;
+    actions.push(action);
+  }
+  return { actions, consumedIds: consumedLinkIds(actions) };
 }
 
 /* ------------------------------------------------------------------ */

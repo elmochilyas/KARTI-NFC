@@ -2540,6 +2540,839 @@ No NFC/QR/resolver/identity/wallet/DB changes. See ADR-050.
 
 ---
 
+# Phase 25 — Profile Sections Foundation
+
+Foundation only: data-driven hero/actions/links ordering on the public
+profile. No maps, menus, CV, gallery. No visual redesign — default render is
+pixel-identical. See ADR-051.
+
+## 25.1 Storage
+
+- [x] `profile_sections` table (id, profile_id, type, position, enabled,
+      settings jsonb, timestamps) + CHECKs + indexes + `updated_at` trigger.
+- [x] RLS enabled + admin-only policy (`(select private.is_admin())`), anon
+      default-deny.
+- [x] Backfill: existing profiles receive hero(1) → actions(2) → links(3),
+      idempotent re-runnable.
+- [x] Migration file `20260925_profile_sections.sql` committed.
+
+## 25.2 Section registry + domain
+
+- [x] `SECTION_TYPES = hero | actions | links` + labels + default order.
+- [x] `list/toggle/reorder` services with profile→client ownership checks.
+- [x] `seedDefaultSections` on profile creation (best-effort, never fails create).
+- [x] `ensureDefaultSections` repair helper.
+- [x] `settings` never projected on the public path.
+
+## 25.3 Public rendering
+
+- [x] `ProfileSectionRenderer` (hero/actions/links components extracted
+      verbatim, data-driven order, unknown types render nothing).
+- [x] Keep/Share/attribution stay fixed after sections.
+- [x] Hero pinned to the top slot in this foundation (documented constraint).
+- [x] Both `/[slug]` and `/u/[code]` pass sections; embed fast-path carries
+      sections with legacy fallback; defaults when rows absent.
+
+## 25.4 Admin editor
+
+- [x] Sections list on the profile edit page (reorder + show/hide).
+- [x] Server actions purge the public cache (zero-stale preserved).
+- [x] Graceful notice when the table is unreachable (migration pending).
+
+## 25.5 Tests + verification
+
+- [x] Service tests (ordering, exact-set reorder, toggle, seed, repair).
+- [x] Public loader tests (embed order, disabled filtering, all-off stays
+      empty, defaults fallback, settings never exposed, /u/ parity).
+- [x] Renderer tests (default order, reordered, disabled, unknown type).
+- [x] `typecheck`, `lint`, `test` (48 files / 496 tests), `build` green.
+- [ ] Live: migration apply + anon matrix for `profile_sections`
+      (operator step — file-only here).
+
+### Phase 25 gate
+
+- [x] Default public render unchanged (existing view tests pass untouched).
+- [x] Reorder/disable verified in data + render.
+- [x] Security isolation holds (no anon policies, no settings exposure).
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan — migration file-only (apply + live JWT
+> matrix left to operator); `typecheck`, `lint`, `test` (496), `build`
+> green. `format:check` = pre-existing repo-wide CRLF baseline (untouched
+> files fail identically; no new debt). Not committed — left ready for review.
+
+---
+
+# Phase 26 — Advanced Profile Builder (registry + builder architecture)
+
+Builder architecture without implementing new rendered sections. No maps,
+menus, CV, gallery implementations — only the registry, catalog modal,
+and builder UX around the live hero/actions/links trio. See ADR-052.
+
+## 26.1 Registry + migration
+
+- [x] `sectionCatalog.ts`: 11 definitions (type, label, description,
+      category, status, icon, default settings) across Core / Business /
+      Personal / Media; 3 live + 8 planned.
+- [x] Component half in `ProfileSections.tsx` (`resolveSection` pairs a
+      catalog entry with its renderer; planned/unknown → null component).
+- [x] Migration `20260926_section_types.sql` widens the type CHECK;
+      singleton-per-type, RLS, indexes untouched; no backfill.
+- [x] Renderer switch replaced by registry lookup (default DOM identical).
+
+## 26.2 Services
+
+- [x] `addProfileSection` (registry validation, singleton CONFLICT,
+      appends at max+1) + `addSectionAction`.
+- [x] `deleteProfileSection` (foundation trio protected, planned rows
+      removable) + `deleteSectionAction`.
+- [x] Ownership gates widened from foundation trio to registry-known types.
+- [x] Service permits any registry type; the modal gates on live status
+      (new sections unlock with zero service changes).
+
+## 26.3 Manager + modal + drag-and-drop
+
+- [x] Registry-driven section cards (icon, category, status, show/hide).
+- [x] Per-card settings placeholder (explicit nothing-to-configure copy).
+- [x] Native HTML5 drag-and-drop reorder (handle-only, drop indicator,
+      pending lock); up/down buttons stay for keyboard/touch.
+- [x] Pure `moveSectionId` helper shared by drag + button paths.
+- [x] Add-section catalog modal (native dialog, category groups, Coming
+      soon badges for planned, Added state for core — list-only, no
+      persistence of planned types in this phase).
+- [x] Two-tap remove affordance for non-foundation rows only.
+
+## 26.4 Tests + verification
+
+- [x] Registry loading (11 defs, categories, live/planned split).
+- [x] Add service (success, singleton conflict, unknown type, ownership).
+- [x] Delete service (planned ok, foundation protected, cross-client).
+- [x] Mixed-type reorder; `moveSectionId` edges.
+- [x] Modal markup (groups, badges, no planned add affordance).
+- [x] Public projection with planned-type rows (order kept, no settings).
+- [x] `typecheck`, `lint`, `test` (50 files / 518 tests), `build` green.
+- [ ] Live: migration apply + anon matrix for `profile_sections`
+      (operator step — file-only here).
+
+### Phase 26 gate
+
+- [x] Existing public UI unchanged (all pre-existing view tests untouched).
+- [x] No new rendered sections; no redesign.
+- [x] Security posture unchanged (admin ownership checks, no anon policies,
+      no settings exposure).
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan — migration file-only (apply + live JWT
+> matrix left to operator). `format:check` = pre-existing repo-wide CRLF
+> baseline (untouched files fail identically; no new debt). Not committed —
+> left ready for review.
+
+---
+
+# Phase 27 — Section Settings Engine
+
+Configuration architecture for profile sections. Registry carries
+settingsComponent + supportedProfiles; live hero/actions/links ship
+minimal real editors (defaults = current look); business sections stay
+unimplemented. See ADR-053.
+
+## 27.1 Settings schemas + engine
+
+- [x] `sectionSettings.ts`: zod schemas for hero (showTagline,
+      showCategory), actions (showQuickTiles, showAbout), links
+      (showSubtitles); `sanitizeAdminSettings` (strip unknown, reject bad
+      values, planned types accept `{}` only); `sanitizePublicSettings`
+      (never fails — invalid falls back to defaults).
+- [x] Schema is the public allowlist: only declared display keys can reach
+      the public projection.
+
+## 27.2 Registry + editors + renderer
+
+- [x] Catalog entries gain `settingsComponent` (live trio wired, planned
+      null) + `supportedProfiles` (Menu/Catalog/Location/Hours
+      BUSINESS-only; About/CV/Experience PERSON-only; hero/actions/links/
+      gallery both).
+- [x] `SectionSettingsRenderer` dynamically loads the editor per type.
+- [x] Hero/Actions/Links settings editors (checkbox toggles + save).
+- [x] Renderer honors settings (defaults preserve current UI exactly).
+
+## 27.3 Services + public projection
+
+- [x] `updateSectionSettings` (ownership + schema validation) +
+      `updateSectionSettingsAction` (revalidate + cache purge).
+- [x] `addProfileSection` enforces the audience split.
+- [x] Public loader selects settings and sanitizes per type (embed +
+      legacy); `PublicSection.settings` always sanitized.
+
+## 27.4 Manager + modal
+
+- [x] Per-card settings disclosure renders the live editor (or the
+      arrives-with-implementation placeholder for planned types).
+- [x] Add modal badges audience-incompatible entries (Business/Personal
+      only); `profileType` threaded from the profile page.
+
+## 27.5 Tests + verification
+
+- [x] Engine unit tests (defaults, strip-unknown, reject-bad-values,
+      planned rules, public fallback).
+- [x] Registry tests (editor resolution, audience split).
+- [x] Service tests (save/update, invalid rejection, cross-client,
+      audience gating).
+- [x] Renderer tests (hide tagline/category/tiles/about/subtitles).
+- [x] Editor + modal markup tests.
+- [x] Public safety tests (hostile keys stripped, invalid reset).
+- [x] `typecheck`, `lint`, `test` (52 files / 540 tests), `build` green.
+
+### Phase 27 gate
+
+- [x] Current sections keep working (defaults = current look; all
+      pre-existing view tests untouched).
+- [x] No business sections implemented; no redesign.
+- [x] Unknown settings ignored; admin-only/hostile keys never public.
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan (no migration — settings jsonb already
+> exists). `format:check` = pre-existing repo-wide CRLF baseline (untouched
+> files fail identically; no new debt). Not committed — ready for review.
+
+---
+
+# Phase 28 — Business Identity Sections (Location + Opening Hours)
+
+First real builder sections on the Phase 27 engine. No migration (types
+already in the CHECK). See ADR-054.
+
+## 28.1 Location
+
+- [x] Registry entry flipped live (BUSINESS-only).
+- [x] Zod schema (title/address/coords/showMap/buttonLabel; range checks,
+      numeric-string coercion).
+- [x] `LocationSettingsEditor` (text inputs, coordinate hints, map toggle).
+- [x] `LocationSection` renderer: address card, Google + Apple Maps links
+      (encoded query, coords preferred), no iframe, no API keys,
+      content-driven collapse without a target.
+
+## 28.2 Opening Hours
+
+- [x] Registry entry flipped live (BUSINESS-only).
+- [x] Zod schema (IANA timezone via Intl check, 7-day schedule, HH:MM
+      times, closed flags).
+- [x] `OpeningHoursSettingsEditor` (timezone input + 7 day rows with time
+      inputs and closed toggles).
+- [x] `OpeningHoursSection` renderer: weekly rows, today highlight,
+      Open-now/Closed badge (timezone-aware, silent when undeterminable).
+
+## 28.3 Architecture compliance
+
+- [x] `profile_sections` + settings JSONB only; registry-driven renderers
+      and editors; audience enforcement on add; sanitized projection.
+- [x] Modal Add enabled for live compatible types (planned stay Coming
+      soon); new rows deletable; foundation trio still protected.
+- [x] No redesign of existing sections.
+
+## 28.4 Tests + verification
+
+- [x] Registry availability (5 live / 6 planned; editor resolution).
+- [x] Settings validation (coords, times, timezones, coercion).
+- [x] Admin save (location coercion persisted; invalid rejected unwritten).
+- [x] Ownership isolation (cross-client add/update/delete denied).
+- [x] Public rendering (maps URLs, no iframe, collapse, schedule + badge).
+- [x] Helpers (query preference, URL encoding, open/closed determinism).
+- [x] `typecheck`, `lint`, `test` (52 files / 553 tests), `build` green.
+
+### Phase 28 gate
+
+- [x] Location + Hours work end-to-end (add → configure → render → hide).
+- [x] Existing sections untouched (all pre-existing tests pass).
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan. `format:check` = pre-existing repo-wide
+> CRLF baseline (untouched files fail identically; no new debt). Not
+> committed — ready for review.
+
+---
+
+# Phase 29 — Menu + Catalog Collection Sections
+
+Reusable content collections on `profile_sections.settings` JSONB. No new
+tables, no new bucket. See ADR-055.
+
+## 29.1 Shared collection engine
+
+- [x] `collectionItemSchema` (id/image/name/description/price/available)
+      + `collectionCategorySchema` (id/name/items ≤50) + collection settings
+      (title/currency/categories ≤20), shared by menu and catalog.
+- [x] `formatPrice`, numeric-string price coercion, `{}` defaults
+      ("Our Menu" / "Products" / MAD).
+- [x] Sanitization unchanged in shape: unknown stripped, invalid rejected,
+      public projection allowlisted by schema.
+
+## 29.2 Menu + Catalog
+
+- [x] Registry flipped live: menu (RESTAURANT forward-declared + BUSINESS
+      effective), catalog (BUSINESS-only); editors + renderers wired.
+- [x] Shared `CollectionEditor` (title/currency, category add/remove/
+      reorder, item add/edit/remove/reorder, availability, photo upload).
+- [x] Shared `CollectionView` renderer (category headings, item rows with
+      thumb/name/price/description, unavailable hidden, empty collapse).
+- [x] Modal Add works for live compatible types; singleton + audience
+      enforced server-side.
+
+## 29.3 Images
+
+- [x] Section-scoped paths `{clientId}/sections/{type}/{hex}.webp` in the
+      existing `profile-assets` bucket (no new bucket).
+- [x] Same pipeline as identity assets: admin-only, MIME allowlist,
+      magic-byte gate, sharp normalize (1024 cap), immutable cache.
+- [x] Ownership-verified upload (`uploadSectionImage` + action);
+      managed-path delete gate extended; best-effort orphan cleanup on
+      settings save (never fails the save).
+- [x] Public renders only referenced images; no listing surface.
+
+## 29.4 Tests + verification
+
+- [x] Registry (7 live / 4 planned; menu audiences; editor resolution).
+- [x] Settings (spec-example shape, strip/coerce, negatives/blank/limits,
+      price formatting; location/hours suites updated for live status).
+- [x] Services (menu save with coercion; cross-client denied; audience
+      gating; foundation protection intact).
+- [x] Renderer (menu/catalog rows, prices, unavailable hidden, empty
+      collapse, no iframe).
+- [x] Storage (scoped paths, gate accept/reject, upload normalization,
+      cross-client/type/auth denial).
+- [x] Security (sanitized projection, hostile keys stripped, no
+      admin-only fields).
+- [x] `typecheck`, `lint`, `test` (52 files / 568 tests), `build` green.
+
+### Phase 29 gate
+
+- [x] Menu + Catalog work end-to-end (add → items + photos → render).
+- [x] No new tables; no redesign of existing sections.
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan. RESTAURANT audience forward-declared
+> (no such profile type exists yet — menu is BUSINESS-effective until it
+> does). `format:check` = pre-existing repo-wide CRLF baseline. Not
+> committed — ready for review.
+
+---
+
+# Phase 30 — Profile Templates System
+
+Templates seed sections once at profile creation; the template id is
+stored metadata. Existing profiles never gain/lose sections from
+templates. See ADR-056.
+
+## 30.1 Registry + storage
+
+- [x] `profileTemplates.ts`: personal / business / restaurant / store
+      (label, description, profile-type audience, section list, settings
+      overrides); restaurant carries the full spec set incl. gallery.
+- [x] Migration `20260927_profile_template.sql`: `profiles.template`
+      + CHECK + backfill from profile_type (sections untouched).
+- [x] `database.ts` backport + `PROFILE_DETAIL_COLUMNS` carry template.
+
+## 30.2 Application service
+
+- [x] `seedTemplateSections` (insert-missing-only, append after max,
+      idempotent, fail-closed without throwing).
+- [x] `createProfile` resolves the template (explicit compatible choice
+      wins, else type default; unknown never fails creation) and seeds it.
+- [x] `updateProfileTemplate` updates ONLY the column — structurally no
+      `profile_sections` query exists in that path.
+
+## 30.3 Admin UI
+
+- [x] Template picker in the creation wizard (Identity step, filtered by
+      profile type, resets on type change).
+- [x] Template reference section on the edit page (change metadata,
+      explicit copy that sections are untouched).
+
+## 30.4 Tests + verification
+
+- [x] Registry (4 templates, restaurant set, audience coherence,
+      defaults/compatibility).
+- [x] Seeding (full set + positions, idempotent rerun, existing rows
+      byte-identical incl. disabled/custom/foreign rows).
+- [x] Creation stores template + seeds (restaurant 7 rows); unknown /
+      mismatched ids fall back to the type default.
+- [x] Metadata change touches only `profiles` (table-call assertion);
+      unknown/mismatch/cross-client/anonymous rejected.
+- [x] `typecheck`, `lint`, `test` (53 files / 580 tests), `build` green.
+- [ ] Live: migration apply + template-column readback (operator step —
+      file-only here).
+
+### Phase 30 gate
+
+- [x] New profiles start from templates; existing profiles unchanged.
+- [x] No section recreation; no redesign.
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan. `format:check` = pre-existing repo-wide
+> CRLF baseline. Not committed — ready for review.
+
+---
+
+# Phase 31 — Personal Profile Sections (About + Experience + CV)
+
+PERSON-only blocks on the section engine. CVs live in a private bucket
+served exclusively through a slug-based endpoint. See ADR-057.
+
+## 31.1 About + Experience
+
+- [x] Registry flipped live (PERSON-only); zod schemas (title/content ≤
+      2000; jobs with company/role/YYYY-MM dates/end-after-start,
+      descriptions ≤500).
+- [x] Editors (title + textarea; job cards with month inputs, present
+      toggle, add/remove/reorder).
+- [x] Renderers (biography; timeline with formatted dates, Present,
+      today-agnostic rows; both collapse when empty).
+
+## 31.2 CV documents
+
+- [x] Migration `20260928_profile_documents.sql`: private bucket (no read
+      policy for any API role), admin-only writes, PDF MIME + 5 MB.
+- [x] PDF pipeline (`detectPdfKind`, ownership-verified upload, original
+      bytes, `no-store`); managed document-path gate; bucket-routed
+      deletes; orphan cleanup extended to documents.
+- [x] `GET /api/cv/[slug]`: ACTIVE-only, re-resolves the path server-side
+      (public projection strips it), shape-validated, inline PDF,
+      `no-store`, generic 404s.
+- [x] CV editor (title/label/PDF upload with validation feedback).
+
+## 31.3 Architecture compliance
+
+- [x] `profile_sections.settings` JSONB only; registry-driven editors and
+      renderers; PERSON audience enforced on add; modal offers the three
+      blocks on PERSON profiles.
+- [x] Sanitized projection: `file` stripped (presence-only `hasFile`
+      flag), hostile keys stripped, invalid reset to defaults.
+- [x] Existing sections untouched.
+
+## 31.4 Tests + verification
+
+- [x] Registry availability (10 live / 1 planned; PERSON audiences).
+- [x] Settings validation (limits, date order, PDF rules, month format).
+- [x] Upload security (MIME/magic/size/type/auth/ownership denial).
+- [x] Endpoint matrix (200 inline + 6×404: draft/unknown/missing/
+      disabled/hostile/failed-download).
+- [x] Public rendering (biography, timeline, CV button without path
+      leak, all three collapse empty).
+- [x] Ownership isolation (cross-client mutation denial intact).
+- [x] `typecheck`, `lint`, `test` (54 files / 601 tests), `build` green.
+- [ ] Live: migration apply + bucket privacy check (operator step —
+      file-only here).
+
+### Phase 31 gate
+
+- [x] About/Experience/CV work end-to-end (add → configure → render).
+- [x] No direct storage exposure (private bucket, slug endpoint).
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan. `format:check` = pre-existing repo-wide
+> CRLF baseline. Not committed — ready for review.
+
+---
+
+# Phase 32 — Gallery Section
+
+Reusable visual gallery on `profile_sections.settings` JSONB — the last
+planned catalog type (registry now fully live). See ADR-058.
+
+## 32.1 Schema + editor
+
+- [x] `gallerySettingsSchema` (title, grid/masonry layout, ≤24 images
+      with managed-path refs + alt ≤120).
+- [x] `GallerySettingsEditor` (multi-upload, previews, alt editing,
+      remove with confirm, reorder, blank-slot adds; no JSON).
+- [x] Images reuse the section pipeline (`{clientId}/sections/gallery/`,
+      validation/magic-bytes/optimization, orphan cleanup on save).
+
+## 32.2 Public renderer
+
+- [x] `GallerySection`: responsive grid (2→3 cols) / pure-CSS masonry,
+      lazy-loaded images with alt text, blank refs skipped, empty
+      gallery collapses.
+- [x] Sanitized images only (schema-shaped refs resolved to public URLs
+      at render; nothing else can reach an `<img src>`).
+
+## 32.3 Tests + verification
+
+- [x] Schema validation (limits, bad layout, foreign refs rejected).
+- [x] Upload security (gallery-scoped path, normalization intact).
+- [x] Deletion (gallery path routes to `profile-assets` via the gate).
+- [x] Ordering (shared `moveSectionId` + service reorder paths).
+- [x] Public rendering (grid, masonry, alt, lazy, collapse).
+- [x] Isolation (cross-client denial; audience PERSON + BUSINESS —
+      covers PERSON/BUSINESS/RESTAURANT/STORE use cases).
+- [x] `typecheck`, `lint`, `test` (54 files / 610 tests), `build` green.
+
+### Phase 32 gate
+
+- [x] Gallery works end-to-end (add → photos → render → hide).
+- [x] No direct storage leakage (referenced images only).
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan (no migration — gallery predates the
+> Phase 26 type CHECK). `format:check` = pre-existing repo-wide CRLF
+> baseline. Not committed — ready for review.
+
+---
+
+# Phase 33 — Profile Builder UX
+
+Premium visual builder on the existing section architecture: live
+preview, completion, onboarding, presets. No migration. See ADR-059.
+
+## 33.1 Live preview
+
+- [x] `BuilderPreview`: same section renderer as the public page in a
+      phone frame, inert Share/Keep stand-ins (live islands would share
+      the dashboard URL), sticky beside the manager on desktop.
+- [x] Updates via `router.refresh()` — no full navigation; disabled
+      sections drop exactly as publicly.
+
+## 33.2 Completion + onboarding
+
+- [x] `computeCompletion` (required 20pts: name/image/action;
+      recommended 10pts: bio/links/location/gallery; levels).
+- [x] `onboardingSteps` (identity → contact → sections → publish) derived
+      from the same data — checklist agrees with the progress bar.
+- [x] `CompletionCard` (progress bar + next actions) on the edit page.
+- [x] `OnboardingChecklist` for DRAFT profiles (localStorage dismissal,
+      no new tables).
+
+## 33.3 Presets
+
+- [x] Registry `presets` (gallery grid/masonry, actions tiles/buttons,
+      menu cards/list); merge-over-current application via preset bar.
+- [x] Real render variants: `display: tiles|buttons` (actions),
+      `layout: cards|list` (menu); gallery layout already existed.
+- [x] Every preset validated against its schema by test.
+
+## 33.4 Tests + verification
+
+- [x] Completion math (full/empty/weights/cover-channel/location-target/
+      gallery-photos/disabled ignored) + onboarding states.
+- [x] Preset validation across the registry.
+- [x] Preview rendering (order, disabled parity, inert islands).
+- [x] Onboarding markup (states, done/todo labels, all-done collapse).
+- [x] `typecheck`, `lint`, `test` (57 files / 625 tests), `build` green.
+
+### Phase 33 gate
+
+- [x] Builder feels live without navigation.
+- [x] No architecture changes (sections/registry/JSONB/security intact).
+- [x] Checks pass.
+
+> 2026-09-21: implemented per plan. `format:check` = pre-existing repo-wide
+> CRLF baseline. Not committed — ready for review.
+
+---
+
+# Phase 33.1 — Production Regression Audit (existing profile cannot load)
+
+> 2026-09-22: live DB never received 20260925–20260928 (no
+> `profile_sections`, no `profiles.template`). Loaders demanding new
+> columns answered PGRST204 → phantom "No profile configured yet" +
+> "Could not load the profile." Fix = tolerant reads, zero data changes.
+> See ADR-060. Not committed — ready for review.
+
+## 33.1.1 Loader tolerance
+
+- [x] `PROFILE_DETAIL_COLUMNS_LEGACY` (no `public_code`) + retry on
+      missing-identity-column in `getProfileByClientId`/`getProfileById`.
+- [x] Same fallback on create/update/status/template post-write selects.
+- [x] `normalizeProfileRow` (`public_code` → `""` when absent, no writes).
+- [x] `resolveProfileTemplate` (stored-compatible wins, else type default).
+- [x] Edit page feeds resolved template; defensive `public_code`.
+- [x] Sections unchanged best-effort (seed false, public defaults,
+      manager notice/restore).
+
+## 33.1.2 Creation flow (Case A/B)
+
+- [x] Case A (no profile): creates with template insert-retry + best-effort seed.
+- [x] Case B (existing): loader resolves → CONFLICT "Edit it instead" → editor.
+- [x] No routing change needed; error path unreachable for schema drift.
+
+## 33.1.3 Regression tests
+
+- [x] `profileRegression.test.ts` rewritten (11 cases: legacy load, editor
+      open, pre-public_code `""`, create retry, migration-pending message,
+      template derivation, metadata null, Case B conflict, null-data
+      completion/onboarding, seed fail-closed, modern unchanged).
+
+### Phase 33.1 gate
+
+- [x] Existing profiles load/edit/build with no data changes.
+- [x] `typecheck`, `lint` (0 warnings), `test` (58 files / 636 tests), `build` green.
+- [x] Live: 20260925–20260928 applied 2026-09-22 (sections backfilled 6/6,
+      template backfilled personal/business, documents bucket private;
+      anon matrix green, counts unchanged, flow verified live).
+
+---
+
+# Phase 34 — Unified Visual Profile Builder
+
+One editor flow, one preview, one draft, one save. The flexible section
+architecture is preserved and relocated (not removed). No DB model change.
+See ADR-061.
+
+## 34.1 Single draft + live preview
+
+- [x] `unifiedDraft.ts`: reducer (fields/links/sections/images/template/
+      status/dirty), `buildSavePayload`, `toPreviewData` adapter,
+      `FIELD_STEPS` error map, 6-step model.
+- [x] Preview reads the same draft the forms write (keystroke-live, no
+      save, no `router.refresh()`); hostile settings stripped via
+      `sanitizePublicSettings`, hostile accent falls back.
+- [x] Exactly ONE preview rendered: real `ProfileSectionRenderer` in the
+      `BuilderPreview` phone frame (sticky desktop; Edit/Preview tabs +
+      header Preview button + full-screen sheet on mobile).
+- [x] Legacy `ProfileEditor.tsx` (wizard + approximation preview) deleted;
+      `LinksManager`/`SectionsManager` standalone components replaced by
+      draft-first step UIs reusing modal/preset/settings renderer.
+
+## 34.2 Integrated steps
+
+- [x] Identity: type, template (picker new / switcher existing), naming,
+      slug, bio, avatar/cover (crop+upload unchanged).
+- [x] Contact: contact data + Actions integration (toggles, tiles/buttons
+      preset, `maxQuickActions` 1–3 stepper, derived top-action order).
+- [x] Links: full manager (add/edit/delete/enable/reorder/subtitles),
+      draft-first with shared-schema validation.
+- [x] Sections: content cards (drag + up/down + enable + settings +
+      presets + delete) + single page order (hero pinned first, core rows
+      link to their steps instead of duplicating config).
+- [x] Appearance: theme/accent + gallery/menu visual presets only.
+- [x] Review: draft-derived completion + onboarding, link panel, status
+      control, NFC/QR entry links. Compact header keeps % + dirty/saved.
+
+## 34.3 Unified save + safety
+
+- [x] `saveUnifiedDraftAction`: profile + link/section end-state diffs via
+      unchanged services, single revalidate + cache purge, fail-closed
+      concurrent-edit detection, orphan asset cleanup preserved.
+- [x] Pure `unifiedSavePlan.ts` planner (creates/updates/toggles/deletes/
+      order mapping) with unit tests.
+- [x] Dirty tracking + `beforeunload` guard; step navigation preserves
+      state; new-profile save-once gating kept (links/sections/uploads).
+- [x] `maxQuickActions` schema key (default 3 = current look),
+      `pickQuickActions(limit)`, renderer honors it; no migration.
+- [x] `storagePaths.ts` split keeps sharp out of the browser bundle
+      (`storage.ts` re-exports; all importers work).
+- [x] Security posture unchanged (ownership checks, RLS, allowlist
+      sanitization, admin-isolation test green).
+
+## 34.4 Tests + verification
+
+- [x] `unifiedDraft.test.ts` (init/reducer/payload/adapter/helpers).
+- [x] `unifiedSavePlan.test.ts` (diffs, fail-closed paths, order mapping).
+- [x] `UnifiedProfileEditor.test.ts` (one preview, six steps, template in
+      Identity, actions in Contact, links manager, sections order,
+      appearance, review composition, dirty header).
+- [x] `maxQuickActions` coverage (schema default, pick limits/clamp,
+      renderer cap).
+- [x] `typecheck`, `lint` (0 warnings), `test` (61 files / 676 tests),
+      `build` green.
+- [ ] Operator visual pass: 390 / 768 / 1024 / 1440 + keystroke-live +
+      save→reload round-trip + activation from Review (no browser tooling
+      here).
+
+### Phase 34 gate
+
+- [x] One editor, one preview, one draft, one save; sections preserved.
+- [x] No database model change; no regressions in existing suites.
+- [x] Checks pass.
+
+> 2026-09-22: implemented per plan. `format:check` = pre-existing
+> repo-wide CRLF baseline (new files pass individually; untouched files
+> fail identically at HEAD). Not committed — left ready for review.
+
+---
+
+# Phase 34.1 — Finish Unified Builder UX
+
+Closes the two remaining editor gaps: duplicate mobile preview navigation
+and implicit top-action ordering. No new tables, no unrelated features.
+See ADR-062.
+
+## 34.1.1 Single mobile preview path
+
+- [x] Edit/Preview tabs removed completely (no `tablist`, no hidden panes).
+- [x] Editor is always the screen; header Preview button opens the
+      full-screen sheet with the same draft-fed preview.
+- [x] Sheet closes via Close/Esc/backdrop; step + form + scroll state
+      preserved (nothing unmounts underneath).
+- [x] Exactly one preview renderer while the sheet is closed (pinned).
+
+## 34.1.2 Explicit primary actions
+
+- [x] `primaryActions` in actions settings JSONB: built-ins
+      (`call|whatsapp|email|website`) + `link:<uuid>` refs, max 20.
+- [x] `resolvePrimaryActions` — ONE pure resolver for public page and
+      admin preview (explicit order wins, stale refs skipped fail-safe,
+      empty/absent = legacy order + cap, always capped at the limit).
+- [x] `primaryAvailability` gates selection on live values (built-in only
+      with a valid value; links only when enabled + renderable).
+- [x] Contact card UI: visible cards (reorder up/down, remove without
+      deleting), hidden candidates (+ to feature), unavailable hints,
+      segmented Show-first 1–4 control. No implementation IDs shown.
+- [x] `maxQuickActions` widened 1–4 (default 3 — existing look unchanged).
+- [x] Disabled/deleted links and removed values disappear from effective
+      top actions immediately (resolver) and are cleaned on next save
+      (payload hygiene + server temp→real remap for pre-save promotions).
+- [x] No separate save buttons: draft → instant preview → unified Save.
+
+## 34.1.3 Tests + verification
+
+- [x] Resolver matrix (explicit/mixed order, cap, disabled/deleted/
+      missing/malformed refs, dedupe, legacy parity, sanitize).
+- [x] Adapter carries `enabled`; Connect list skips disabled.
+- [x] Renderer explicit-order + cap tests; legacy suites pass untouched.
+- [x] Payload hygiene (stale cleaned, temp kept, legacy rows identical).
+- [x] Contact card markup (visible/hidden/unavailable/segmented).
+- [x] Preview↔public parity via the shared resolver; rebase preserves
+      order across save/reload.
+- [x] No-tabs + sheet-button + single-preview assertions.
+- [x] `typecheck`, `lint` (0 warnings), `test` (61 files / 694 tests),
+      `build` green.
+- [ ] Operator visual pass: 390 / 768 / 1024 / 1440 + sheet open/close +
+      arrange/save/reload round-trip (no browser tooling here).
+
+### Phase 34.1 gate
+
+- [x] One mobile preview path; explicit primary order everywhere.
+- [x] No database model change; no regressions in existing suites.
+- [x] Checks pass.
+
+> 2026-09-22: implemented per plan. `format:check` = pre-existing
+> repo-wide CRLF baseline (files clean at baseline stay clean; files
+> failing at HEAD fail identically). Not committed — left ready for review.
+
+---
+
+# Phase 34.2 — Draft-Native Content Sections + True Live Preview
+
+Every content section is add → configure immediately → preview live →
+save unified. No new tables, no unrelated features. See ADR-063.
+
+## 34.2.1 Draft-native editing
+
+- [x] All 11 section editors converted to controlled (`value` from
+      settings prop, every edit commits via `onChange`); all Save
+      settings buttons removed (one persistence action: Save draft).
+- [x] `SectionSettingsProps` += `onChange` + `autoFocus`; renderer
+      forwards both plus the upload context.
+- [x] Add instantiates registry schema defaults (never bare `{}`).
+- [x] New rows auto-expand Configure + focus the first field; existing
+      rows stay collapsed; core rows keep order + Go-there links.
+- [x] Binary uploads stay immediate (images, CV PDF); paths join the
+      draft, unified Save persists the reference.
+
+## 34.2.2 Location + keyless map
+
+- [x] Schema += `mapsUrl` (Google/Apple allowlist, null-tolerant) +
+      `mapZoom` 1–19 (blank-tolerant); editor modes address/coords/link.
+- [x] `sanitizeMapsLink` / `resolveLocationTarget` (coords → link →
+      address) / `osmEmbedUrl` (bbox math, numbers-only, lazy iframe).
+- [x] Renderer: OSM map card when coords exist, address card + vendor
+      directions otherwise, collapse when empty (public).
+- [x] Typing address/coords/toggles updates preview with no save.
+
+## 34.2.3 Admin preview placeholders
+
+- [x] `previewPlaceholders` plumbing (renderer → adapters → 8 content
+      sections); `BuilderPreview` sets it, public pages never do.
+- [x] Per-type guidance copy; same components, zero public drift.
+
+## 34.2.4 Save behavior + errors
+
+- [x] Unified plan already coherent (adds/updates/deletes/toggles/
+      reorder/temp remap/order preserved) — no planner change needed.
+- [x] Save errors carry `sectionId`; Sections step expands, scrolls to,
+      focuses, and annotates the offending card (banner retained).
+- [x] Stale settings never corrupt the draft (sanitizer fallback +
+      per-section errors).
+
+## 34.2.5 Tests + verification
+
+- [x] Location validation/embed/target/zoom tests; renderer map tests.
+- [x] No-save-buttons across all editors; controlled contract tests.
+- [x] Per-type matrix (8 types × live/collapse/placeholder/save/reload).
+- [x] Ordering, temp remap, upload/security suites still green.
+- [x] `typecheck`, `lint` (0 warnings), `test` (62 files / 755 tests),
+      `build` green.
+- [ ] Operator visual pass: 390 / 768 / 1024 / 1440 + map load + per-type
+      arrange/save/reload (no browser tooling here).
+
+### Phase 34.2 gate
+
+- [x] Content sections configure + preview live; one save persists all.
+- [x] No database model change; no regressions in existing suites.
+- [x] Checks pass.
+
+> 2026-09-22: implemented per plan. Not committed — left ready for review.
+
+---
+
+# Phase 34.3 — Map-Link-Only Location
+
+Paste one Maps link → Karti resolves exact coordinates → live OSM map.
+No manual picker, no coordinate/zoom fields, no paid map services.
+See ADR-064.
+
+## 34.3.1 Link resolution
+
+- [x] Pure `mapLinks.ts`: `extractCoordinates` (@pins, q/query pairs,
+      Apple ll, OSM #map/mlat-mlon), `resolveMapLink` orchestration.
+- [x] SSRF-safe short-link resolution (HTTPS-only, allowlisted hops,
+      per-hop DNS verification, private-range blocking, ≤4 hops,
+      timeout-guarded, no bodies read) with injected fetch/DNS for tests.
+- [x] `resolveMapsLinkAction` (auth-gated, no DB): short hosts resolve,
+      others extract directly, shared failure copy, never guesses.
+- [x] Allowlist += openstreetmap.org; short hosts goo.gl/maps.app.goo.gl.
+
+## 34.3.2 Link-only editor
+
+- [x] Editor exposes title / address / maps link / show map / button
+      only — latitude/longitude/zoom removed (stored, not shown).
+- [x] Paste → "Detecting location…" (debounced + blur) → coordinates
+      commit to draft → instant map; failure message, no guessing.
+- [x] Detection commits merge over latest settings (no stale overwrites);
+      clearing the link clears a detected pin, never legacy coordinates.
+- [x] Resolver injected via settings context (catalog keeps its
+      server-action-free boundary).
+- [x] Legacy rows (coords/mapsUrl/mapZoom) render unchanged; new links
+      replace the pin without recreating the section.
+
+## 34.3.3 Renderer
+
+- [x] OSM embed from extracted coordinates + © OpenStreetMap attribution.
+- [x] Get directions prefers the original safe link (Google→Google,
+      Apple→Apple, OSM→OSM), else coordinates-based vendor URLs.
+
+## 34.3.4 Tests + verification
+
+- [x] Extraction matrix (Google/Apple/OSM/encoded/malformed/unsafe).
+- [x] SSRF matrix (non-HTTPS, off-allowlist, localhost/IP/private DNS,
+      redirect escape, excessive redirects, fetch errors, HEAD→GET).
+- [x] Editor markup (Maps link present; lat/lng/zoom absent).
+- [x] `typecheck`, `lint` (0 warnings), `test` (63 files / 773 tests),
+      `build` green.
+- [ ] Operator visual pass + live short-link resolve against real
+      Google/Apple/OSM links (no browser/network tooling here).
+
+### Phase 34.3 gate
+
+- [x] Link-only location with safe resolution and live OSM map.
+- [x] No database model change; no regressions in existing suites.
+- [x] Checks pass.
+
+> 2026-09-22: implemented per plan. Not committed — left ready for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

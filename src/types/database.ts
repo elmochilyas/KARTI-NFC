@@ -148,6 +148,51 @@ export type Database = {
           },
         ]
       }
+      // MANUAL BACKPORT (Phase 25): public.profile_sections from migration
+      // 20260925_profile_sections. `pnpm db:types` could not run here
+      // (no SUPABASE_ACCESS_TOKEN); re-running it will emit this table and
+      // absorb the backport. See ADR-051.
+      profile_sections: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          position: number
+          profile_id: string
+          settings: Json
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          position: number
+          profile_id: string
+          settings?: Json
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          position?: number
+          profile_id?: string
+          settings?: Json
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_sections_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           accent_color: string | null
@@ -172,6 +217,18 @@ export type Database = {
           public_code: string
           slug: string
           status: string
+          // MANUAL BACKPORT (Phase 30): profiles.template from migration
+          // 20260927_profile_template. `pnpm db:types` could not run here
+          // (no SUPABASE_ACCESS_TOKEN); re-running it will emit this exact
+          // line and absorb the backport. See ADR-056.
+          //
+          // Phase 33 incident: marked OPTIONAL (not just nullable) because
+          // application selects deliberately omit the column until migration
+          // 20260927 is verified applied on every database (template is
+          // served via getProfileTemplateColumn instead). Revert to the
+          // generated `template: string` if/when the column is selected
+          // again after the migration lands everywhere.
+          template?: string | null
           theme: string
           updated_at: string
           website: string | null
@@ -196,6 +253,7 @@ export type Database = {
           public_code?: string
           slug: string
           status?: string
+          template?: string
           theme?: string
           updated_at?: string
           website?: string | null
@@ -220,6 +278,7 @@ export type Database = {
           public_code?: string
           slug?: string
           status?: string
+          template?: string
           theme?: string
           updated_at?: string
           website?: string | null

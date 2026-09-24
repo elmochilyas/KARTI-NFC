@@ -1,24 +1,38 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import {
-  addLinkAction,
-  deleteLinkAction,
-  reorderLinksAction,
-  toggleLinkAction,
-  updateLinkAction,
-} from "@/app/dashboard/clients/[id]/profile/actions";
-import { LINK_TYPE_LABELS, type LinkType, type ProfileLinkRow } from "@/features/profiles/types";
+import { linkSchema } from "@/features/profiles/links";
+import { LINK_TYPE_LABELS, type LinkType } from "@/features/profiles/types";
+import { draftSectionId } from "@/features/profiles/unifiedDraft";
+import { useUnifiedEditor } from "../UnifiedProfileEditor";
+import { SectionSettingsRenderer } from "../section-settings/SectionSettingsRenderer";
 
-const EMPTY_STATE = { ok: false as const, message: "" };
+/**
+ * Phase 34 — Step 3 Links. The complete link manager, draft-first: every
+ * add/edit/delete/enable/reorder updates the shared draft instantly (live
+ * preview included) and persists with the unified Save. Validation mirrors
+ * the server schema so feedback is immediate; the save revalidates anyway.
+ */
 
-function LinkFields({ prefix, defaults }: { prefix: string; defaults?: ProfileLinkRow }) {
+function validateLink(input: { type: string; label: string; url: string }): string | null {
+  const parsed = linkSchema.safeParse({ ...input, icon: "" });
+  if (parsed.success) return null;
+  const first = parsed.error.issues[0];
+  return first ? `${first.path[0] as string}: ${first.message}` : "Check the link fields.";
+}
+
+function LinkFields({
+  prefix,
+  defaults,
+}: {
+  prefix: string;
+  defaults?: { type: string; label: string; url: string };
+}) {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -55,23 +69,18 @@ function LinkFields({ prefix, defaults }: { prefix: string; defaults?: ProfileLi
   );
 }
 
-/** Read uncontrolled link inputs without a <form> (this manager lives inside the save form). */
-function readLinkFields(root: HTMLElement | null): FormData {
-  const formData = new FormData();
+/** Read uncontrolled link inputs without a <form> (we live inside the save form). */
+function readLinkFields(root: HTMLElement | null): { type: string; label: string; url: string } {
   const get = (name: string) =>
     (root?.querySelector(`[name="${name}"]`) as HTMLInputElement | HTMLSelectElement | null)
       ?.value ?? "";
-  formData.set("type", get("type"));
-  formData.set("label", get("label"));
-  formData.set("url", get("url"));
-  return formData;
+  return { type: get("type"), label: get("label"), url: get("url") };
 }
 
-function AddLinkForm({ clientId, profileId }: { clientId: string; profileId: string }) {
+function AddLinkForm() {
+  const { dispatch, tempId } = useUnifiedEditor();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
   if (!open) {
@@ -84,25 +93,27 @@ function AddLinkForm({ clientId, profileId }: { clientId: string; profileId: str
   }
 
   function submit() {
-    const formData = readLinkFields(containerRef.current);
-    if (!formData.get("label") || !formData.get("url")) {
-      setError("Label and URL are required.");
+    const input = readLinkFields(containerRef.current);
+    const problem = validateLink(input);
+    if (problem) {
+      setError(problem);
       return;
     }
     setError(null);
-    startTransition(async () => {
-      const result = await addLinkAction(clientId, profileId, EMPTY_STATE, formData);
-      if (result.ok) {
-        setOpen(false);
-        router.refresh();
-      } else {
-        setError(
-          result.fieldErrors?.url
-            ? `${result.message} (${result.fieldErrors.url})`
-            : result.message,
-        );
-      }
+    dispatch({
+      type: "addLink",
+      link: {
+        id: tempId(),
+        type: input.type,
+        label: input.label.trim(),
+        url: input.url.trim(),
+        icon: null,
+        enabled: true,
+        sort_order: 0,
+        isNew: true,
+      },
     });
+    setOpen(false);
   }
 
   return (
@@ -114,8 +125,8 @@ function AddLinkForm({ clientId, profileId }: { clientId: string; profileId: str
         </p>
       ) : null}
       <div className="flex gap-2">
-        <Button type="button" disabled={pending} onClick={submit}>
-          {pending ? "Adding…" : "Add link"}
+        <Button type="button" onClick={submit}>
+          Add link
         </Button>
         <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
           Cancel
@@ -125,70 +136,43 @@ function AddLinkForm({ clientId, profileId }: { clientId: string; profileId: str
   );
 }
 
-function EditLinkFields({
-  link,
-  pending,
-  onSave,
-}: {
-  link: ProfileLinkRow;
-  pending: boolean;
-  onSave: (formData: FormData) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  return (
-    <div ref={containerRef} className="mt-3 flex flex-col gap-4 border-t border-border pt-3">
-      <LinkFields prefix={`link-${link.id}`} defaults={link} />
-      <div>
-        <Button
-          type="button"
-          size="sm"
-          disabled={pending}
-          onClick={() => onSave(readLinkFields(containerRef.current))}
-        >
-          {pending ? "Saving…" : "Save link"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function LinkRow({
-  link,
-  clientId,
-  profileId,
+  linkId,
   isFirst,
   isLast,
-  onMove,
-  moving,
 }: {
-  link: ProfileLinkRow;
-  clientId: string;
-  profileId: string;
+  linkId: string;
   isFirst: boolean;
   isLast: boolean;
-  onMove: (linkId: string, direction: -1 | 1) => void;
-  moving: boolean;
 }) {
+  const { draft, dispatch } = useUnifiedEditor();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const link = draft.links.find((l) => l.id === linkId);
 
-  function run(
-    operation: () => Promise<{ ok: boolean; message?: string }>,
-    onSuccess?: () => void,
-  ) {
+  if (!link) return null;
+
+  function saveEdit() {
+    const target = draft.links.find((l) => l.id === linkId);
+    if (!target) {
+      setError("This link is no longer here.");
+      return;
+    }
+    const input = readLinkFields(containerRef.current);
+    const problem = validateLink(input);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     setError(null);
-    startTransition(async () => {
-      const result = await operation();
-      if (result.ok) {
-        onSuccess?.();
-        router.refresh();
-      } else {
-        setError(result.message ?? "Something went wrong.");
-      }
+    dispatch({
+      type: "updateLink",
+      id: target.id,
+      patch: { type: input.type, label: input.label.trim(), url: input.url.trim() },
     });
+    setEditing(false);
   }
 
   return (
@@ -198,6 +182,7 @@ function LinkRow({
           <p className="truncate text-sm font-semibold text-text">
             {link.label}
             {!link.enabled ? <span className="ml-2 font-normal text-muted">(disabled)</span> : null}
+            {link.isNew ? <span className="ml-2 font-normal text-muted">(unsaved)</span> : null}
           </p>
           <p className="truncate text-sm text-muted" title={link.url}>
             {LINK_TYPE_LABELS[link.type as LinkType] ?? link.type} · {link.url}
@@ -206,8 +191,8 @@ function LinkRow({
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            disabled={isFirst || moving}
-            onClick={() => onMove(link.id, -1)}
+            disabled={isFirst}
+            onClick={() => dispatch({ type: "moveLink", id: link.id, direction: -1 })}
             aria-label={`Move ${link.label} up`}
             title="Move up"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface-muted hover:text-text disabled:opacity-30"
@@ -216,8 +201,8 @@ function LinkRow({
           </button>
           <button
             type="button"
-            disabled={isLast || moving}
-            onClick={() => onMove(link.id, 1)}
+            disabled={isLast}
+            onClick={() => dispatch({ type: "moveLink", id: link.id, direction: 1 })}
             aria-label={`Move ${link.label} down`}
             title="Move down"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted hover:bg-surface-muted hover:text-text disabled:opacity-30"
@@ -229,8 +214,7 @@ function LinkRow({
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <button
           type="button"
-          disabled={pending}
-          onClick={() => run(() => toggleLinkAction(clientId, profileId, link.id, !link.enabled))}
+          onClick={() => dispatch({ type: "toggleLink", id: link.id, enabled: !link.enabled })}
           aria-pressed={link.enabled}
           className="inline-flex min-h-9 items-center justify-center rounded-md border border-border px-3 text-sm font-medium text-text hover:bg-surface-muted disabled:opacity-50"
         >
@@ -252,11 +236,10 @@ function LinkRow({
           <span className="inline-flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={pending}
-              onClick={() => run(() => deleteLinkAction(clientId, profileId, link.id))}
+              onClick={() => dispatch({ type: "deleteLink", id: link.id })}
               className="inline-flex min-h-9 items-center justify-center rounded-md bg-danger px-3 text-sm font-medium text-white disabled:opacity-50"
             >
-              {pending ? "Deleting…" : "Confirm delete"}
+              Confirm delete
             </button>
             <button
               type="button"
@@ -287,84 +270,89 @@ function LinkRow({
         </p>
       ) : null}
       {editing ? (
-        <EditLinkFields
-          link={link}
-          pending={pending}
-          onSave={(formData) =>
-            run(
-              () => updateLinkAction(clientId, profileId, link.id, EMPTY_STATE, formData),
-              () => setEditing(false),
-            )
-          }
-        />
+        <div ref={containerRef} className="mt-3 flex flex-col gap-4 border-t border-border pt-3">
+          <LinkFields
+            prefix={`link-${link.id}`}
+            defaults={{ type: link.type, label: link.label, url: link.url }}
+          />
+          <div>
+            <Button type="button" size="sm" onClick={saveEdit}>
+              Save link
+            </Button>
+          </div>
+        </div>
       ) : null}
     </li>
   );
 }
 
-export function LinksManager({
-  clientId,
-  profileId,
-  links,
-}: {
-  clientId: string;
-  profileId: string | null;
-  links: ProfileLinkRow[];
-}) {
-  const [moving, startMoving] = useTransition();
-  const [moveError, setMoveError] = useState<string | null>(null);
-  const router = useRouter();
+export function LinksStep() {
+  const { draft, dispatch, profileId } = useUnifiedEditor();
 
   if (!profileId) {
-    return <p className="text-sm text-muted">Save the profile first, then add links here.</p>;
+    return (
+      <section
+        aria-label="Links"
+        className="rounded-xl border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
+      >
+        <h2 className="text-base font-semibold text-text">Links</h2>
+        <p className="mt-2 text-sm text-muted">Save the profile first, then add links here.</p>
+      </section>
+    );
   }
 
-  const pid: string = profileId;
-
-  function handleMove(linkId: string, direction: -1 | 1) {
-    const index = links.findIndex((l) => l.id === linkId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= links.length) return;
-    const orderedIds: string[] = links.map((l) => l.id);
-    const [moved] = orderedIds.splice(index, 1);
-    if (moved === undefined) return;
-    orderedIds.splice(target, 0, moved);
-    setMoveError(null);
-    startMoving(async () => {
-      const result = await reorderLinksAction(clientId, pid, orderedIds);
-      if (!result.ok) setMoveError(result.message);
-      router.refresh();
-    });
-  }
+  const linksRowId = draftSectionId(draft, "links");
+  const linksSettings = draft.sections.find((s) => s.type === "links")?.settings ?? {};
 
   return (
-    <div className="flex flex-col gap-3">
-      {links.length === 0 ? (
-        <p className="text-sm text-muted">No links yet. Add Instagram, reviews, booking…</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {links.map((link, i) => (
-            <LinkRow
-              key={link.id}
-              link={link}
-              clientId={clientId}
-              profileId={pid}
-              isFirst={i === 0}
-              isLast={i === links.length - 1}
-              onMove={handleMove}
-              moving={moving}
-            />
-          ))}
-        </ul>
-      )}
-      {moveError ? (
-        <p role="alert" className="text-sm font-medium text-danger">
-          {moveError}
-        </p>
-      ) : null}
-      <div>
-        <AddLinkForm clientId={clientId} profileId={pid} />
+    <section
+      aria-label="Links"
+      className="rounded-xl border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
+    >
+      <h2 className="text-base font-semibold text-text">Links</h2>
+      <p className="mt-1 text-sm text-muted">
+        Social and action links. Reorder with the arrow buttons — the public page follows this
+        order. Changes save with the profile draft.
+      </p>
+      <div className="mt-4 flex flex-col gap-3">
+        {draft.links.length === 0 ? (
+          <p className="text-sm text-muted">No links yet. Add Instagram, reviews, booking…</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {draft.links.map((link, i) => (
+              <LinkRow
+                key={link.id}
+                linkId={link.id}
+                isFirst={i === 0}
+                isLast={i === draft.links.length - 1}
+              />
+            ))}
+          </ul>
+        )}
+        <div>
+          <AddLinkForm />
+        </div>
+        {linksRowId ? (
+          <details>
+            <summary className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[13px] font-semibold text-muted hover:text-text">
+              Link display settings
+            </summary>
+            <div className="mt-2 px-1 pb-1">
+              <SectionSettingsRenderer
+                type="links"
+                settings={linksSettings}
+                pending={false}
+                onSave={(next) =>
+                  dispatch({ type: "setSectionSettings", id: linksRowId, settings: next })
+                }
+                onChange={(next) =>
+                  dispatch({ type: "setSectionSettings", id: linksRowId, settings: next })
+                }
+              />
+            </div>
+          </details>
+        ) : null}
       </div>
-    </div>
+    </section>
   );
 }

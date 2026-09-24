@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { BackLink } from "@/components/dashboard/BackLink";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { ProfileEditor } from "@/features/profiles/components/ProfileEditor";
+import { UnifiedProfileEditor } from "@/features/profiles/components/UnifiedProfileEditor";
+import { defaultTemplateFor } from "@/features/profiles/profileTemplates";
 import { getProfileByClientId } from "@/features/profiles/service";
 import { getClientById } from "@/features/clients/service";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
@@ -46,7 +47,7 @@ export default async function NewProfilePage({ params }: NewProfilePageProps) {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex max-w-5xl flex-col gap-6">
       <div>
         <BackLink href={`/dashboard/clients/${clientId}`}>
           Back to {clientResult.data.name}
@@ -54,20 +55,23 @@ export default async function NewProfilePage({ params }: NewProfilePageProps) {
         <div className="mt-2">
           <PageHeader
             title="New Profile"
-            subtitle="Created as a draft. Steps: Identity → Contact → Links → Appearance → Review, then activate."
+            subtitle="Created as a draft. Steps: Identity → Contact → Links → Sections → Appearance → Review, then activate."
           />
         </div>
       </div>
-      <ProfileEditor
+      <UnifiedProfileEditor
         clientId={clientId}
         clientName={clientResult.data.name}
         profile={null}
         links={[]}
+        sections={[]}
+        template={defaultTemplateFor("PERSON")}
         newProfileId={randomUUID()}
         initialAvatarUrl={null}
         initialCoverUrl={null}
         justCreated={false}
         appUrl={getAppUrl()}
+        publicCode=""
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_PUBLIC_SECTIONS,
   getPublicProfileByCode,
   getPublicProfileBySlug,
   getPublicProfileRowBySlug,
@@ -7,6 +8,7 @@ import {
   PUBLIC_IDENTITY_COLUMNS,
   PUBLIC_LINK_COLUMNS,
   PUBLIC_PROFILE_COLUMNS,
+  PUBLIC_SECTION_COLUMNS,
   publicProfileDescription,
   publicProfileTitle,
 } from "./public";
@@ -328,5 +330,106 @@ describe("publicProfileTitle + publicProfileDescription", () => {
     expect(publicProfileDescription({ job_title: null, bio: null, company_name: null })).toBe(
       "View this Karti contact profile.",
     );
+  });
+});
+
+describe("public profile sections (Phase 25)", () => {
+  const SECTION_ROWS = [
+    { id: "s-links", type: "links", position: 3, enabled: true, settings: { admin: true } },
+    { id: "s-hero", type: "hero", position: 1, enabled: true, settings: {} },
+    { id: "s-actions", type: "actions", position: 2, enabled: true, settings: {} },
+  ];
+
+  function embedDb(sectionRows: unknown): PublicDb {
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({
+        data: { ...ACTIVE_ROW, profile_links: [], profile_sections: sectionRows },
+        error: null,
+      })),
+    }));
+    return { from } as unknown as PublicDb;
+  }
+
+  it("resolves enabled sections in position order from the embed", async () => {
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({
+        data: { ...ACTIVE_ROW, profile_links: [], profile_sections: SECTION_ROWS },
+        error: null,
+      })),
+    }));
+    const db = { from } as unknown as PublicDb;
+    const result = await getPublicProfileBySlug("ahmed-benali", db);
+    expect(result?.sections.map((s) => s.type)).toEqual(["hero", "actions", "links"]);
+    // Exactly one table hit — sections ride the single-RTT embed.
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledWith("profiles");
+  });
+
+  it("drops disabled sections without falling back to defaults", async () => {
+    const rows = SECTION_ROWS.map((s) => (s.type === "links" ? { ...s, enabled: false } : s));
+    const result = await getPublicProfileBySlug("ahmed-benali", embedDb(rows));
+    expect(result?.sections.map((s) => s.type)).toEqual(["hero", "actions"]);
+  });
+
+  it("renders no sections when every section is disabled (explicit, no resurrection)", async () => {
+    const rows = SECTION_ROWS.map((s) => ({ ...s, enabled: false }));
+    const result = await getPublicProfileBySlug("ahmed-benali", embedDb(rows));
+    expect(result?.sections).toEqual([]);
+  });
+
+  it("falls back to the canonical order when no section rows exist", async () => {
+    // No profile_sections key at all (pre-backfill shape) → legacy path with
+    // an empty sections read → defaults.
+    const db = fakeDb(ACTIVE_ROW, []);
+    const result = await getPublicProfileBySlug("ahmed-benali", db);
+    expect(result?.sections.map((s) => s.type)).toEqual(["hero", "actions", "links"]);
+    expect(result?.sections).toEqual(DEFAULT_PUBLIC_SECTIONS);
+  });
+
+  it("keeps unknown future types in data (renderer drops them, never crashes)", async () => {
+    const rows = [
+      ...SECTION_ROWS,
+      { id: "s-maps", type: "maps", position: 4, enabled: true, settings: {} },
+    ];
+    const result = await getPublicProfileBySlug("ahmed-benali", embedDb(rows));
+    expect(result?.sections.map((s) => s.type)).toEqual(["hero", "actions", "links", "maps"]);
+  });
+
+  it("carries unknown types with empty sanitized settings", async () => {
+    const rows = [
+      ...SECTION_ROWS,
+      { id: "s-tp", type: "teleport", position: 4, enabled: true, settings: { columns: 3 } },
+    ];
+    const result = await getPublicProfileBySlug("ahmed-benali", embedDb(rows));
+    expect(result?.sections.map((s) => s.type)).toEqual(["hero", "actions", "links", "teleport"]);
+    // Unknown types have no declared settings: everything strips to {}.
+    expect(result?.sections[3].settings).toEqual({});
+  });
+
+  it("never exposes raw settings on the public path", async () => {
+    const result = await getPublicProfileBySlug("ahmed-benali", embedDb(SECTION_ROWS));
+    // Sanitized display settings only: schema keys survive, hostile keys die.
+    expect(result?.sections[0].settings).toEqual({ showTagline: true, showCategory: true });
+    expect(new Set(PUBLIC_SECTION_COLUMNS.split(",").map((c) => c.trim()))).toEqual(
+      new Set(["id", "type", "position", "enabled", "settings"]),
+    );
+  });
+
+  it("mirrors section order on the /u/ identity loader", async () => {
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({
+        data: { ...ACTIVE_ROW, profile_links: [], profile_sections: SECTION_ROWS },
+        error: null,
+      })),
+    }));
+    const db = { from } as unknown as PublicDb;
+    const result = await getPublicProfileByCode("ABCD234567", db);
+    expect(result?.sections.map((s) => s.type)).toEqual(["hero", "actions", "links"]);
   });
 });

@@ -5,13 +5,21 @@ import {
   COVER_MAX_DIM,
   IMMUTABLE_CACHE_CONTROL,
   PROFILE_ASSETS_BUCKET,
+  PROFILE_DOCUMENTS_BUCKET,
   detectImageKind,
+  detectPdfKind,
+  documentAssetPath,
   isManagedAssetPath,
+  isManagedDocumentPath,
+  isManagedSectionImagePath,
   publicAssetPathUrl,
   publicAssetUrl,
   removeAsset,
+  sectionAssetPath,
   storageOrigin,
   uploadAsset,
+  uploadDocument,
+  uploadSectionImage,
   type StorageDb,
 } from "./storage";
 
@@ -272,5 +280,276 @@ describe("zero-client public asset URLs (tap path)", () => {
     withEnv("https://xyz.supabase.co/", () => {
       expect(storageOrigin()).toBe("https://xyz.supabase.co");
     });
+  });
+});
+
+describe("section images (Phase 29)", () => {
+  const CLIENT_ID = "123e4567-e89b-12d3-a456-426614174001";
+  const PROFILE_ID = "123e4567-e89b-12d3-a456-426614174003";
+
+  function sectionDb(
+    options: {
+      authed?: boolean;
+      ownerClientId?: string;
+      upload?: ReturnType<typeof vi.fn>;
+    } = {},
+  ) {
+    const {
+      authed = true,
+      ownerClientId = CLIENT_ID,
+      upload = vi.fn(async () => ({ error: null })),
+    } = options;
+    return {
+      auth: {
+        getClaims: async () =>
+          authed ? { data: { claims: { sub: "admin" } }, error: null } : { data: null },
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: PROFILE_ID, client_id: ownerClientId },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      storage: { from: () => ({ upload }) },
+    } as unknown as StorageDb;
+  }
+
+  function pngFile() {
+    return new File([PNG_BYTES], "dish.png", { type: "image/png" });
+  }
+
+  it("generates section-scoped paths accepted by the managed gate", () => {
+    const path = sectionAssetPath(CLIENT_ID, "menu", "webp");
+    expect(path.startsWith(`${CLIENT_ID}/sections/menu/`)).toBe(true);
+    expect(isManagedSectionImagePath(path)).toBe(true);
+    expect(isManagedAssetPath(path)).toBe(true);
+    // Identity assets keep working through the union gate.
+    expect(
+      isManagedAssetPath(
+        "profiles/123e4567-e89b-12d3-a456-426614174000/avatar/abcdef0123456789.png",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects traversal and foreign shapes in the section gate", () => {
+    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/../other/abcdef0123456789.webp`)).toBe(
+      false,
+    );
+    expect(isManagedSectionImagePath("not-a-uuid/sections/menu/abcdef0123456789.webp")).toBe(false);
+    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/menu/abcdef0123456789.svg`)).toBe(
+      false,
+    );
+    expect(isManagedSectionImagePath(`${CLIENT_ID}/sections/menu/short.webp`)).toBe(false);
+    expect(isManagedSectionImagePath("")).toBe(false);
+  });
+
+  it("uploads real bytes to the section path with webp normalization", async () => {
+    const upload = vi.fn(async () => ({ error: null }));
+    const result = await uploadSectionImage(
+      CLIENT_ID,
+      PROFILE_ID,
+      "menu",
+      pngFile(),
+      sectionDb({ upload }),
+    );
+    expect(result.ok).toBe(true);
+    expect(upload).toHaveBeenCalledOnce();
+    const [path, bytes, options] = upload.mock.calls[0] as unknown as [
+      string,
+      unknown,
+      { contentType: string },
+    ];
+    expect(path.startsWith(`${CLIENT_ID}/sections/menu/`)).toBe(true);
+    expect(options.contentType).toBe("image/webp");
+    expect(bytes).toBeDefined();
+    if (result.ok) expect(isManagedAssetPath(result.path)).toBe(true);
+  });
+
+  it("denies cross-client uploads without touching storage", async () => {
+    const upload = vi.fn();
+    const result = await uploadSectionImage(
+      "223e4567-e89b-12d3-a456-426614174002",
+      PROFILE_ID,
+      "menu",
+      pngFile(),
+      sectionDb({ upload }),
+    );
+    expect(result.ok).toBe(false);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects bad section types and forged bytes", async () => {
+    const upload = vi.fn();
+    const db = sectionDb({ upload });
+    expect((await uploadSectionImage(CLIENT_ID, PROFILE_ID, "../evil", pngFile(), db)).ok).toBe(
+      false,
+    );
+    const forged = new File(["<html></html>"], "evil.png", { type: "image/png" });
+    expect((await uploadSectionImage(CLIENT_ID, PROFILE_ID, "menu", forged, db)).ok).toBe(false);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("requires authentication", async () => {
+    const upload = vi.fn();
+    const result = await uploadSectionImage(
+      CLIENT_ID,
+      PROFILE_ID,
+      "menu",
+      pngFile(),
+      sectionDb({ upload, authed: false }),
+    );
+    expect(result.ok).toBe(false);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("stores gallery uploads under the gallery scope with managed deletion", async () => {
+    const upload = vi.fn(async () => ({ error: null }));
+    const db = sectionDb({ upload });
+    const result = await uploadSectionImage(CLIENT_ID, PROFILE_ID, "gallery", pngFile(), db);
+    expect(result.ok).toBe(true);
+    const [path] = upload.mock.calls[0] as unknown as [string];
+    expect(path.startsWith(`${CLIENT_ID}/sections/gallery/`)).toBe(true);
+    if (result.ok) {
+      expect(isManagedAssetPath(result.path)).toBe(true);
+      const remove = vi.fn(async () => ({ error: null }));
+      const dbWithRemove = {
+        ...db,
+        storage: { from: vi.fn(() => ({ remove })) },
+      } as unknown as StorageDb;
+      expect((await removeAsset(result.path, dbWithRemove)).ok).toBe(true);
+      const [[bucket]] = (dbWithRemove.storage.from as unknown as ReturnType<typeof vi.fn>).mock
+        .calls as unknown as [[string]];
+      expect(bucket).toBe(PROFILE_ASSETS_BUCKET);
+    }
+  });
+});
+
+describe("documents (Phase 31 CV PDFs)", () => {
+  const CLIENT_ID = "123e4567-e89b-12d3-a456-426614174001";
+  const PROFILE_ID = "123e4567-e89b-12d3-a456-426614174003";
+  const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 minimal");
+
+  function docDb(
+    options: {
+      authed?: boolean;
+      ownerClientId?: string;
+      upload?: ReturnType<typeof vi.fn>;
+      remove?: ReturnType<typeof vi.fn>;
+    } = {},
+  ) {
+    const {
+      authed = true,
+      ownerClientId = CLIENT_ID,
+      upload = vi.fn(async () => ({ error: null })),
+      remove = vi.fn(async () => ({ error: null })),
+    } = options;
+    return {
+      auth: {
+        getClaims: async () =>
+          authed ? { data: { claims: { sub: "admin" } }, error: null } : { data: null },
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: PROFILE_ID, client_id: ownerClientId },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      storage: { from: vi.fn(() => ({ upload, remove })) },
+      __upload: upload,
+      __remove: remove,
+    } as unknown as StorageDb & {
+      __upload: ReturnType<typeof vi.fn>;
+      __remove: ReturnType<typeof vi.fn>;
+    };
+  }
+
+  function pdfFile() {
+    return new File([PDF_BYTES], "cv.pdf", { type: "application/pdf" });
+  }
+
+  it("detects PDF magic bytes and rejects impostors", () => {
+    expect(detectPdfKind(new TextEncoder().encode("%PDF-1.7"))).toBe(true);
+    expect(detectPdfKind(new TextEncoder().encode("<html>"))).toBe(false);
+    expect(detectPdfKind(new Uint8Array([]))).toBe(false);
+  });
+
+  it("generates document paths accepted by the document gate only", () => {
+    const path = documentAssetPath(CLIENT_ID, "cv");
+    expect(path.startsWith(`${CLIENT_ID}/sections/cv/`)).toBe(true);
+    expect(path.endsWith(".pdf")).toBe(true);
+    expect(isManagedDocumentPath(path)).toBe(true);
+    // Documents are NOT valid image paths and vice versa.
+    expect(isManagedSectionImagePath(path)).toBe(false);
+    expect(isManagedDocumentPath(`${CLIENT_ID}/sections/cv/abcdef0123456789.webp`)).toBe(false);
+    expect(isManagedDocumentPath(`${CLIENT_ID}/sections/../other/abcdef0123456789.pdf`)).toBe(
+      false,
+    );
+  });
+
+  it("uploads real PDFs to the private bucket with original bytes", async () => {
+    const db = docDb();
+    const result = await uploadDocument(CLIENT_ID, PROFILE_ID, "cv", pdfFile(), db);
+    expect(result.ok).toBe(true);
+    expect(db.__upload).toHaveBeenCalledOnce();
+    const [path, file, options] = db.__upload.mock.calls[0] as [
+      string,
+      File,
+      { contentType: string },
+    ];
+    expect(path.startsWith(`${CLIENT_ID}/sections/cv/`)).toBe(true);
+    expect(options.contentType).toBe("application/pdf");
+    expect(file).toBeInstanceOf(File);
+    const [[bucket]] = (db.storage.from as ReturnType<typeof vi.fn>).mock.calls as [[string]];
+    expect(bucket).toBe(PROFILE_DOCUMENTS_BUCKET);
+  });
+
+  it("rejects wrong MIME, forged bytes, oversized and cross-client uploads", async () => {
+    const db = docDb();
+    const pngAsPdf = new File([PDF_BYTES], "cv.pdf", { type: "image/png" });
+    // MIME allowlist is PDF-only even when bytes are valid PDF.
+    expect((await uploadDocument(CLIENT_ID, PROFILE_ID, "cv", pngAsPdf, db)).ok).toBe(false);
+    const forged = new File(["<html></html>"], "cv.pdf", { type: "application/pdf" });
+    expect((await uploadDocument(CLIENT_ID, PROFILE_ID, "cv", forged, db)).ok).toBe(false);
+    expect(db.__upload).not.toHaveBeenCalled();
+
+    const cross = await uploadDocument(
+      "223e4567-e89b-12d3-a456-426614174002",
+      PROFILE_ID,
+      "cv",
+      pdfFile(),
+      docDb(),
+    );
+    expect(cross.ok).toBe(false);
+
+    const anon = await uploadDocument(
+      CLIENT_ID,
+      PROFILE_ID,
+      "cv",
+      pdfFile(),
+      docDb({ authed: false }),
+    );
+    expect(anon.ok).toBe(false);
+
+    expect((await uploadDocument(CLIENT_ID, PROFILE_ID, "../evil", pdfFile(), docDb())).ok).toBe(
+      false,
+    );
+  });
+
+  it("routes document deletes to the private bucket", async () => {
+    const db = docDb();
+    const path = documentAssetPath(CLIENT_ID, "cv");
+    expect((await removeAsset(path, db)).ok).toBe(true);
+    const [[bucket]] = (db.storage.from as ReturnType<typeof vi.fn>).mock.calls as [[string]];
+    expect(bucket).toBe(PROFILE_DOCUMENTS_BUCKET);
+    // Non-managed paths still rejected.
+    expect((await removeAsset("https://example.com/cv.pdf", db)).ok).toBe(false);
   });
 });

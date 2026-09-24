@@ -111,6 +111,7 @@ export default async function PublicProfilePage({ params }: SlugPageProps) {
         links={data.links}
         avatarUrl={avatarUrl}
         coverUrl={coverUrl}
+        sections={data.sections}
       />
     </>
   );
