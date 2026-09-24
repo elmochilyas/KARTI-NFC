@@ -96,6 +96,7 @@ export default async function IdentityProfilePage({ params }: IdentityPageProps)
         links={data.links}
         avatarUrl={avatarUrl}
         coverUrl={coverUrl}
+        sections={data.sections}
       />
     </>
   );
