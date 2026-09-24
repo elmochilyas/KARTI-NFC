@@ -15,6 +15,7 @@ import {
   suggestSlug,
   updateProfile,
   updateProfileInternal,
+  updateProfileTemplate,
   type ProfileDb,
 } from "./service";
 
@@ -368,8 +369,7 @@ describe("skipAuth pre-verified path (Track A)", () => {
     expect(getClaims).not.toHaveBeenCalled();
   });
 
-  it("updateProfile skips the slug-availability query when the slug is unchanged", async () => {
-    const current = { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" };
+  it("updateProfile skips the slug-availability query when the slug is unchanged", async () => {    const current = { id: PROFILE_ID, client_id: CLIENT_ID, slug: "ahmed-benali" };
     const updated = { ...current, display_name: "Ahmed Benali" };
     const getClaims = vi.fn(async () => ({ data: { claims: { sub: "a" } }, error: null }));
     let calls = 0;
@@ -409,5 +409,126 @@ describe("skipAuth pre-verified path (Track A)", () => {
     expect(result.ok).toBe(true);
     // Exactly get + update — no slug-availability round-trip.
     expect(from).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("profile templates (Phase 30)", () => {
+  const BUSINESS_INPUT = { ...VALID_INPUT, profile_type: "BUSINESS" };
+
+  /** Create-path fake: per-table builders, slug free, captures inserts. */
+  function createDb() {
+    const profileInserts: Record<string, unknown>[] = [];
+    const sectionInserts: Record<string, unknown>[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const table = (name: string): any => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stub: any = {};
+      const chain = () => stub;
+      stub.select = chain;
+      stub.eq = chain;
+      stub.neq = chain;
+      stub.order = chain;
+      stub.limit = chain;
+      stub.insert = (rows: unknown) => {
+        (name === "profiles" ? profileInserts : sectionInserts).push(
+          ...(Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[],
+        );
+        return stub;
+      };
+      stub.update = chain;
+      stub.single = async () => ({
+        data: { id: PROFILE_ID, client_id: CLIENT_ID, ...(profileInserts[0] ?? {}) },
+        error: null,
+      });
+      stub.maybeSingle = async () => ({ data: null, error: null });
+      stub.then = (resolve: (v: unknown) => void) => {
+        resolve({ data: [], error: null });
+      };
+      return stub;
+    };
+    const getClaims = vi.fn(async () => ({ data: { claims: { sub: "a" } }, error: null }));
+    const from = vi.fn(table);
+    const db = { auth: { getClaims }, from } as unknown as ProfileDb;
+    return { db, from, profileInserts, sectionInserts };
+  }
+
+  it("stores the chosen template and seeds its sections on create", async () => {
+    const { db, profileInserts, sectionInserts } = createDb();
+    const result = await createProfileInternal(
+      CLIENT_ID,
+      { ...BUSINESS_INPUT, template: "restaurant" },
+      db,
+    );
+    expect(result.ok).toBe(true);
+    expect(profileInserts[0]?.template).toBe("restaurant");
+    expect(sectionInserts.map((r) => r.type)).toEqual([
+      "hero",
+      "actions",
+      "links",
+      "location",
+      "opening_hours",
+      "menu",
+      "gallery",
+    ]);
+    if (result.ok) expect((result.data as { template: string }).template).toBe("restaurant");
+  });
+
+  it("falls back to the type default for unknown or mismatched templates", async () => {
+    const unknown = createDb();
+    await createProfileInternal(CLIENT_ID, { ...BUSINESS_INPUT, template: "nope" }, unknown.db);
+    expect(unknown.profileInserts[0]?.template).toBe("business");
+
+    const mismatch = createDb();
+    await createProfileInternal(CLIENT_ID, { ...BUSINESS_INPUT, template: "personal" }, mismatch.db);
+    expect(mismatch.profileInserts[0]?.template).toBe("business");
+
+    const person = createDb();
+    await createProfileInternal(CLIENT_ID, VALID_INPUT, person.db);
+    expect(person.profileInserts[0]?.template).toBe("personal");
+  });
+
+  function templateDb(row: Record<string, unknown>) {
+    const getClaims = vi.fn(async () => ({ data: { claims: { sub: "a" } }, error: null }));
+    const from = vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({ data: row, error: null })),
+    }));
+    return { db: { auth: { getClaims }, from } as unknown as ProfileDb, from };
+  }
+
+  it("updates template metadata without touching profile_sections", async () => {
+    const row = { id: PROFILE_ID, client_id: CLIENT_ID, profile_type: "BUSINESS", template: "business" };
+    const { db, from } = templateDb({ ...row, template: "restaurant" });
+    const result = await updateProfileTemplate(PROFILE_ID, CLIENT_ID, "restaurant", db);
+    expect(result.ok).toBe(true);
+    // Structural guarantee: every table hit is profiles — sections never read or written.
+    const tables = (from as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as string);
+    expect(tables.length).toBeGreaterThan(0);
+    expect(tables.every((t) => t === "profiles")).toBe(true);
+  });
+
+  it("rejects unknown templates, mismatched types, cross-client and anonymous callers", async () => {
+    const row = { id: PROFILE_ID, client_id: CLIENT_ID, profile_type: "BUSINESS", template: "business" };
+    const unknown = await updateProfileTemplate(PROFILE_ID, CLIENT_ID, "nope", templateDb(row).db);
+    expect(unknown.ok).toBe(false);
+
+    const mismatch = await updateProfileTemplate(PROFILE_ID, CLIENT_ID, "personal", templateDb(row).db);
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) expect(mismatch.error.code).toBe("VALIDATION_ERROR");
+
+    const cross = await updateProfileTemplate(PROFILE_ID, "223e4567-e89b-12d3-a456-426614174002", "restaurant", templateDb(row).db);
+    expect(cross.ok).toBe(false);
+    if (!cross.ok) expect(cross.error.code).toBe("NOT_FOUND");
+
+    const anon = await updateProfileTemplate(
+      PROFILE_ID,
+      CLIENT_ID,
+      "restaurant",
+      fakeDb({ claims: null }),
+    );
+    expect(anon.ok).toBe(false);
+    if (!anon.ok) expect(anon.error.code).toBe("UNAUTHORIZED");
   });
 });
