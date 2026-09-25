@@ -36,7 +36,12 @@ import {
   toggleProfileSection,
   updateSectionSettings,
 } from "@/features/profiles/sections";
-import { MAPS_DETECT_FAILURE_MESSAGE, resolveMapLink } from "@/features/profiles/mapLinks";
+import {
+  MAPS_DETECT_FAILURE_MESSAGE,
+  MAX_MAP_PAGE_BYTES,
+  resolveMapLink,
+  type MapProvider,
+} from "@/features/profiles/mapLinks";
 import { FIELD_STEPS } from "@/features/profiles/unifiedDraft";
 import type { ProfileLinkRow, ProfileSectionRow } from "@/features/profiles/types";
 import {
@@ -931,15 +936,25 @@ export async function saveUnifiedDraftAction(
 }
 
 /**
- * Resolve a pasted Maps link to exact coordinates (Phase 34.3, link-only
+ * Resolve a pasted Maps link to exact coordinates (Phase 34.4, link-only
  * Location). Short links resolve server-side through the SSRF-safe
  * resolver (HTTPS-only, allowlisted hops, DNS-verified, bounded,
- * timeout-guarded, no bodies read); all other links extract directly.
- * Auth-gated (no anonymous abuse); no database touched. Coordinates enter
- * the draft — persistence stays with the unified Save.
+ * timeout-guarded, no bodies read except the capped resolved-page
+ * fallback); all other links extract directly, with a bounded
+ * destination-page scan for Google place URLs that expose coordinates
+ * only in page metadata. Auth-gated (no anonymous abuse); no database
+ * touched. Coordinates enter the draft — persistence stays with the
+ * unified Save.
  */
 export type MapsResolveResult =
-  | { ok: true; latitude: number; longitude: number; resolvedUrl: string }
+  | {
+      ok: true;
+      provider: MapProvider;
+      latitude: number;
+      longitude: number;
+      resolvedUrl: string;
+      normalizedUrl: string;
+    }
   | { ok: false; message: string };
 
 export async function resolveMapsLinkAction(rawUrl: string): Promise<MapsResolveResult> {
@@ -963,6 +978,33 @@ export async function resolveMapsLinkAction(rawUrl: string): Promise<MapsResolve
       lookupFn: async (hostname: string) => {
         const found = await lookup(hostname);
         return typeof found === "string" ? found : found.address;
+      },
+      // Resolved-page fallback: same SSRF envelope (HTTPS + allowlist +
+      // DNS checks live in mapLinks), HTML-only, size-capped, no
+      // cookies/auth forwarded, scripts never executed.
+      fetchPageFn: async (url, init) => {
+        const response = await fetch(url, {
+          method: "GET",
+          redirect: "manual",
+          signal: init.signal,
+          cache: "no-store",
+          credentials: "omit",
+          headers: { Accept: "text/html" },
+        });
+        const contentLength = response.headers.get("content-length");
+        if (contentLength !== null && Number(contentLength) > MAX_MAP_PAGE_BYTES * 4) {
+          return {
+            status: response.status,
+            contentType: response.headers.get("content-type"),
+            bodyText: null,
+          };
+        }
+        const bodyText = (await response.text()).slice(0, MAX_MAP_PAGE_BYTES);
+        return {
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+          bodyText,
+        };
       },
     });
   } catch {

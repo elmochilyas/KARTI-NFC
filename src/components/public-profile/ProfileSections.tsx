@@ -34,6 +34,7 @@ import type {
 import {
   formatMonth,
   formatPrice,
+  googleDirectionsUrl,
   navigationUrls,
   openNowStatus,
   osmEmbedUrl,
@@ -758,6 +759,13 @@ export function LocationSection({
       ? osmEmbedUrl(target.coords.latitude, target.coords.longitude, zoom)
       : null;
   const urls = navigationUrls(query);
+  // Saved coordinates get a normalized Google directions URL so the
+  // button keeps working even if the original short link expires. The
+  // operator's original safe link still wins when present.
+  const googleHref =
+    target.coords !== null
+      ? (googleDirectionsUrl(target.coords.latitude, target.coords.longitude) ?? urls.google)
+      : urls.google;
 
   return (
     <section
@@ -801,7 +809,7 @@ export function LocationSection({
       ) : null}
       <div className="mt-2.5 flex flex-wrap items-center gap-2 px-1 pb-1">
         <a
-          href={target.directLink ?? urls.google}
+          href={target.directLink ?? googleHref}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={target.directLink ? buttonLabel : `${buttonLabel} (Google Maps)`}

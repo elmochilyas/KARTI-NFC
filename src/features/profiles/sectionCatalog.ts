@@ -76,14 +76,21 @@ export type SectionSettingsProps = {
       message: string;
     }>;
     /**
-     * Map-link → coordinates resolution (Phase 34.3 Location). Injected
+     * Map-link → coordinates resolution (Phase 34.4 Location). Injected
      * (never imported) so the catalog stays free of server-action imports
-     * — same boundary as the uploaders. Absent in static tests.
+     * — same boundary as the uploaders. Absent in static tests. Extra
+     * success fields (provider/normalizedUrl) are ignored by the editor,
+     * which commits latitude/longitude only.
      */
-    resolveMapsLink?: (
-      url: string,
-    ) => Promise<
-      | { ok: true; latitude: number; longitude: number; resolvedUrl: string }
+    resolveMapsLink?: (url: string) => Promise<
+      | {
+          ok: true;
+          latitude: number;
+          longitude: number;
+          resolvedUrl: string;
+          provider?: string;
+          normalizedUrl?: string;
+        }
       | { ok: false; message: string }
     >;
   };

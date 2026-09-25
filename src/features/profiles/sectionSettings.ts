@@ -453,6 +453,27 @@ export function navigationUrls(query: string): { google: string; apple: string }
 }
 
 /**
+ * Normalized Google Directions URL for saved coordinates:
+ * `https://www.google.com/maps/dir/?api=1&destination={lat},{lng}`.
+ * Built ONLY from validated numbers — returns null for out-of-range
+ * input. Keeps the directions button working even if the original short
+ * link expires or changes.
+ */
+export function googleDirectionsUrl(latitude: number, longitude: number): string | null {
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return null;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+
+/**
  * Validate a user-supplied vendor maps link. Returns the trimmed URL when
  * it is an http(s) link on a supported map host, else null. Never throws.
  */

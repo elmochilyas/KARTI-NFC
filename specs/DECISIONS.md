@@ -1993,14 +1993,14 @@ operator applies + live JWT matrix. Regression pinned by
 
 ---
 
-## ADR-061 — Unified profile editor: one draft, one preview, one save
+## ADR-061 ï¿½ Unified profile editor: one draft, one preview, one save
 
 **Status:** Accepted
 **Date:** 2026-09-22
 
 ### Context
 
-After Phases 25–33 the edit page held two editors (standalone
+After Phases 25ï¿½33 the edit page held two editors (standalone
 `SectionsManager` + Identity?Review wizard), two previews (server-fed
 `BuilderPreview` + a legacy-kit draft preview), and scattered saves
 (profile / link / settings / template / status). The flexible section
@@ -2024,7 +2024,7 @@ architecture is worth keeping; its UX placement was not.
   actions config), Links (full manager), Sections (content cards + single
   page order, hero pinned, core rows link to their steps), Appearance
   (theme/accent/visual presets), Review (completion + link + status + NFC).
-- One additive settings key: `maxQuickActions` (1–3, default 3) in the
+- One additive settings key: `maxQuickActions` (1ï¿½3, default 3) in the
   actions schema, honored by `pickQuickActions(limit)` and the renderer.
   No migration (JSONB), no behavior change at default.
 - `storagePaths.ts` split: pure URL helpers move out of `storage.ts` so
@@ -2041,7 +2041,7 @@ architecture is worth keeping; its UX placement was not.
 
 ---
 
-## ADR-062 — Explicit primary actions + single mobile preview path
+## ADR-062 ï¿½ Explicit primary actions + single mobile preview path
 
 **Status:** Accepted
 **Date:** 2026-09-22
@@ -2050,7 +2050,7 @@ architecture is worth keeping; its UX placement was not.
 
 Phase 34 left two gaps: mobile had both Edit/Preview tabs and a Preview
 sheet (redundant), and the top-action order was still derived implicitly
-(Instagram ? WhatsApp ? Call ? …), so operators could not choose or order
+(Instagram ? WhatsApp ? Call ? ï¿½), so operators could not choose or order
 what visitors see first.
 
 ### Decision
@@ -2060,13 +2060,13 @@ what visitors see first.
   side preview stays mounted-but-hidden below desktop (one renderer while
   the sheet is closed), so no state is lost opening/closing.
 - `actions.primaryActions`: explicit ordered refs (`call | whatsapp |
-  email | website`, `link:<uuid>`, max 20) in settings JSONB — no new
+  email | website`, `link:<uuid>`, max 20) in settings JSONB ï¿½ no new
   table. `resolvePrimaryActions` is the single resolver for the public
   renderer and the admin preview (explicit order wins, stale refs skipped,
   empty = legacy order, always capped). `primaryAvailability` gates what
-  is selectable; `sanitizePrimaryRefs` cleans on save (temp `link:draft-…`
+  is selectable; `sanitizePrimaryRefs` cleans on save (temp `link:draft-ï¿½`
   refs are remapped server-side after link creation).
-- `maxQuickActions` widened 1–4 (default 3). The draft adapter carries
+- `maxQuickActions` widened 1ï¿½4 (default 3). The draft adapter carries
   `enabled` so disabled links vanish from tiles AND Connect in preview,
   exactly like the public loader.
 - Contact card UI (visible/hidden/unavailable + segmented count) writes
@@ -2080,7 +2080,7 @@ what visitors see first.
 
 ---
 
-## ADR-063 — Draft-native section editing + keyless OSM maps
+## ADR-063 ï¿½ Draft-native section editing + keyless OSM maps
 
 **Status:** Accepted
 **Date:** 2026-09-22
@@ -2102,7 +2102,7 @@ saved. Location had no real map experience.
   embed built from sanitized numbers (lazy iframe); address-only renders
   card + vendor links; user URLs/HTML never reach an embed.
 - Admin preview renders per-type empty guidance via a
-  `previewPlaceholders` flag; public rendering collapses as before —
+  `previewPlaceholders` flag; public rendering collapses as before ï¿½
   same components.
 - Save failures carry `sectionId`; the Sections step expands, scrolls to,
   focuses, and annotates the card.
@@ -2115,7 +2115,7 @@ saved. Location had no real map experience.
 
 ---
 
-## ADR-064 — Map-link-only Location with SSRF-safe resolution
+## ADR-064 ï¿½ Map-link-only Location with SSRF-safe resolution
 
 **Status:** Accepted
 **Date:** 2026-09-22
@@ -2139,7 +2139,7 @@ coordinates internally.
 - Coordinates persist in the existing JSONB keys (storage model
   unchanged); the OSM embed and directions prefer the original safe
   link, else coordinates-based vendor URLs. OSM attribution rendered.
-- Resolver injected through settings context — the catalog keeps its
+- Resolver injected through settings context ï¿½ the catalog keeps its
   server-action-free import boundary (vitest-safe).
 
 ### Consequences
@@ -2148,3 +2148,53 @@ coordinates internally.
 - Legacy coordinate rows render unchanged; clearing a link clears only
   detected pins.
 - Live short-link resolution still needs an operator network check.
+
+---
+
+## ADR-065 â€” Google share-link resolution: encoded data + page fallback
+
+**Status:** Accepted
+**Date:** 2026-09-25
+
+### Context
+
+Normal Google Maps mobile shares (`maps.app.goo.gl/â€¦`) resolved to final
+place URLs with no `@lat,lng` pin â€” only encoded `!3dLAT!4dLNG` place data
+or coordinates buried in page metadata. The resolver extracted URL
+patterns only and read no page bodies, so every such link failed with
+"We couldn't detect the exact location from this link."
+
+### Decision
+
+- `extractCoordinates()` additionally reads `!3dLAT!4dLNG` (`!3d` =
+  latitude, `!4d` = longitude) plus `ll` / `center` / `destination`
+  coordinate pairs on Google hosts; all values validated
+  (-90..90 / -180..180) and normalized to numbers.
+- Provider dispatch: `detectMapProvider()` â†’ `resolveGoogleMaps()` /
+  `resolveAppleMaps()` / `resolveOpenStreetMap()`, exposed as
+  `resolveMapLocation` (= `resolveMapLink`); success carries
+  `{ provider, latitude, longitude, resolvedUrl, normalizedUrl }`.
+- Google-only bounded resolved-page fallback: when the final URL has no
+  coordinates, fetch the destination page once under the existing SSRF
+  envelope (HTTPS-only, allowlisted host, per-fetch DNS check, timeout,
+  HTML-only, 512 KB cap, no cookies/auth) and regex-scan raw markup
+  (canonical / og:url â†’ `@` / `!3d!4d` / `q|query|ll|center` /
+  `"latitude"|"longitude"` pairs). No script execution, no generic
+  scraper â€” map hosts only.
+- Storage unchanged: coordinates persist in
+  `profile_sections.settings.latitude/longitude` (validated JSONB); no
+  `location_latitude/location_longitude` columns â€” a second source of
+  truth with backfill/dual-write was rejected as unnecessary. OSM embed
+  unchanged (no API key/billing); only the coordinates fallback
+  Directions URL is normalized to
+  `https://www.google.com/maps/dir/?api=1&destination={lat},{lng}` via
+  pure `googleDirectionsUrl()`. The operator's original safe link still
+  wins for directions when present.
+
+### Consequences
+
+- Most mobile share links resolve via redirect + URL patterns; place-ID
+  links resolve via the page fallback. No Places/Geocoding API.
+- Public/editor rendering unchanged (saved numbers â†’ OSM embed) â€” the
+  fix is resolver-only plus a one-line directions fallback.
+- Live check with a real mobile share link remains operator-side.

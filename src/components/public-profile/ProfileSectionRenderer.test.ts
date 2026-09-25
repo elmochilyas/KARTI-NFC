@@ -286,7 +286,7 @@ describe("ProfileSectionRenderer business sections", () => {
     const html = renderBusiness([LOCATION]);
     expect(html).toContain("Find us");
     expect(html).toContain("123 Main St");
-    expect(html).toContain("https://www.google.com/maps/search/?api=1&amp;query=33.99%2C-6.84");
+    expect(html).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=33.99%2C-6.84");
     expect(html).toContain("https://maps.apple.com/?q=33.99%2C-6.84");
     expect(html).toContain("Get Directions");
     // OSM embed is constructed from sanitized numbers — no API key, lazy.
