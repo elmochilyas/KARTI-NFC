@@ -27,9 +27,7 @@ describe("extractCoordinates", () => {
   });
 
   it("reads Google @lat,lng pins on direct (non-place) URLs only", () => {
-    expect(
-      extractCoordinates("https://www.google.com/maps/@30.42775,-9.59814,15z"),
-    ).toEqual({
+    expect(extractCoordinates("https://www.google.com/maps/@30.42775,-9.59814,15z")).toEqual({
       latitude: 30.42775,
       longitude: -9.59814,
       source: "direct_map_coordinates",
@@ -40,9 +38,7 @@ describe("extractCoordinates", () => {
     expect(
       extractCoordinates("https://www.google.com/maps/place/Agadir/@30.42775,-9.59814,15z"),
     ).toBeNull();
-    expect(
-      extractCoordinates("https://www.google.com/maps/place/X/@91,0,15z"),
-    ).toBeNull();
+    expect(extractCoordinates("https://www.google.com/maps/place/X/@91,0,15z")).toBeNull();
   });
 
   it("reads encoded q coordinate pairs", () => {
@@ -144,9 +140,7 @@ describe("extractCoordinates", () => {
 
   it("rejects viewport-style center params and non-numeric query values", () => {
     expect(extractCoordinates("https://www.google.com/maps?center=33.5731,-7.5898")).toBeNull();
-    expect(
-      extractCoordinates("https://www.google.com/maps/search/?api=1&query=Agadir"),
-    ).toBeNull();
+    expect(extractCoordinates("https://www.google.com/maps/search/?api=1&query=Agadir")).toBeNull();
     expect(extractCoordinates("https://maps.apple.com/?q=Agadir")).toBeNull();
   });
 
