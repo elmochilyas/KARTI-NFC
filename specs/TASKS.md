@@ -3500,6 +3500,73 @@ key, OSM embed unchanged.
 
 ---
 
+# Phase 34.5 — Google Maps Viewport False-Positive Fix (no-API)
+
+Morocco share links resolved to Virginia/Leesburg, USA with
+`✓ Location detected`. See ADR-066. No API keys, no billing, no
+provider swap, no schema change.
+
+## 34.5.1 Resolver (trusted priority)
+
+- [x] `extractCoordinates()`: P1 `!3dLAT!4dLNG` (must win on /place/,
+      malformed fails closed) → P2 strict numeric `destination` / `query` /
+      `q` / `ll` (`center` dropped) → P3 `@LAT,LNG` direct-map-URLs only,
+      never on /place/.
+- [x] `extractCoordinatesFromPage()`: canonical / og:url only; all body
+      scans (`!3d`, `@`, query blobs, `"latitude"/"longitude"` JSON)
+      removed.
+- [x] Success carries `source`: `google_place_coordinates` |
+      `explicit_coordinates` | `direct_map_coordinates` (+
+      `apple_coordinates` / `osm_coordinates`); `MapsResolveResult`
+      mirrors it.
+- [x] Apple (`ll`/`q`/`query`) and OSM (`#map`, `mlat`/`mlon`) resolvers
+      preserved; SSRF envelope untouched.
+
+## 34.5.2 Editor
+
+- [x] Link change immediately clears stale lat/lng + shows
+      `Detecting location…`; failure leaves coords empty (no marker).
+- [x] Monotonic detection id drops out-of-order responses; mount never
+      wipes saved pins; preview still uses resolved numbers → OSM embed
+      only (no secondary parsing, no geocoding).
+
+## 34.5.3 Tests + verification
+
+- [x] A: `/place/.../@33.5731,-7.5898/...!3d30.4278!4d-9.5981` →
+      `30.4278,-9.5981` (`google_place_coordinates`), `@` ignored.
+- [x] B: mocked `maps.app.goo.gl` → redirect → divergent `/place/` URL →
+      exact place coords, no page fetch.
+- [x] C/D/E: `?q=` / `?query=` / `?destination=` (+ `ll`) explicit pairs.
+- [x] F: `/maps/@30.4278,-9.5981,17z` (no `/place/`) accepted
+      (`direct_map_coordinates`).
+- [x] G: `/place/` + `@`-only → NOT_RESOLVED (URL + canonical paths).
+- [x] H: body with viewport/JSON/query decoys → NO coords; trusted
+      canonical still resolves.
+- [x] I: malformed lat/lng rejected (-90..90 / -180..180, NaN, bad `!3d`).
+- [x] J/K: redirect loop + timeout/throw fail safely.
+- [x] L: unsupported domain rejected without fetching.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` (64 files / 806 tests),
+      `pnpm build`, `pnpm audit` (clean) green (2026-09-25).
+- [x] `pnpm format:check` — pre-existing repo-wide CRLF baseline failure
+      (125 files incl. all 4 touched files at HEAD; `mapLinks.ts` now
+      passes individually — no new debt).
+- [ ] Operator real-link check: paste the actual Morocco
+      `maps.app.goo.gl` link → preview must show Morocco (unit tests
+      prove the divergent-pair logic; live fetch needs operator network).
+
+### Phase 34.5 gate
+
+- [x] Viewport can never become the place; unknown source never succeeds.
+- [x] No database change; existing wrong rows only refresh on re-paste
+      (documented, no mass rewrite).
+- [x] Full verification green except pre-existing format baseline + live
+      link check above.
+
+> 2026-09-25: implemented + verified per plan. Not committed — left ready
+> for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

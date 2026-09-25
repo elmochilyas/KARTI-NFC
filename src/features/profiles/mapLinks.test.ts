@@ -14,13 +14,35 @@ import {
 } from "./mapLinks";
 
 describe("extractCoordinates", () => {
-  it("reads Google @lat,lng pins", () => {
+  it("A: place URL with viewport @ + place !3d/!4d uses the place (never the viewport)", () => {
     expect(
-      extractCoordinates("https://www.google.com/maps/place/Agadir/@30.42775,-9.59814,15z"),
+      extractCoordinates(
+        "https://www.google.com/maps/place/Example/@33.5731,-7.5898,14z/data=!3m1!4b1!4m6!3m5!1s0x0!2s0x0!3d30.4278!4d-9.5981",
+      ),
+    ).toEqual({
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "google_place_coordinates",
+    });
+  });
+
+  it("reads Google @lat,lng pins on direct (non-place) URLs only", () => {
+    expect(
+      extractCoordinates("https://www.google.com/maps/@30.42775,-9.59814,15z"),
     ).toEqual({
       latitude: 30.42775,
       longitude: -9.59814,
+      source: "direct_map_coordinates",
     });
+  });
+
+  it("G: /place/ URL with only @ coordinates does not resolve (viewport is not the place)", () => {
+    expect(
+      extractCoordinates("https://www.google.com/maps/place/Agadir/@30.42775,-9.59814,15z"),
+    ).toBeNull();
+    expect(
+      extractCoordinates("https://www.google.com/maps/place/X/@91,0,15z"),
+    ).toBeNull();
   });
 
   it("reads encoded q coordinate pairs", () => {
@@ -29,6 +51,7 @@ describe("extractCoordinates", () => {
     ).toEqual({
       latitude: 30.42,
       longitude: -9.6,
+      source: "explicit_coordinates",
     });
   });
 
@@ -36,17 +59,19 @@ describe("extractCoordinates", () => {
     expect(extractCoordinates("https://maps.apple.com/?ll=30.42,-9.6&q=Agadir")).toEqual({
       latitude: 30.42,
       longitude: -9.6,
+      source: "apple_coordinates",
     });
   });
 
-  it("reads Google encoded !3d/!4d place data", () => {
+  it("reads Google encoded !3d/!4d place data with divergent viewport", () => {
     expect(
       extractCoordinates(
-        "https://www.google.com/maps/place/Jet+Sakan/@33.5731,-7.5898,17z/data=!3m1!4b1!4m6!3m5!1s0x0!2s0x0!3d33.5731!4d-7.5898",
+        "https://www.google.com/maps/place/Jet+Sakan/@33.5731,-7.5898,17z/data=!3m1!4b1!4m6!3m5!1s0x0!2s0x0!3d30.4278!4d-9.5981",
       ),
     ).toEqual({
-      latitude: 33.5731,
-      longitude: -7.5898,
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "google_place_coordinates",
     });
     // Encoded data without any @ pin still resolves.
     expect(
@@ -54,30 +79,75 @@ describe("extractCoordinates", () => {
     ).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "google_place_coordinates",
     });
-    // Out-of-range encoded values fail closed.
+    // Out-of-range encoded values fail closed (never fall back to @).
     expect(
       extractCoordinates("https://www.google.com/maps/place/X/data=!3d91!4d-7.5898"),
     ).toBeNull();
+    expect(
+      extractCoordinates(
+        "https://www.google.com/maps/place/X/@33.5731,-7.5898,17z/data=!3d91!4d-7.5898",
+      ),
+    ).toBeNull();
   });
 
-  it("reads q / ll / center pairs on Google hosts", () => {
+  it("prefers !3d/!4d over explicit params on the same URL", () => {
+    expect(
+      extractCoordinates(
+        "https://www.google.com/maps/place/X/data=!3d30.4278!4d-9.5981?q=33.5731,-7.5898",
+      ),
+    ).toEqual({
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "google_place_coordinates",
+    });
+  });
+
+  it("C/D/E: reads q / query / destination / ll pairs on Google hosts", () => {
     expect(extractCoordinates("https://www.google.com/maps?q=33.5731,-7.5898")).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "explicit_coordinates",
     });
     expect(extractCoordinates("https://maps.google.com/?q=33.5731,-7.5898")).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "explicit_coordinates",
     });
     expect(extractCoordinates("https://www.google.com/maps?ll=33.5731,-7.5898")).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "explicit_coordinates",
     });
     expect(extractCoordinates("https://www.google.com/maps?query=33.5731,-7.5898")).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "explicit_coordinates",
     });
+    expect(
+      extractCoordinates("https://www.google.com/maps/dir/?api=1&destination=30.4278,-9.5981"),
+    ).toEqual({
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "explicit_coordinates",
+    });
+  });
+
+  it("F: direct map @ URL without /place/ is accepted", () => {
+    expect(extractCoordinates("https://www.google.com/maps/@30.4278,-9.5981,17z")).toEqual({
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "direct_map_coordinates",
+    });
+  });
+
+  it("rejects viewport-style center params and non-numeric query values", () => {
+    expect(extractCoordinates("https://www.google.com/maps?center=33.5731,-7.5898")).toBeNull();
+    expect(
+      extractCoordinates("https://www.google.com/maps/search/?api=1&query=Agadir"),
+    ).toBeNull();
+    expect(extractCoordinates("https://maps.apple.com/?q=Agadir")).toBeNull();
   });
 
   it("detects providers per allowlisted host", () => {
@@ -95,13 +165,25 @@ describe("extractCoordinates", () => {
     expect(extractCoordinates("https://www.openstreetmap.org/#map=15/30.4277/-9.5981")).toEqual({
       latitude: 30.4277,
       longitude: -9.5981,
+      source: "osm_coordinates",
     });
     expect(
       extractCoordinates("https://www.openstreetmap.org/?mlat=30.42&mlon=-9.6#map=15/30.42/-9.6"),
     ).toEqual({
       latitude: 30.42,
       longitude: -9.6,
+      source: "osm_coordinates",
     });
+  });
+
+  it("I: rejects malformed latitude/longitude", () => {
+    expect(extractCoordinates("https://www.google.com/maps?q=91,0")).toBeNull();
+    expect(extractCoordinates("https://www.google.com/maps?q=0,-181")).toBeNull();
+    expect(extractCoordinates("https://www.google.com/maps?q=NaN,0")).toBeNull();
+    expect(
+      extractCoordinates("https://www.google.com/maps/place/X/data=!3d91!4d-7.5898"),
+    ).toBeNull();
+    expect(extractCoordinates("https://www.google.com/maps/@91,0,15z")).toBeNull();
   });
 
   it("never guesses: address-only, malformed, out-of-range, unsafe", () => {
@@ -182,19 +264,19 @@ describe("resolveShortUrl SSRF safety", () => {
     const deps = depsWith({
       "https://maps.app.goo.gl/abc": {
         status: 302,
-        location: "https://www.google.com/maps/place/A/@30.42,-9.6,15z",
+        location: "https://www.google.com/maps/@30.42,-9.6,15z",
       },
-      "https://www.google.com/maps/place/A/@30.42,-9.6,15z": { status: 200, location: null },
+      "https://www.google.com/maps/@30.42,-9.6,15z": { status: 200, location: null },
     });
     const result = await resolveShortUrl("https://maps.app.goo.gl/abc", deps);
     expect(result).toEqual({
       ok: true,
-      finalUrl: "https://www.google.com/maps/place/A/@30.42,-9.6,15z",
+      finalUrl: "https://www.google.com/maps/@30.42,-9.6,15z",
     });
     expect(deps.calls[0]).toMatchObject({ method: "HEAD" });
   });
 
-  it("rejects non-HTTPS starts and unsupported domains", async () => {
+  it("L: rejects non-HTTPS starts and unsupported domains", async () => {
     const deps = depsWith({});
     expect((await resolveShortUrl("http://maps.app.goo.gl/abc", deps)).ok).toBe(false);
     expect((await resolveShortUrl("https://evil.example.com/x", deps)).ok).toBe(false);
@@ -217,7 +299,7 @@ describe("resolveShortUrl SSRF safety", () => {
     expect((await resolveShortUrl("https://maps.app.goo.gl/abc", deps)).ok).toBe(false);
   });
 
-  it("stops after too many redirects", async () => {
+  it("J: stops after too many redirects (redirect loop fails safely)", async () => {
     const routes: Record<string, RedirectResponse> = {};
     for (let i = 0; i <= MAX_MAP_REDIRECTS + 1; i += 1) {
       routes[`https://www.google.com/maps/r${i}`] = {
@@ -231,11 +313,11 @@ describe("resolveShortUrl SSRF safety", () => {
     expect(deps.calls.length).toBeLessThanOrEqual(MAX_MAP_REDIRECTS + 1);
   });
 
-  it("fails on fetch errors and error statuses", async () => {
+  it("K: fails on fetch errors (timeout) and error statuses", async () => {
     const down: MapResolveDeps = {
       lookupFn: async () => "142.250.72.14",
       fetchFn: async () => {
-        throw new Error("boom");
+        throw new Error("timeout");
       },
     };
     expect((await resolveShortUrl("https://maps.app.goo.gl/abc", down)).ok).toBe(false);
@@ -271,31 +353,34 @@ describe("resolveShortUrl SSRF safety", () => {
 describe("resolveMapLink", () => {
   it("extracts direct links without any fetch", async () => {
     const deps = depsWith({});
-    const result = await resolveMapLink(
-      "https://www.google.com/maps/place/A/@30.42,-9.6,15z",
-      deps,
-    );
-    expect(result).toMatchObject({ ok: true, latitude: 30.42, longitude: -9.6 });
+    const result = await resolveMapLink("https://www.google.com/maps/@30.42,-9.6,15z", deps);
+    expect(result).toMatchObject({
+      ok: true,
+      latitude: 30.42,
+      longitude: -9.6,
+      source: "direct_map_coordinates",
+    });
     expect(deps.calls).toHaveLength(0);
   });
 
-  it("resolves short links then extracts coordinates", async () => {
+  it("B: resolves short links to the exact !3d/!4d place (viewport ignored)", async () => {
+    const final =
+      "https://www.google.com/maps/place/Example/@33.5731,-7.5898,14z/data=!3m1!4b1!4m6!3m5!1s0x0!2s0x0!3d30.4278!4d-9.5981";
     const deps = depsWith({
-      "https://maps.app.goo.gl/abc": {
-        status: 302,
-        location: "https://www.google.com/maps/place/A/@30.42,-9.6,15z",
-      },
-      "https://www.google.com/maps/place/A/@30.42,-9.6,15z": { status: 200, location: null },
+      "https://maps.app.goo.gl/abc": { status: 302, location: final },
+      [final]: { status: 200, location: null },
     });
     const result = await resolveMapLink("https://maps.app.goo.gl/abc", deps);
     expect(result).toMatchObject({
       ok: true,
       provider: "google",
-      latitude: 30.42,
-      longitude: -9.6,
-      resolvedUrl: "https://www.google.com/maps/place/A/@30.42,-9.6,15z",
-      normalizedUrl: "https://www.google.com/maps/dir/?api=1&destination=30.42%2C-9.6",
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "google_place_coordinates",
+      resolvedUrl: final,
+      normalizedUrl: "https://www.google.com/maps/dir/?api=1&destination=30.4278%2C-9.5981",
     });
+    expect(deps.pageCalls).toHaveLength(0);
   });
 
   it("resolves short links to encoded !3d/!4d place URLs", async () => {
@@ -310,12 +395,13 @@ describe("resolveMapLink", () => {
       provider: "google",
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "google_place_coordinates",
       resolvedUrl: final,
     });
     expect(deps.pageCalls).toHaveLength(0);
   });
 
-  it("falls back to the resolved page when the final URL has no coordinates", async () => {
+  it("falls back to canonical metadata when the final URL has no coordinates", async () => {
     const final = "https://www.google.com/maps/place/Jet+Sakan+Hay+Salam/0x123";
     const deps = depsWith(
       {
@@ -328,7 +414,7 @@ describe("resolveMapLink", () => {
           status: 200,
           contentType: "text/html; charset=utf-8",
           bodyText:
-            '<html><head><link rel="canonical" href="https://www.google.com/maps/place/Jet/@33.5731,-7.5898,17z"></head></html>',
+            '<html><head><link rel="canonical" href="https://www.google.com/maps/place/Jet/data=!3m1!4b1!3d33.5731!4d-7.5898"></head></html>',
         },
       },
     );
@@ -338,28 +424,60 @@ describe("resolveMapLink", () => {
       provider: "google",
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "google_place_coordinates",
       resolvedUrl: final,
       normalizedUrl: "https://www.google.com/maps/dir/?api=1&destination=33.5731%2C-7.5898",
     });
   });
 
-  it("scans page markup for encoded and JSON coordinate patterns", async () => {
+  it("H: HTML containing unrelated coordinate pairs yields NO coordinates", async () => {
     const base = "https://www.google.com/maps/place/X";
-    expect(extractCoordinatesFromPage('<div data="x!3d33.5731!4d-7.5898y"></div>', base)).toEqual({
-      latitude: 33.5731,
-      longitude: -7.5898,
-    });
+    // Viewport pins, query blobs, and lat/lng JSON in the body are ignored.
     expect(
       extractCoordinatesFromPage(
-        '<meta property="og:url" content="https://www.google.com/maps?q=33.5731,-7.5898">',
+        '<html><head><title>X</title></head><body><div data-c="view @37.7749,-122.4194 zoom 10">nearby !3d37.7749!4d-122.4194 ?q=37.77,-122.41 {"latitude":37.7749,"longitude":-122.4194}</div></body></html>',
         base,
       ),
-    ).toEqual({ latitude: 33.5731, longitude: -7.5898 });
-    expect(extractCoordinatesFromPage('{"latitude":33.5731,"longitude":-7.5898}', base)).toEqual({
+    ).toBeNull();
+    // A canonical metadata URL with trusted !3d/!4d still resolves.
+    expect(
+      extractCoordinatesFromPage(
+        '<html><head><link rel="canonical" href="https://www.google.com/maps/place/Jet/data=!3m1!4b1!3d33.5731!4d-7.5898"></head><body>Hello Agadir</body></html>',
+        base,
+      ),
+    ).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
+      source: "google_place_coordinates",
     });
+    // A canonical /place/ URL with only a viewport @ stays unresolved.
+    expect(
+      extractCoordinatesFromPage(
+        '<html><head><link rel="canonical" href="https://www.google.com/maps/place/Jet/@33.5731,-7.5898,17z"></head></html>',
+        base,
+      ),
+    ).toBeNull();
     expect(extractCoordinatesFromPage("<html><body>Hello Agadir</body></html>", base)).toBeNull();
+  });
+
+  it("does not rescue a /place/ viewport URL with decoy page bodies", async () => {
+    const final = "https://www.google.com/maps/place/OnlyViewport/@33.5731,-7.5898,17z";
+    const deps = depsWith(
+      {
+        "https://maps.app.goo.gl/vp": { status: 302, location: final },
+        [final]: { status: 200, location: null },
+      },
+      {},
+      {
+        [final]: {
+          status: 200,
+          contentType: "text/html; charset=utf-8",
+          bodyText:
+            '<html><body>viewport @38.9,-77.4 server default {"latitude":38.9072,"longitude":-77.0369} !3d38.9072!4d-77.0369</body></html>',
+        },
+      },
+    );
+    expect((await resolveMapLink("https://maps.app.goo.gl/vp", deps)).ok).toBe(false);
   });
 
   it("fails closed on non-HTML pages, page errors, and timeouts", async () => {
@@ -402,11 +520,16 @@ describe("resolveMapLink", () => {
     expect(apple).toMatchObject({
       ok: true,
       provider: "apple",
+      source: "apple_coordinates",
       normalizedUrl: "https://maps.apple.com/?ll=30.42,-9.6",
     });
     expect(deps.pageCalls).toHaveLength(0);
     const osm = await resolveMapLink("https://www.openstreetmap.org/#map=15/30.42/-9.6", deps);
-    expect(osm).toMatchObject({ ok: true, provider: "osm" });
+    expect(osm).toMatchObject({
+      ok: true,
+      provider: "osm",
+      source: "osm_coordinates",
+    });
     expect(deps.pageCalls).toHaveLength(0);
   });
 
@@ -414,7 +537,15 @@ describe("resolveMapLink", () => {
     const deps = depsWith({});
     expect(
       await resolveMapLocation("https://www.google.com/maps?q=33.5731,-7.5898", deps),
-    ).toMatchObject({ ok: true, provider: "google" });
+    ).toMatchObject({ ok: true, provider: "google", source: "explicit_coordinates" });
+  });
+
+  it("L: rejects unsupported domains without fetching", async () => {
+    const deps = depsWith({});
+    const result = await resolveMapLink("https://evil.example.com/place/X", deps);
+    expect(result.ok).toBe(false);
+    expect(deps.calls).toHaveLength(0);
+    expect(deps.pageCalls).toHaveLength(0);
   });
 
   it("fails closed with the shared message when nothing exact resolves", async () => {
@@ -424,6 +555,7 @@ describe("resolveMapLink", () => {
       "https://evil.example.com/x",
       "javascript:alert(1)",
       "https://maps.apple.com/?q=Agadir",
+      "https://www.google.com/maps/place/ViewportOnly/@33.5731,-7.5898,17z",
     ]) {
       const result = await resolveMapLink(url, deps);
       expect(result.ok).toBe(false);

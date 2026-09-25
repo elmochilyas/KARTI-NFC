@@ -1,19 +1,35 @@
 import { googleDirectionsUrl, isShortMapsHost, sanitizeMapsLink } from "./sectionSettings";
 
 /**
- * Phase 34.4 map-link helpers — pure and client-safe (no fetch, no DNS, no
+ * Map-link helpers — pure and client-safe (no fetch, no DNS, no
  * server-only imports). Coordinate extraction never guesses: a URL yields
- * coordinates only from an explicit lat,lng pair in a known position.
+ * coordinates only from a trusted position, with an explicit source.
+ *
+ * Trusted Google priority (no-API resolver):
+ *   1. `!3dLAT!4dLNG` place data — MUST win on any /place/ URL.
+ *   2. Explicit numeric params `destination` / `query` / `q` / `ll`.
+ *   3. `@LAT,LNG` — direct map URLs only; NEVER on /place/ URLs
+ *      (map camera / viewport, not the place).
  *
  * Share-link flow for a normal Google Maps mobile link:
  *   maps.app.goo.gl/… → follow redirect(s) server-side → final Google URL
- *   → extract from @lat,lng / q / query / ll / !3d!4d → else scan the
- *   resolved destination page (canonical / og:url / known patterns).
+ *   → trusted extraction above → else check the resolved destination page
+ *   metadata (canonical / og:url) with the same extractor. Page bodies are
+ *   never scanned for arbitrary coordinate pairs.
  */
+
+/** Where trusted coordinates came from. Every success carries one. */
+export type MapCoordinateSource =
+  | "google_place_coordinates"
+  | "explicit_coordinates"
+  | "direct_map_coordinates"
+  | "apple_coordinates"
+  | "osm_coordinates";
 
 export type MapCoordinates = {
   latitude: number;
   longitude: number;
+  source: MapCoordinateSource;
 };
 
 export type MapProvider = "google" | "apple" | "osm";
@@ -22,16 +38,29 @@ export type MapProvider = "google" | "apple" | "osm";
 export const MAPS_DETECT_FAILURE_MESSAGE =
   "We couldn't detect the exact location from this link. Try copying the location again from your Maps app.";
 
-function validCoords(latitude: number, longitude: number): MapCoordinates | null {
+function validCoords(
+  latitude: number,
+  longitude: number,
+  source: MapCoordinateSource,
+): MapCoordinates | null {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude, source };
+}
+
+/**
+ * Strict `LAT,LNG` pair: the whole parameter value must be numeric
+ * coordinates (optional surrounding whitespace). Text queries such as
+ * place names never parse — callers fail closed on them.
+ */
+function parseStrictPair(text: string): { latitude: number; longitude: number } | null {
+  const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(text);
+  if (!match?.[1] || !match?.[2]) return null;
+  const latitude = Number(match[1]);
+  const longitude = Number(match[2]);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
   return { latitude, longitude };
-}
-
-function parsePair(text: string): MapCoordinates | null {
-  const match = /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(text);
-  if (!match?.[1] || !match?.[2]) return null;
-  return validCoords(Number(match[1]), Number(match[2]));
 }
 
 /**
@@ -55,13 +84,15 @@ export function detectMapProvider(rawUrl: string): MapProvider | null {
 }
 
 /**
- * Extract exact coordinates from a supported map URL. Supports:
- * - Google `@lat,lng` path pins and `q`/`query`/`ll`/`center`/`destination`
- *   coordinate pairs
- * - Google encoded place data `!3dLAT!4dLNG` (!3d = latitude, !4d = longitude)
- * - Apple `ll=lat,lng` (and coordinate `q`)
- * - OpenStreetMap `#map=z/lat/lng` fragments and `mlat`/`mlon` params
- * Returns null when no reliable exact location is present — never guesses.
+ * Extract exact coordinates from a supported map URL. Trusted sources only:
+ * - OSM `#map=z/lat/lng` fragments and `mlat`/`mlon` params
+ * - Apple `ll` / `q` / `query` numeric pairs
+ * - Google, in strict priority:
+ *   1. `!3dLAT!4dLNG` place data (must win on /place/ URLs),
+ *   2. explicit numeric `destination` / `query` / `q` / `ll`,
+ *   3. `@LAT,LNG` on direct map URLs only (never on /place/ URLs —
+ *      that is the map camera / viewport, not the place).
+ * Returns null when no trusted source is present — never guesses.
  */
 export function extractCoordinates(url: string): MapCoordinates | null {
   const trimmed = url.trim();
@@ -72,48 +103,73 @@ export function extractCoordinates(url: string): MapCoordinates | null {
     return null;
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  const provider = detectMapProvider(trimmed);
+  if (!provider) return null;
 
-  // OSM `#map=z/lat/lng` fragment.
-  const hashMatch = /^#map=\d+\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)\/?$/.exec(parsed.hash);
-  if (hashMatch?.[1] && hashMatch?.[2]) {
-    const coords = validCoords(Number(hashMatch[1]), Number(hashMatch[2]));
-    if (coords) return coords;
+  if (provider === "osm") {
+    // OSM `#map=z/lat/lng` fragment.
+    const hashMatch = /^#map=\d+\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)\/?$/.exec(parsed.hash);
+    if (hashMatch?.[1] && hashMatch?.[2]) {
+      const coords = validCoords(Number(hashMatch[1]), Number(hashMatch[2]), "osm_coordinates");
+      if (coords) return coords;
+    }
+
+    // OSM `mlat` + `mlon` parameters.
+    const mlat = parsed.searchParams.get("mlat");
+    const mlon = parsed.searchParams.get("mlon");
+    if (mlat !== null && mlon !== null) {
+      const lat = Number(mlat);
+      const lng = Number(mlon);
+      const coords = validCoords(lat, lng, "osm_coordinates");
+      // Present-but-malformed marker params fail closed.
+      if (coords) return coords;
+      return null;
+    }
+    return null;
   }
 
-  // OSM `mlat` + `mlon` parameters.
-  const mlat = parsed.searchParams.get("mlat");
-  const mlon = parsed.searchParams.get("mlon");
-  if (mlat !== null && mlon !== null) {
-    const coords = validCoords(Number(mlat), Number(mlon));
-    if (coords) return coords;
+  if (provider === "apple") {
+    // Apple explicit pairs only — never viewport guessing, never geocoding.
+    for (const key of ["ll", "q", "query"]) {
+      const value = parsed.searchParams.get(key);
+      if (value !== null) {
+        const pair = parseStrictPair(value);
+        if (pair) return { ...pair, source: "apple_coordinates" };
+      }
+    }
+    return null;
   }
 
-  // Coordinate-bearing query params (Google + Apple search links).
-  // `ll` / `center` are map pins; `destination` covers pasted directions
-  // links; non-pair values (place names) fail closed via parsePair.
-  for (const key of ["ll", "q", "query", "center", "destination"]) {
+  // ---- Google ----
+  // PRIORITY 1 — encoded place data `!3dLAT!4dLNG` (raw URL scanned —
+  // the `data=` payload is not URL-decoded by searchParams). Preferred
+  // exact place coordinates; MUST win on /place/ URLs.
+  const encoded = /!3d(-?\d+(?:\.\d+)?)[^!]*!4d(-?\d+(?:\.\d+)?)/.exec(trimmed);
+  if (encoded?.[1] !== undefined && encoded?.[2] !== undefined) {
+    const coords = validCoords(Number(encoded[1]), Number(encoded[2]), "google_place_coordinates");
+    // A present-but-malformed !3d/!4d payload fails closed: never fall
+    // through to the viewport @ pair on the same URL.
+    if (coords) return coords;
+    return null;
+  }
+
+  // PRIORITY 2 — explicit numeric coordinate parameters. Text values
+  // (place names) fail closed via parseStrictPair and fall through.
+  for (const key of ["destination", "query", "q", "ll"]) {
     const value = parsed.searchParams.get(key);
     if (value !== null) {
-      const coords = parsePair(value);
-      if (coords) return coords;
+      const pair = parseStrictPair(value);
+      if (pair) return { ...pair, source: "explicit_coordinates" };
     }
   }
 
-  // Google `@lat,lng` path pins (path + hash both scanned).
+  // PRIORITY 3 — `@LAT,LNG`. On /place/ URLs this is the map camera /
+  // viewport, NOT the place — never use it there.
+  const isPlaceUrl = parsed.pathname.toLowerCase().includes("/place/");
+  if (isPlaceUrl) return null;
   const at = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(`${parsed.pathname}${parsed.hash}`);
-  if (at?.[1] && at?.[2]) {
-    const coords = validCoords(Number(at[1]), Number(at[2]));
-    if (coords) return coords;
-  }
-
-  // Google encoded place data: `!3dLAT!4dLNG` (raw URL scanned — the
-  // `data=` payload is not URL-decoded by searchParams). This is the form
-  // most `maps.app.goo.gl` place shares resolve to when no `@lat,lng`
-  // pin is present in the path.
-  const encoded = /!3d(-?\d+(?:\.\d+)?)[^!]*!4d(-?\d+(?:\.\d+)?)/.exec(trimmed);
-  if (encoded?.[1] && encoded?.[2]) {
-    const coords = validCoords(Number(encoded[1]), Number(encoded[2]));
-    if (coords) return coords;
+  if (at?.[1] !== undefined && at?.[2] !== undefined) {
+    return validCoords(Number(at[1]), Number(at[2]), "direct_map_coordinates");
   }
 
   return null;
@@ -157,17 +213,16 @@ function pageCandidateUrls(html: string): string[] {
   return out;
 }
 
-const COORD_NUM = "-?\\d+(?:\\.\\d+)?";
-
 /**
- * Scan resolved destination-page HTML for coordinates without executing
- * any page scripts: metadata URLs first, then known Google coordinate
- * patterns in the raw markup. Never guesses from address text.
+ * Check resolved destination-page HTML for coordinates WITHOUT executing
+ * any page scripts and WITHOUT scanning the body for arbitrary pairs.
+ * Only canonical / og:url metadata URLs are honored, re-checked with the
+ * trusted URL extractor. Viewport coordinates, nearby POIs, localization
+ * defaults, and JSON blobs in the markup can never become the place.
  */
 export function extractCoordinatesFromPage(html: string, baseUrl: string): MapCoordinates | null {
   const source = html.slice(0, MAX_MAP_PAGE_BYTES);
 
-  // 1. Canonical / og:url metadata — re-checked with the URL extractor.
   for (const candidate of pageCandidateUrls(source)) {
     try {
       const absolute = new URL(candidate, baseUrl).toString();
@@ -176,54 +231,6 @@ export function extractCoordinatesFromPage(html: string, baseUrl: string): MapCo
     } catch {
       // Ignore malformed metadata URLs.
     }
-  }
-
-  // 2. Encoded place data anywhere in the markup.
-  const encoded = new RegExp(`!3d(${COORD_NUM})[^!]{0,8}!4d(${COORD_NUM})`).exec(source);
-  if (encoded?.[1] && encoded?.[2]) {
-    const coords = validCoords(Number(encoded[1]), Number(encoded[2]));
-    if (coords) return coords;
-  }
-
-  // 3. `@lat,lng` pins anywhere in the markup.
-  const at = new RegExp(`@(${COORD_NUM}),(${COORD_NUM})`).exec(source);
-  if (at?.[1] && at?.[2]) {
-    const coords = validCoords(Number(at[1]), Number(at[2]));
-    if (coords) return coords;
-  }
-
-  // 4. Coordinate query pairs (`?q=` / `?query=` / `ll=` / `center=`) and
-  // JSON-ish `"q":"lat,lng"` payloads in the markup.
-  const pairPattern = new RegExp(
-    `(?:[?&](?:q|query|ll|center|destination)=|["'](?:q|query|ll|center|destination)["']\\s*:\\s*["'])([^"'&<>\\s]+)`,
-    "i",
-  );
-  const pair = pairPattern.exec(source);
-  if (pair?.[1]) {
-    try {
-      const coords = parsePair(decodeURIComponent(pair[1]));
-      if (coords) return coords;
-    } catch {
-      // Malformed percent-encoding — fall through to the JSON scan.
-    }
-  }
-
-  // 5. JSON-ish latitude/longitude pairs (either key order).
-  const latFirst = new RegExp(
-    `"latitude"\\s*:\\s*(${COORD_NUM})[^}]{0,120}?"longitude"\\s*:\\s*(${COORD_NUM})`,
-    "i",
-  ).exec(source);
-  if (latFirst?.[1] && latFirst?.[2]) {
-    const coords = validCoords(Number(latFirst[1]), Number(latFirst[2]));
-    if (coords) return coords;
-  }
-  const lngFirst = new RegExp(
-    `"longitude"\\s*:\\s*(${COORD_NUM})[^}]{0,120}?"latitude"\\s*:\\s*(${COORD_NUM})`,
-    "i",
-  ).exec(source);
-  if (lngFirst?.[1] && lngFirst?.[2]) {
-    const coords = validCoords(Number(lngFirst[2]), Number(lngFirst[1]));
-    if (coords) return coords;
   }
 
   return null;
@@ -429,6 +436,8 @@ export type MapLinkResolution =
       provider: MapProvider;
       latitude: number;
       longitude: number;
+      /** Trusted origin of the coordinates — never unknown on success. */
+      source: MapCoordinateSource;
       resolvedUrl: string;
       /** Google → directions URL; other providers → the resolved URL. */
       normalizedUrl: string;
@@ -443,8 +452,9 @@ function normalizedUrlFor(provider: MapProvider, source: string, coords: MapCoor
 }
 
 /**
- * Google resolution: URL patterns first, then the bounded resolved-page
- * fallback for place URLs that expose coordinates only in page metadata.
+ * Google resolution: trusted URL patterns first, then the bounded
+ * resolved-page fallback for place URLs that expose coordinates only in
+ * page metadata (canonical / og:url). Never scans page bodies.
  */
 async function resolveGoogleMaps(
   source: string,
@@ -458,6 +468,7 @@ async function resolveGoogleMaps(
       provider: "google",
       latitude: coords.latitude,
       longitude: coords.longitude,
+      source: coords.source,
       resolvedUrl: source,
       normalizedUrl: normalizedUrlFor("google", source, coords),
     };
@@ -471,6 +482,7 @@ async function resolveGoogleMaps(
         provider: "google",
         latitude: pageCoords.latitude,
         longitude: pageCoords.longitude,
+        source: pageCoords.source,
         resolvedUrl: source,
         normalizedUrl: normalizedUrlFor("google", source, pageCoords),
       };
@@ -488,6 +500,7 @@ function resolveAppleMaps(source: string): MapLinkResolution {
     provider: "apple",
     latitude: coords.latitude,
     longitude: coords.longitude,
+    source: coords.source,
     resolvedUrl: source,
     normalizedUrl: normalizedUrlFor("apple", source, coords),
   };
@@ -502,6 +515,7 @@ function resolveOpenStreetMap(source: string): MapLinkResolution {
     provider: "osm",
     latitude: coords.latitude,
     longitude: coords.longitude,
+    source: coords.source,
     resolvedUrl: source,
     normalizedUrl: normalizedUrlFor("osm", source, coords),
   };
