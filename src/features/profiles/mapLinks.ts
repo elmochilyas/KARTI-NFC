@@ -1,15 +1,26 @@
-import { isShortMapsHost, sanitizeMapsLink } from "./sectionSettings";
+import {
+  googleDirectionsUrl,
+  isShortMapsHost,
+  sanitizeMapsLink,
+} from "./sectionSettings";
 
 /**
- * Phase 34.3 map-link helpers — pure and client-safe (no fetch, no DNS, no
+ * Phase 34.4 map-link helpers — pure and client-safe (no fetch, no DNS, no
  * server-only imports). Coordinate extraction never guesses: a URL yields
  * coordinates only from an explicit lat,lng pair in a known position.
+ *
+ * Share-link flow for a normal Google Maps mobile link:
+ *   maps.app.goo.gl/… → follow redirect(s) server-side → final Google URL
+ *   → extract from @lat,lng / q / query / ll / !3d!4d → else scan the
+ *   resolved destination page (canonical / og:url / known patterns).
  */
 
 export type MapCoordinates = {
   latitude: number;
   longitude: number;
 };
+
+export type MapProvider = "google" | "apple" | "osm";
 
 /** Operator-facing failure copy (shared by editor + server action). */
 export const MAPS_DETECT_FAILURE_MESSAGE =
@@ -28,16 +39,39 @@ function parsePair(text: string): MapCoordinates | null {
 }
 
 /**
+ * Detect which map provider a URL belongs to. Returns null for anything
+ * outside the allowlisted map hosts (same host rules as sanitizeMapsLink).
+ */
+export function detectMapProvider(rawUrl: string): MapProvider | null {
+  let host = "";
+  try {
+    host = new URL(rawUrl.trim()).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (host === "goo.gl" || host === "maps.app.goo.gl") return "google";
+  if (/(^|\.)google\.[a-z.]+$/.test(host) || /(^|\.)maps\.google\.[a-z.]+$/.test(host)) {
+    return "google";
+  }
+  if (host === "maps.apple.com") return "apple";
+  if (host === "openstreetmap.org" || host === "www.openstreetmap.org") return "osm";
+  return null;
+}
+
+/**
  * Extract exact coordinates from a supported map URL. Supports:
- * - Google `@lat,lng` path pins and `q`/`query` coordinate pairs
+ * - Google `@lat,lng` path pins and `q`/`query`/`ll`/`center`/`destination`
+ *   coordinate pairs
+ * - Google encoded place data `!3dLAT!4dLNG` (!3d = latitude, !4d = longitude)
  * - Apple `ll=lat,lng` (and coordinate `q`)
  * - OpenStreetMap `#map=z/lat/lng` fragments and `mlat`/`mlon` params
  * Returns null when no reliable exact location is present — never guesses.
  */
 export function extractCoordinates(url: string): MapCoordinates | null {
+  const trimmed = url.trim();
   let parsed: URL;
   try {
-    parsed = new URL(url.trim());
+    parsed = new URL(trimmed);
   } catch {
     return null;
   }
@@ -58,15 +92,10 @@ export function extractCoordinates(url: string): MapCoordinates | null {
     if (coords) return coords;
   }
 
-  // Apple `ll=lat,lng`.
-  const ll = parsed.searchParams.get("ll");
-  if (ll !== null) {
-    const coords = parsePair(ll);
-    if (coords) return coords;
-  }
-
-  // `q` / `query` coordinate pairs (Google + Apple search links).
-  for (const key of ["q", "query"]) {
+  // Coordinate-bearing query params (Google + Apple search links).
+  // `ll` / `center` are map pins; `destination` covers pasted directions
+  // links; non-pair values (place names) fail closed via parsePair.
+  for (const key of ["ll", "q", "query", "center", "destination"]) {
     const value = parsed.searchParams.get(key);
     if (value !== null) {
       const coords = parsePair(value);
@@ -78,6 +107,126 @@ export function extractCoordinates(url: string): MapCoordinates | null {
   const at = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(`${parsed.pathname}${parsed.hash}`);
   if (at?.[1] && at?.[2]) {
     const coords = validCoords(Number(at[1]), Number(at[2]));
+    if (coords) return coords;
+  }
+
+  // Google encoded place data: `!3dLAT!4dLNG` (raw URL scanned — the
+  // `data=` payload is not URL-decoded by searchParams). This is the form
+  // most `maps.app.goo.gl` place shares resolve to when no `@lat,lng`
+  // pin is present in the path.
+  const encoded = /!3d(-?\d+(?:\.\d+)?)[^!]*!4d(-?\d+(?:\.\d+)?)/.exec(trimmed);
+  if (encoded?.[1] && encoded?.[2]) {
+    const coords = validCoords(Number(encoded[1]), Number(encoded[2]));
+    if (coords) return coords;
+  }
+
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Resolved-page fallback (Google place URLs without URL coordinates)  */
+/* ------------------------------------------------------------------ */
+
+/** Maximum destination-page bytes scanned for coordinates. */
+export const MAX_MAP_PAGE_BYTES = 512_000;
+
+export type PageFetchResponse = {
+  status: number;
+  /** Raw Content-Type header value, or null when absent. */
+  contentType: string | null;
+  /** Page text (already truncated by the caller), or null when unreadable. */
+  bodyText: string | null;
+};
+
+function attrValue(tag: string, attr: string): string | null {
+  const match = new RegExp(`${attr}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(tag);
+  return match?.[2] ?? null;
+}
+
+/** Candidate navigation URLs embedded in page metadata (canonical, og:url). */
+function pageCandidateUrls(html: string): string[] {
+  const out: string[] = [];
+  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
+    if (/rel\s*=\s*["']canonical["']/i.test(tag)) {
+      const href = attrValue(tag, "href");
+      if (href) out.push(href);
+    }
+  }
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    if (/property\s*=\s*["']og:url["']/i.test(tag)) {
+      const content = attrValue(tag, "content");
+      if (content) out.push(content);
+    }
+  }
+  return out;
+}
+
+const COORD_NUM = "-?\\d+(?:\\.\\d+)?";
+
+/**
+ * Scan resolved destination-page HTML for coordinates without executing
+ * any page scripts: metadata URLs first, then known Google coordinate
+ * patterns in the raw markup. Never guesses from address text.
+ */
+export function extractCoordinatesFromPage(html: string, baseUrl: string): MapCoordinates | null {
+  const source = html.slice(0, MAX_MAP_PAGE_BYTES);
+
+  // 1. Canonical / og:url metadata — re-checked with the URL extractor.
+  for (const candidate of pageCandidateUrls(source)) {
+    try {
+      const absolute = new URL(candidate, baseUrl).toString();
+      const coords = extractCoordinates(absolute);
+      if (coords) return coords;
+    } catch {
+      // Ignore malformed metadata URLs.
+    }
+  }
+
+  // 2. Encoded place data anywhere in the markup.
+  const encoded = new RegExp(`!3d(${COORD_NUM})[^!]{0,8}!4d(${COORD_NUM})`).exec(source);
+  if (encoded?.[1] && encoded?.[2]) {
+    const coords = validCoords(Number(encoded[1]), Number(encoded[2]));
+    if (coords) return coords;
+  }
+
+  // 3. `@lat,lng` pins anywhere in the markup.
+  const at = new RegExp(`@(${COORD_NUM}),(${COORD_NUM})`).exec(source);
+  if (at?.[1] && at?.[2]) {
+    const coords = validCoords(Number(at[1]), Number(at[2]));
+    if (coords) return coords;
+  }
+
+  // 4. Coordinate query pairs (`?q=` / `?query=` / `ll=` / `center=`) and
+  // JSON-ish `"q":"lat,lng"` payloads in the markup.
+  const pairPattern = new RegExp(
+    `(?:[?&](?:q|query|ll|center|destination)=|["'](?:q|query|ll|center|destination)["']\\s*:\\s*["'])([^"'&<>\\s]+)`,
+    "i",
+  );
+  const pair = pairPattern.exec(source);
+  if (pair?.[1]) {
+    try {
+      const coords = parsePair(decodeURIComponent(pair[1]));
+      if (coords) return coords;
+    } catch {
+      // Malformed percent-encoding — fall through to the JSON scan.
+    }
+  }
+
+  // 5. JSON-ish latitude/longitude pairs (either key order).
+  const latFirst = new RegExp(
+    `"latitude"\\s*:\\s*(${COORD_NUM})[^}]{0,120}?"longitude"\\s*:\\s*(${COORD_NUM})`,
+    "i",
+  ).exec(source);
+  if (latFirst?.[1] && latFirst?.[2]) {
+    const coords = validCoords(Number(latFirst[1]), Number(latFirst[2]));
+    if (coords) return coords;
+  }
+  const lngFirst = new RegExp(
+    `"longitude"\\s*:\\s*(${COORD_NUM})[^}]{0,120}?"latitude"\\s*:\\s*(${COORD_NUM})`,
+    "i",
+  ).exec(source);
+  if (lngFirst?.[1] && lngFirst?.[2]) {
+    const coords = validCoords(Number(lngFirst[2]), Number(lngFirst[1]));
     if (coords) return coords;
   }
 
@@ -104,6 +253,13 @@ export type MapResolveDeps = {
   ) => Promise<RedirectResponse>;
   /** First resolved address for a hostname (A or AAAA). */
   lookupFn: (hostname: string) => Promise<string>;
+  /**
+   * Bounded destination-page fetch for the resolved-page fallback
+   * (Google only). Optional — when absent, the fallback is skipped and
+   * URL-only extraction applies. Must enforce the response size limit
+   * and return truncated text.
+   */
+  fetchPageFn?: (url: string, init: { signal: AbortSignal }) => Promise<PageFetchResponse>;
 };
 
 export type ShortResolveOutcome = { ok: true; finalUrl: string } | { ok: false; message: string };
@@ -230,14 +386,136 @@ export async function resolveShortUrl(
   return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
 }
 
+/**
+ * Fetch a resolved destination page under the same SSRF envelope as the
+ * redirect chain (HTTPS-only, allowlisted host, per-fetch DNS check,
+ * caller-owned timeout, HTML-only, size-capped). Returns the page text or
+ * null when anything is off. Never forwards cookies/auth headers, never
+ * executes page scripts — the caller only regex-scans the returned text.
+ */
+async function fetchResolvedPageText(
+  pageUrl: string,
+  deps: MapResolveDeps,
+  timeoutMs: number,
+): Promise<string | null> {
+  if (!deps.fetchPageFn) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(pageUrl.trim());
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:") return null;
+  if (parsed.hostname.toLowerCase() === "localhost" || sanitizeMapsLink(pageUrl) === null) {
+    return null;
+  }
+  try {
+    const address = await deps.lookupFn(parsed.hostname);
+    if (isBlockedIpAddress(address)) return null;
+  } catch {
+    return null;
+  }
+  let response: PageFetchResponse;
+  try {
+    response = await deps.fetchPageFn(pageUrl, { signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    return null;
+  }
+  if (response.status < 200 || response.status >= 300) return null;
+  if (response.contentType !== null && !/text\/html/i.test(response.contentType)) return null;
+  if (typeof response.bodyText !== "string" || response.bodyText === "") return null;
+  return response.bodyText.slice(0, MAX_MAP_PAGE_BYTES);
+}
+
 export type MapLinkResolution =
-  | { ok: true; latitude: number; longitude: number; resolvedUrl: string }
+  | {
+      ok: true;
+      provider: MapProvider;
+      latitude: number;
+      longitude: number;
+      resolvedUrl: string;
+      /** Google → directions URL; other providers → the resolved URL. */
+      normalizedUrl: string;
+    }
   | { ok: false; message: string };
+
+function normalizedUrlFor(provider: MapProvider, source: string, coords: MapCoordinates): string {
+  if (provider === "google") {
+    return googleDirectionsUrl(coords.latitude, coords.longitude) ?? source;
+  }
+  return source;
+}
+
+/**
+ * Google resolution: URL patterns first, then the bounded resolved-page
+ * fallback for place URLs that expose coordinates only in page metadata.
+ */
+async function resolveGoogleMaps(
+  source: string,
+  deps: MapResolveDeps,
+  timeoutMs: number,
+): Promise<MapLinkResolution> {
+  const coords = extractCoordinates(source);
+  if (coords) {
+    return {
+      ok: true,
+      provider: "google",
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      resolvedUrl: source,
+      normalizedUrl: normalizedUrlFor("google", source, coords),
+    };
+  }
+  const html = await fetchResolvedPageText(source, deps, timeoutMs);
+  if (html !== null) {
+    const pageCoords = extractCoordinatesFromPage(html, source);
+    if (pageCoords) {
+      return {
+        ok: true,
+        provider: "google",
+        latitude: pageCoords.latitude,
+        longitude: pageCoords.longitude,
+        resolvedUrl: source,
+        normalizedUrl: normalizedUrlFor("google", source, pageCoords),
+      };
+    }
+  }
+  return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
+}
+
+/** Apple Maps resolution: explicit URL pairs only, never guessed. */
+function resolveAppleMaps(source: string): MapLinkResolution {
+  const coords = extractCoordinates(source);
+  if (!coords) return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
+  return {
+    ok: true,
+    provider: "apple",
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    resolvedUrl: source,
+    normalizedUrl: normalizedUrlFor("apple", source, coords),
+  };
+}
+
+/** OpenStreetMap resolution: explicit URL pairs/fragments only. */
+function resolveOpenStreetMap(source: string): MapLinkResolution {
+  const coords = extractCoordinates(source);
+  if (!coords) return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
+  return {
+    ok: true,
+    provider: "osm",
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    resolvedUrl: source,
+    normalizedUrl: normalizedUrlFor("osm", source, coords),
+  };
+}
 
 /**
  * Full link → coordinates flow (pure orchestration; the server action
- * supplies real fetch/DNS). Short hosts resolve first; all other
- * allowlisted links extract directly. Never guesses, never geocodes.
+ * supplies real fetch/DNS). Short hosts resolve first; then the provider
+ * dispatch runs (`resolveGoogleMaps` / `resolveAppleMaps` /
+ * `resolveOpenStreetMap`). Never guesses, never geocodes.
  */
 export async function resolveMapLink(
   rawUrl: string,
@@ -246,19 +524,29 @@ export async function resolveMapLink(
 ): Promise<MapLinkResolution> {
   const clean = sanitizeMapsLink(rawUrl);
   if (!clean) return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
+  const provider = detectMapProvider(clean);
+  if (!provider) return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
   let source = clean;
-  let hostname = "";
-  try {
-    hostname = new URL(clean).hostname;
-  } catch {
-    return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
-  }
-  if (isShortMapsHost(hostname)) {
+  if (isShortMapsHost(new URL(clean).hostname)) {
     const resolved = await resolveShortUrl(clean, deps, timeoutMs);
     if (!resolved.ok) return { ok: false, message: resolved.message };
     source = resolved.finalUrl;
   }
-  const coords = extractCoordinates(source);
-  if (!coords) return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
-  return { ok: true, latitude: coords.latitude, longitude: coords.longitude, resolvedUrl: source };
+  const finalProvider = detectMapProvider(source);
+  if (!finalProvider) return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
+  switch (finalProvider) {
+    case "google":
+      return resolveGoogleMaps(source, deps, timeoutMs);
+    case "apple":
+      return resolveAppleMaps(source);
+    case "osm":
+      return resolveOpenStreetMap(source);
+  }
 }
+
+/**
+ * Provider-dispatch entry point (spec §11 architecture). Same flow as
+ * `resolveMapLink`; kept as a named alias so call sites can express
+ * "detect provider → resolve per provider" explicitly.
+ */
+export const resolveMapLocation = resolveMapLink;

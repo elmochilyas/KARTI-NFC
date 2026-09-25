@@ -3447,6 +3447,59 @@ cutover + verification only. No migration created.
 
 ---
 
+# Phase 34.4 — Google Share-Link Resolution (encoded data + page fallback)
+
+Normal mobile shares (`maps.app.goo.gl/…`) failed detection because final
+place URLs carry `!3dLAT!4dLNG` encoded data (no `@lat,lng` pin) or expose
+coordinates only in page metadata. See ADR-065. No schema change, no API
+key, OSM embed unchanged.
+
+## 34.4.1 Resolver
+
+- [x] `extractCoordinates()`: `!3dLAT!4dLNG` + `ll`/`center`/`destination`
+      pairs on Google hosts (validated ranges, numeric normalization).
+- [x] `detectMapProvider()` + `resolveGoogleMaps()` / `resolveAppleMaps()` /
+      `resolveOpenStreetMap()` dispatch (`resolveMapLocation` alias);
+      success carries `{ provider, latitude, longitude, resolvedUrl,
+      normalizedUrl }`.
+- [x] Google-only bounded page fallback (`fetchPageFn`, injected):
+      canonical/og:url → `@` / `!3d!4d` / `q|query|ll|center` /
+      `"latitude"|"longitude"` markup scan; HTML-only, 512 KB cap,
+      same SSRF envelope, no scripts, no generic scraper.
+- [x] `resolveMapsLinkAction`: real bounded page fetch (no-store,
+      credentials omitted, content-length pre-check); auth-gated, no DB.
+- [x] `googleDirectionsUrl()` pure helper; public `LocationSection`
+      directions falls back to normalized Google URL when coords exist
+      (original safe link still wins).
+
+## 34.4.2 Tests + verification
+
+- [x] Extraction matrix: `@`, `q` (google.com + maps.google.com), `query`,
+      `ll`, `!3d/!4d` (with/without `@`), out-of-range/hostile fail-closed.
+- [x] Provider detection matrix (google/apple/osm/evil/unsafe).
+- [x] Short → mocked redirect → `!3d/!4d` final URL → coords, no page fetch.
+- [x] Page fallback: canonical/`!3d`/JSON scans → coords; non-HTML,
+      page-throw, missing fetcher → fail closed; Apple/OSM never page-fetch.
+- [x] SSRF matrix still green (redirect chain untouched); `googleDirectionsUrl`
+      unit tests (valid + out-of-range/NaN).
+- [x] `typecheck`, `lint`, `test` (64 files / 798 tests), `build` green
+      (2026-09-25; one pre-existing renderer assertion updated to the
+      normalized directions URL, no other regressions).
+- [ ] Operator live check: real mobile `maps.app.goo.gl` share → detected
+      pin → Save → reload (no re-detect) → public map → Directions.
+
+### Phase 34.4 gate
+
+- [x] Short-link resolution + page fallback implemented with tests.
+- [x] No database change; no API key; editor/public rendering unchanged.
+- [x] Full verification (`typecheck`/`lint`/`test`/`build`) green.
+- [ ] Live share check with a real mobile link (no network tooling here).
+
+> 2026-09-25: implemented + verified per plan. Not committed — left ready
+> for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

@@ -3,6 +3,7 @@ import {
   defaultSectionSettings,
   formatMonth,
   formatPrice,
+  googleDirectionsUrl,
   locationQuery,
   navigationUrls,
   openNowStatus,
@@ -217,6 +218,15 @@ describe("location settings", () => {
     const urls = navigationUrls("33.99,-6.84");
     expect(urls.google).toBe("https://www.google.com/maps/search/?api=1&query=33.99%2C-6.84");
     expect(urls.apple).toBe("https://maps.apple.com/?q=33.99%2C-6.84");
+  });
+
+  it("normalizes Google directions URLs from numbers only", () => {
+    expect(googleDirectionsUrl(33.5731, -7.5898)).toBe(
+      "https://www.google.com/maps/dir/?api=1&destination=33.5731%2C-7.5898",
+    );
+    expect(googleDirectionsUrl(91, 0)).toBeNull();
+    expect(googleDirectionsUrl(0, -181)).toBeNull();
+    expect(googleDirectionsUrl(Number.NaN, 0)).toBeNull();
   });
 });
 
