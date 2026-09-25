@@ -82,9 +82,7 @@ export type SectionSettingsProps = {
      * success fields (provider/normalizedUrl) are ignored by the editor,
      * which commits latitude/longitude only.
      */
-    resolveMapsLink?: (
-      url: string,
-    ) => Promise<
+    resolveMapsLink?: (url: string) => Promise<
       | {
           ok: true;
           latitude: number;

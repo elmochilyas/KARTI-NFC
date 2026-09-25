@@ -74,9 +74,7 @@ describe("extractCoordinates", () => {
       latitude: 33.5731,
       longitude: -7.5898,
     });
-    expect(
-      extractCoordinates("https://www.google.com/maps?query=33.5731,-7.5898"),
-    ).toEqual({
+    expect(extractCoordinates("https://www.google.com/maps?query=33.5731,-7.5898")).toEqual({
       latitude: 33.5731,
       longitude: -7.5898,
     });
@@ -347,18 +345,20 @@ describe("resolveMapLink", () => {
 
   it("scans page markup for encoded and JSON coordinate patterns", async () => {
     const base = "https://www.google.com/maps/place/X";
-    expect(
-      extractCoordinatesFromPage('<div data="x!3d33.5731!4d-7.5898y"></div>', base),
-    ).toEqual({ latitude: 33.5731, longitude: -7.5898 });
+    expect(extractCoordinatesFromPage('<div data="x!3d33.5731!4d-7.5898y"></div>', base)).toEqual({
+      latitude: 33.5731,
+      longitude: -7.5898,
+    });
     expect(
       extractCoordinatesFromPage(
         '<meta property="og:url" content="https://www.google.com/maps?q=33.5731,-7.5898">',
         base,
       ),
     ).toEqual({ latitude: 33.5731, longitude: -7.5898 });
-    expect(
-      extractCoordinatesFromPage('{"latitude":33.5731,"longitude":-7.5898}', base),
-    ).toEqual({ latitude: 33.5731, longitude: -7.5898 });
+    expect(extractCoordinatesFromPage('{"latitude":33.5731,"longitude":-7.5898}', base)).toEqual({
+      latitude: 33.5731,
+      longitude: -7.5898,
+    });
     expect(extractCoordinatesFromPage("<html><body>Hello Agadir</body></html>", base)).toBeNull();
   });
 
@@ -369,14 +369,17 @@ describe("resolveMapLink", () => {
       [final]: { status: 200, location: null },
     };
     // Non-HTML content type.
-    const pdf = depsWith(routes, {}, { [final]: { status: 200, contentType: "application/pdf", bodyText: "x" } });
+    const pdf = depsWith(
+      routes,
+      {},
+      { [final]: { status: 200, contentType: "application/pdf", bodyText: "x" } },
+    );
     expect((await resolveMapLink("https://maps.app.goo.gl/a", pdf)).ok).toBe(false);
     // Page fetch throws (timeout / network).
     const down: MapResolveDeps = {
       lookupFn: async () => "142.250.72.14",
       fetchFn: async (url) => {
-        if (url === "https://maps.app.goo.gl/a")
-          return { status: 302, location: final };
+        if (url === "https://maps.app.goo.gl/a") return { status: 302, location: final };
         return { status: 200, location: null };
       },
       fetchPageFn: async () => {
@@ -396,7 +399,11 @@ describe("resolveMapLink", () => {
   it("never page-fetches off-allowlist or Apple/OSM links", async () => {
     const deps = depsWith({});
     const apple = await resolveMapLink("https://maps.apple.com/?ll=30.42,-9.6", deps);
-    expect(apple).toMatchObject({ ok: true, provider: "apple", normalizedUrl: "https://maps.apple.com/?ll=30.42,-9.6" });
+    expect(apple).toMatchObject({
+      ok: true,
+      provider: "apple",
+      normalizedUrl: "https://maps.apple.com/?ll=30.42,-9.6",
+    });
     expect(deps.pageCalls).toHaveLength(0);
     const osm = await resolveMapLink("https://www.openstreetmap.org/#map=15/30.42/-9.6", deps);
     expect(osm).toMatchObject({ ok: true, provider: "osm" });

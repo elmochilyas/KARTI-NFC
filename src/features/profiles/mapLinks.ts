@@ -1,8 +1,4 @@
-import {
-  googleDirectionsUrl,
-  isShortMapsHost,
-  sanitizeMapsLink,
-} from "./sectionSettings";
+import { googleDirectionsUrl, isShortMapsHost, sanitizeMapsLink } from "./sectionSettings";
 
 /**
  * Phase 34.4 map-link helpers — pure and client-safe (no fetch, no DNS, no
