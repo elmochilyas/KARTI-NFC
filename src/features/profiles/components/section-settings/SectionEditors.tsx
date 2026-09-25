@@ -153,6 +153,11 @@ export function LocationSettingsEditor({
   const [status, setStatus] = useState<DetectStatus>({ state: "idle" });
   const [detecting, startDetecting] = useTransition();
   const attemptedRef = useRef<string | null>(null);
+  // Monotonic id: stale in-flight responses never overwrite a newer link.
+  const detectionIdRef = useRef(0);
+  // Previous non-empty link; null until the first effect run so mounting
+  // with a saved link never wipes the saved pin before re-validation.
+  const prevLinkRef = useRef<string | null>(null);
 
   function runDetection(url: string) {
     const trimmed = url.trim();
@@ -163,10 +168,13 @@ export function LocationSettingsEditor({
     }
     const resolveMapsLink = context.resolveMapsLink;
     attemptedRef.current = trimmed;
+    const id = detectionIdRef.current + 1;
+    detectionIdRef.current = id;
     setStatus({ state: "detecting" });
     startDetecting(async () => {
       try {
         const result = await resolveMapsLink(trimmed);
+        if (detectionIdRef.current !== id) return;
         if (result.ok) {
           commitLatest({ latitude: result.latitude, longitude: result.longitude });
           setStatus({ state: "detected" });
@@ -175,24 +183,37 @@ export function LocationSettingsEditor({
           setStatus({ state: "error", message: result.message });
         }
       } catch {
+        if (detectionIdRef.current !== id) return;
         commitLatest({ latitude: null, longitude: null });
         setStatus({ state: "error", message: MAPS_DETECT_FAILURE_MESSAGE });
       }
     });
   }
 
-  // Debounced auto-detect while typing; blur detects immediately. Clearing
-  // the link clears a previously detected pin (the link determines it) but
-  // never touches legacy coordinates on mount.
+  // Debounced auto-detect while typing; blur detects immediately. When the
+  // link changes, the previous pin is cleared immediately (no stale marker
+  // stays visible while the new URL resolves). Clearing the link clears a
+  // previously detected pin, but mount never touches saved coordinates.
   useEffect(() => {
     const trimmed = mapsUrl.trim();
     if (trimmed === "") {
-      if (attemptedRef.current !== null) {
+      if (attemptedRef.current !== null || prevLinkRef.current !== null) {
         attemptedRef.current = null;
+        prevLinkRef.current = null;
+        detectionIdRef.current += 1;
         commitLatest({ latitude: null, longitude: null });
         setStatus({ state: "idle" });
       }
       return;
+    }
+    if (prevLinkRef.current === null) {
+      prevLinkRef.current = trimmed;
+    } else if (prevLinkRef.current !== trimmed) {
+      prevLinkRef.current = trimmed;
+      attemptedRef.current = null;
+      detectionIdRef.current += 1;
+      commitLatest({ latitude: null, longitude: null });
+      setStatus({ state: "detecting" });
     }
     const timer = window.setTimeout(() => runDetection(trimmed), 700);
     return () => window.clearTimeout(timer);

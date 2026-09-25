@@ -2198,3 +2198,42 @@ patterns only and read no page bodies, so every such link failed with
 - Public/editor rendering unchanged (saved numbers → OSM embed) — the
   fix is resolver-only plus a one-line directions fallback.
 - Live check with a real mobile share link remains operator-side.
+
+---
+
+## ADR-066 — Google Maps viewport false-positive fix (no-API, trusted priority)
+
+**Status:** Accepted
+**Date:** 2026-09-25
+
+### Context
+
+A Morocco share link resolved to Virginia/Leesburg, USA with
+`✓ Location detected`. Root causes in `mapLinks.ts`:
+
+1. `extractCoordinates()` checked `@LAT,LNG` (map camera / viewport)
+   BEFORE `!3dLAT!4dLNG` (exact place), so on
+   `/place/.../@VIEW/...!3dPLACE!4dPLACE` the viewport won.
+2. `extractCoordinatesFromPage()` scanned the whole page body for the
+   first `!3d` / `@` / `q|query|ll|center|destination` / `"latitude"` /
+   `"longitude"` pair — viewport, nearby-POI, localization, or
+   server-default coordinates became the "place".
+
+### Decision
+
+- Google priority is now strict: `!3d/!4d` first (must win on /place/,
+  malformed payload fails closed with no `@` fallback) → explicit
+  numeric `destination` / `query` / `q` / `ll` (strict whole-value
+  `LAT,LNG`, text never geocoded; `center` dropped as viewport-ish) →
+  `@LAT,LNG` on direct map URLs only, never on `/place/`.
+- Page fallback keeps canonical / `og:url` metadata re-checked with the
+  same trusted extractor; all body scans removed.
+- Every success carries `source`: `google_place_coordinates` |
+  `explicit_coordinates` | `direct_map_coordinates` (+
+  `apple_coordinates` / `osm_coordinates` for the preserved resolvers).
+- Editor clears stale lat/lng immediately when the link changes (shows
+  `Detecting location…`), guards out-of-order responses with a
+  monotonic detection id; failures leave coords empty.
+- No Google API / billing / keys, no provider swap (OSM embed kept),
+  no Apple/OSM breakage, no public-page fetching, no mass rewrite of
+  already-saved rows (re-paste re-resolves and overwrites).

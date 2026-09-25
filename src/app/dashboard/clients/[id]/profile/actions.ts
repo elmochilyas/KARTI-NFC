@@ -40,6 +40,7 @@ import {
   MAPS_DETECT_FAILURE_MESSAGE,
   MAX_MAP_PAGE_BYTES,
   resolveMapLink,
+  type MapCoordinateSource,
   type MapProvider,
 } from "@/features/profiles/mapLinks";
 import { FIELD_STEPS } from "@/features/profiles/unifiedDraft";
@@ -936,15 +937,15 @@ export async function saveUnifiedDraftAction(
 }
 
 /**
- * Resolve a pasted Maps link to exact coordinates (Phase 34.4, link-only
- * Location). Short links resolve server-side through the SSRF-safe
- * resolver (HTTPS-only, allowlisted hops, DNS-verified, bounded,
- * timeout-guarded, no bodies read except the capped resolved-page
- * fallback); all other links extract directly, with a bounded
- * destination-page scan for Google place URLs that expose coordinates
- * only in page metadata. Auth-gated (no anonymous abuse); no database
- * touched. Coordinates enter the draft — persistence stays with the
- * unified Save.
+ * Resolve a pasted Maps link to exact coordinates (link-only Location).
+ * Short links resolve server-side through the SSRF-safe resolver
+ * (HTTPS-only, allowlisted hops, DNS-verified, bounded, timeout-guarded,
+ * no bodies read except the capped resolved-page metadata fallback);
+ * all other links extract directly, with a bounded canonical/og:url
+ * check for Google place URLs that expose coordinates only in page
+ * metadata. Page bodies are never scanned for arbitrary pairs.
+ * Auth-gated (no anonymous abuse); no database touched. Coordinates
+ * enter the draft — persistence stays with the unified Save.
  */
 export type MapsResolveResult =
   | {
@@ -952,6 +953,7 @@ export type MapsResolveResult =
       provider: MapProvider;
       latitude: number;
       longitude: number;
+      source: MapCoordinateSource;
       resolvedUrl: string;
       normalizedUrl: string;
     }
