@@ -19,7 +19,7 @@ export const SHORT_NAME_MAX_LENGTH = 12;
 export type ProfileManifestInput = {
   displayName: string;
   publicCode: string;
-  /** Absolute app origin (icons only) — e.g. https://karti.app. */
+  /** Absolute app origin (icons only) — e.g. https://karti.pro. */
   appUrl: string;
   accentColor: string | null;
   bio: string | null;

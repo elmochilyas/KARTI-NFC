@@ -64,7 +64,7 @@ http://localhost:3000
 Production:
 
 ```text
-https://karti.app
+https://karti.pro
 ```
 
 Use the canonical app URL when generating:

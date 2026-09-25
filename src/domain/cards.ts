@@ -2,7 +2,7 @@
  * Physical-card short codes (specs/DATA_MODEL.md, specs/DOMAIN_RULES.md).
  *
  * A short code is a random, public, non-sequential, URL-safe identifier
- * used in the permanent card URL: https://karti.app/t/{shortCode}.
+ * used in the permanent card URL: https://karti.pro/t/{shortCode}.
  * It is NOT an authorization secret. Database uniqueness / collision retry
  * belongs to the persistence layer (Phase 2+), not here.
  */
