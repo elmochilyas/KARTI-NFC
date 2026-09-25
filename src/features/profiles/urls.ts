@@ -11,7 +11,7 @@ export function publicProfileUrl(slug: string, appUrl: string = getAppUrl()): st
   return `${appUrl.replace(/\/+$/, "")}/${clean}`;
 }
 
-/** Human display form without protocol: karti.app/ahmed-benali. */
+/** Human display form without protocol: karti.pro/ahmed-benali. */
 export function displayProfileUrl(fullUrl: string): string {
   return fullUrl.replace(/^https?:\/\//i, "");
 }

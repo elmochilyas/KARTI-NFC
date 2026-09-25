@@ -3373,6 +3373,80 @@ See ADR-064.
 
 ---
 
+# Phase 35 — Production Domain Cutover (karti.pro)
+
+Canonical production domain is now `https://karti.pro`
+(`www` redirects to apex; `karti-bice.vercel.app` stays attached
+temporarily so existing physical cards keep resolving). No feature,
+schema, identity, short-code, or resolver-architecture changes — domain
+cutover + verification only. No migration created.
+
+## 35.1 Audit (2026-09-25)
+
+- [x] Full runtime search for `karti-bice.vercel.app` / `vercel.app` /
+      `localhost` / `127.0.0.1`.
+- [x] Result: zero production-logic references to the old hostname. The
+      single occurrence was test payload data in
+      `ShareProfileButton.test.ts` (host-agnostic helper) — repointed to
+      `https://karti.pro/...`.
+- [x] `localhost` / `127.0.0.1` occurrences classified legitimate:
+      `getAppUrl()` dev fallback, `Request` construction in route tests,
+      SSRF localhost/IP blocking (`mapLinks.ts` + tests).
+- [x] Verified single canonical source: every absolute public URL
+      (`permanentCardUrl`, `qrPayloadForCard`, `publicProfileUrl`,
+      `identityUrlForPublicCode`, vCard `profileUrl`, PWA manifest/icons,
+      resolver PROFILE target, dashboard panels, metadata canonicals)
+      derives from `getAppUrl()` (`NEXT_PUBLIC_APP_URL`). No hardcoded
+      production host in feature files; no Host/X-Forwarded-Host reads.
+- [x] Stale `karti.app` production-domain comments/examples updated to
+      `karti.pro` (`.env.example`, `README.md`, `src/domain/cards.ts`,
+      `src/features/profiles/urls.ts`, `src/features/pwa/manifest.ts`,
+      `specs/ENVIRONMENT.md`, `specs/DEPLOYMENT.md`,
+      `specs/RELEASE_CHECKLIST.md`). Historical spec examples elsewhere
+      untouched.
+
+## 35.2 Regression tests
+
+- [x] New `src/features/cards/domain-cutover.test.ts` (15 cases, all
+      under `NEXT_PUBLIC_APP_URL=https://karti.pro`): canonical source,
+      exact `https://karti.pro/t/{shortCode}` permanent URL, QR/NFC/
+      permanent triple parity, profile `/{slug}` + stable `/u/{code}`
+      URLs, Share payload, PWA identity + absolute icons, vCard URL
+      shape, canonical metadata shape, no old-host/localhost/www in any
+      generated URL, evil-Host → canonical target, old-host tap → same
+      resolver → same canonical destination.
+
+## 35.3 Verification
+
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` (64 files / 788 tests),
+      `pnpm build` green (2026-09-25).
+- [x] Production smoke: `https://karti.pro` 200 (brand page, HTTPS, no
+      loop); `https://karti.pro/login` 200 (sign-in renders);
+      `https://karti-bice.vercel.app` serves the same app (existing
+      `/t/{code}` cards keep resolving).
+- [ ] `format:check` — pre-existing repo-wide CRLF baseline (unchanged
+      standing note; new test file written with LF).
+- [ ] Operator manual: `/{slug}`, `/u/{code}`, `/t/{code}` with existing
+      production data; destination-switch invariance on a live card;
+      `www.karti.pro → karti.pro` redirect (DNS resolves from here, but
+      HTTP fetch times out of this sandbox); Supabase Auth Site URL +
+      redirects for karti.pro; Vercel `NEXT_PUBLIC_APP_URL` =
+      `https://karti.pro`; first real NFC programming from the dashboard
+      panel.
+
+### Phase 35 gate
+
+- [x] All newly generated links/NFC/QR derive from karti.pro via env.
+- [x] Old cards keep working (host-independent resolver, same app on
+      both hosts).
+- [x] No card identities, short codes, destinations, or assignments
+      touched.
+- [x] Checks pass.
+
+> 2026-09-25: implemented per plan. Not committed — left ready for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

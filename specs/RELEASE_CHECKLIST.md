@@ -115,7 +115,7 @@ checked without evidence.
 ## Environment
 
 - [ ] Per-environment variables set (public vs server-only classified).
-- [ ] `NEXT_PUBLIC_APP_URL=https://karti.app` on production.
+- [ ] `NEXT_PUBLIC_APP_URL=https://karti.pro` on production.
 - [ ] No preview URL encoded into any physical card/QR.
 
 ## Security deployment

@@ -9,7 +9,7 @@ itself BLOCKED — see §11. Nothing has been deployed yet.
 GitHub main
   ↓ (CI: test → build, both green)
 Vercel (Git integration: production deploy on main)
-  → Next.js application (https://karti.app)
+  → Next.js application (https://karti.pro)
 
 Supabase production project
   → PostgreSQL (+ replayed migrations)
@@ -20,8 +20,12 @@ Supabase production project
 Production domain:
 
 ```text
-https://karti.app
+https://karti.pro
 ```
+
+(Canonical production domain since the karti.pro cutover. The previous
+Vercel hostname may stay attached temporarily so existing cards keep
+resolving; all NEW cards/QRs use karti.pro.)
 
 or the final domain explicitly chosen by the user.
 
@@ -49,7 +53,7 @@ Configure the correct environment variables for:
 NEXT_PUBLIC_SUPABASE_URL      (per environment)
 NEXT_PUBLIC_SUPABASE_ANON_KEY (per environment)
 SUPABASE_SERVICE_ROLE_KEY     (server-only, per environment)
-NEXT_PUBLIC_APP_URL           (preview URL on previews, https://karti.app on prod)
+NEXT_PUBLIC_APP_URL           (preview URL on previews, https://karti.pro on prod)
 ```
 
 Never copy production service-role secrets into client-exposed variables.
@@ -72,9 +76,9 @@ Before launch:
 Verify:
 
 ```text
-https://karti.app/
-https://karti.app/{profile-slug}
-https://karti.app/t/{shortCode}
+https://karti.pro/
+https://karti.pro/{profile-slug}
+https://karti.pro/t/{shortCode}
 ```
 
 NFC and QR payloads should always use HTTPS production URLs for delivered cards.

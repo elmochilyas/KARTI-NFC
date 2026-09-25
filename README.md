@@ -2,7 +2,7 @@
 
 Karti is a web platform for creating, managing, and configuring NFC-enabled
 digital business cards. Each physical card stores one permanent URL
-(`https://karti.app/t/{shortCode}`); the dashboard changes the destination
+(`https://karti.pro/t/{shortCode}`); the dashboard changes the destination
 behind that URL without rewriting the tag.
 
 > Previous root README contained only the text `# KARTI-NFC` (UTF-16, 28 bytes)

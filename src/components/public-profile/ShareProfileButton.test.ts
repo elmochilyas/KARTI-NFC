@@ -10,11 +10,11 @@ import {
 
 describe("buildSharePayload", () => {
   it("shares the display name as title with a personalized message", () => {
-    expect(buildSharePayload("Ahmed Benali", "https://karti-bice.vercel.app/ahmed-benali")).toEqual(
+    expect(buildSharePayload("Ahmed Benali", "https://karti.pro/ahmed-benali")).toEqual(
       {
         title: "Ahmed Benali",
         text: "Check out Ahmed Benali on Karti",
-        url: "https://karti-bice.vercel.app/ahmed-benali",
+        url: "https://karti.pro/ahmed-benali",
       },
     );
   });
@@ -32,7 +32,7 @@ describe("buildSharePayload", () => {
   });
 
   it("carries only public share fields — never private data", () => {
-    const payload = buildSharePayload("Ahmed Benali", "https://karti-bice.vercel.app/ahmed-benali");
+    const payload = buildSharePayload("Ahmed Benali", "https://karti.pro/ahmed-benali");
     expect(Object.keys(payload).sort()).toEqual(["text", "title", "url"]);
     const serialized = JSON.stringify(payload);
     expect(serialized).not.toContain("client");
@@ -63,8 +63,8 @@ describe("legacyCopy", () => {
 
   it("copies the URL and reports success", () => {
     const { area, doc } = fakeDoc(true);
-    expect(legacyCopy("https://karti-bice.vercel.app/ahmed-benali", doc)).toBe(true);
-    expect(area.value).toBe("https://karti-bice.vercel.app/ahmed-benali");
+    expect(legacyCopy("https://karti.pro/ahmed-benali", doc)).toBe(true);
+    expect(area.value).toBe("https://karti.pro/ahmed-benali");
     expect(area.select).toHaveBeenCalled();
     expect(doc.execCommand as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledWith("copy");
   });
