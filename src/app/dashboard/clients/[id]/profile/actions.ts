@@ -968,7 +968,7 @@ export async function resolveMapsLinkAction(rawUrl: string): Promise<MapsResolve
     return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
   }
   try {
-    return await resolveMapLink(rawUrl, {
+    const result = await resolveMapLink(rawUrl, {
       fetchFn: async (url, init) => {
         const response = await fetch(url, {
           method: init.method,
@@ -1009,6 +1009,21 @@ export async function resolveMapsLinkAction(rawUrl: string): Promise<MapsResolve
         };
       },
     });
+    // Safe server-console diagnostics only (Vercel logs): tag presence
+    // plus the final hostname. Never the HTML, URLs, headers, or bodies.
+    // Diagnostics are stripped here and never reach the client UI.
+    if (result.diagnostics) {
+      console.info("maps-resolve", {
+        finalHost: result.diagnostics.finalHost,
+        canonicalFound: result.diagnostics.canonicalFound,
+        ogFound: result.diagnostics.ogFound,
+        resolutionSource: result.ok ? result.source : "NOT_RESOLVED",
+      });
+    }
+    if (!result.ok) return { ok: false as const, message: result.message };
+    const clientResult = { ...result };
+    delete clientResult.diagnostics;
+    return clientResult;
   } catch {
     return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
   }

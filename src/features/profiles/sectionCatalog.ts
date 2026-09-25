@@ -80,7 +80,7 @@ export type SectionSettingsProps = {
      * (never imported) so the catalog stays free of server-action imports
      * — same boundary as the uploaders. Absent in static tests. Extra
      * success fields (provider/normalizedUrl) are ignored by the editor,
-     * which commits latitude/longitude only.
+     * which commits latitude/longitude plus pinSource only.
      */
     resolveMapsLink?: (url: string) => Promise<
       | {

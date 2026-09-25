@@ -104,6 +104,7 @@ describe("location settings", () => {
         latitude: 33.99,
         longitude: -6.84,
         mapsUrl: null,
+        pinSource: null,
         mapZoom: 15,
         showMap: true,
         buttonLabel: "",
@@ -161,6 +162,7 @@ describe("location settings", () => {
       query: "30.42,-9.6",
       directLink: "https://www.google.com/maps/place/X",
       coords: { latitude: 30.42, longitude: -9.6 },
+      isManualPin: false,
     });
     expect(
       resolveLocationTarget({ address: "Agadir", mapsUrl: "https://maps.apple.com/?q=Agadir" }),
@@ -176,6 +178,38 @@ describe("location settings", () => {
       directLink: null,
       coords: null,
     });
+  });
+
+  it("flags hand-placed pins without changing auto resolution", () => {
+    expect(resolveLocationTarget({ latitude: 30.42, longitude: -9.6 })).toMatchObject({
+      isManualPin: false,
+    });
+    expect(
+      resolveLocationTarget({ latitude: 30.42, longitude: -9.6, pinSource: "manual" }),
+    ).toMatchObject({
+      coords: { latitude: 30.42, longitude: -9.6 },
+      isManualPin: true,
+    });
+    expect(
+      resolveLocationTarget({ latitude: 30.42, longitude: -9.6, pinSource: "auto" }),
+    ).toMatchObject({ isManualPin: false });
+    expect(
+      resolveLocationTarget({ latitude: 30.42, longitude: -9.6, pinSource: "x" }),
+    ).toMatchObject({ isManualPin: false });
+  });
+
+  it("persists pin provenance through admin sanitization", () => {
+    const manual = sanitizeAdminSettings("location", {
+      latitude: 31.6,
+      longitude: -7.9,
+      pinSource: "manual",
+    });
+    expect(manual.ok).toBe(true);
+    if (manual.ok) expect(manual.settings).toMatchObject({ pinSource: "manual" });
+    const legacy = sanitizeAdminSettings("location", { latitude: 31.6, longitude: -7.9 });
+    expect(legacy.ok).toBe(true);
+    if (legacy.ok) expect(legacy.settings).toMatchObject({ pinSource: null });
+    expect(sanitizeAdminSettings("location", { pinSource: "gps" }).ok).toBe(false);
   });
 
   it("osmEmbedUrl builds a keyless embed from numbers only", () => {
