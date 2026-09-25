@@ -70,9 +70,8 @@ describe("section catalog", () => {
     // ProfileSections.tsx deliberately does NOT import this catalog (dashboard
     // editors + lucide icons would ride into the public tap bundle). Its
     // LIVE_PUBLIC_SECTION_TYPES mirror must match every live catalog type.
-    const { LIVE_PUBLIC_SECTION_TYPES } = await import(
-      "@/components/public-profile/ProfileSections"
-    );
+    const { LIVE_PUBLIC_SECTION_TYPES } =
+      await import("@/components/public-profile/ProfileSections");
     const liveCatalog = SECTION_CATALOG.filter((e) => e.status === "live").map((e) => e.type);
     expect([...LIVE_PUBLIC_SECTION_TYPES].sort()).toEqual([...liveCatalog].sort());
   });

@@ -10,10 +10,9 @@ import dynamic from "next/dynamic";
  * production builds). `ssr: false` must live in a Client Component —
  * `next/dynamic` forbids it directly in Server Components.
  */
-const PwaDiagnostics = dynamic(
-  () => import("./PwaDiagnostics").then((m) => m.PwaDiagnostics),
-  { ssr: false },
-);
+const PwaDiagnostics = dynamic(() => import("./PwaDiagnostics").then((m) => m.PwaDiagnostics), {
+  ssr: false,
+});
 
 export function PwaDiagnosticsLazy() {
   if (process.env.NODE_ENV !== "development") return null;
