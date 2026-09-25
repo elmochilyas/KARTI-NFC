@@ -2237,3 +2237,81 @@ A Morocco share link resolved to Virginia/Leesburg, USA with
 - No Google API / billing / keys, no provider swap (OSM embed kept),
   no Apple/OSM breakage, no public-page fetching, no mass rewrite of
   already-saved rows (re-paste re-resolves and overwrites).
+
+---
+
+## ADR-067 — Google Maps metadata fallback (no-API, trusted tags only)
+
+**Status:** Accepted
+**Date:** 2026-09-25
+
+### Context
+
+After ADR-066, some real `maps.app.goo.gl/…` links resolve to final
+Google URLs with no trusted coordinates anywhere (no `!3d`, no numeric
+params, no direct `@`) and correctly return "We couldn't confirm the
+exact location." A safe second stage was needed that cannot reintroduce
+the Virginia/Leesburg false positive.
+
+### Decision
+
+- Pipeline: strict final-URL parser → (miss) ONE bounded page fetch →
+  `<link rel="canonical">` / `<meta property="og:url">` only → strict
+  parser again → (miss) `NOT_RESOLVED`. `twitter:url` skipped
+  (operator-confirmed; keeps the trusted surface to two tags).
+- Every metadata URL must itself be `https:` on a Google Maps host
+  before parsing (explicit gate in `isTrustedMetadataUrl`; relative
+  canonicals resolve against the allowlisted base). Anything else is
+  dropped, never followed.
+- Metadata successes report `google_canonical_metadata` /
+  `google_og_metadata` (the tag is the source). Fetch envelope
+  unchanged: single GET, timeout, 512 KB + content-length cap,
+  `no-store`, `credentials: omit`, `Accept: text/html` only, `manual`
+  redirects, per-fetch DNS check.
+- Diagnostics for §10 live server-side only: `resolveGoogleMaps`
+  attaches `{ finalHost, canonicalFound, ogFound }` when the metadata
+  path runs; `resolveMapsLinkAction` logs exactly
+  `{ finalHost, canonicalFound, ogFound, resolutionSource }` and strips
+  diagnostics before responding. No HTML, URLs, headers, bodies, keys,
+  cookies, or session data in logs; nothing new reaches the client UI.
+- Live finding on the exact Morocco link
+  (`maps.app.goo.gl/h9BUXhJV3HohouEu5?g_st=ac`): final page is a
+  Plus-Code `/place/` URL whose served HTML carries `og:title`/`image`/
+  `description` but no canonical and no `og:url` — correctly
+  `NOT_RESOLVED`, no guessing. Plus-Code path decoding was considered
+  and rejected: short codes need locality recovery (geocoding-like,
+  outside the trust model).
+
+---
+
+## ADR-068 — Manual map-pin fallback (OSM/Leaflet, no Google API)
+
+**Status:** Accepted
+**Date:** 2026-09-25
+
+### Context
+
+The strict resolver is correct but some real shares (Plus-Code places
+with no metadata coordinates) can never auto-resolve. The admin needs
+a hand-placed pin without lat/lng typing, geocoding, or location
+permission prompts.
+
+### Decision
+
+- Interactive layer is Leaflet 1.9.4 on OSM tiles (same provider as the
+  read-only embeds; no keys/billing). Only new runtime dependency.
+  Dynamically imported in the picker effect; CSS via the dashboard
+  layout so the public bundle never loads Leaflet (isolation-tested).
+- Provenance persists as `pinSource: "auto" | "manual" | null`
+  (legacy `null` = auto) in location settings JSONB — no migration.
+  Manual pins survive failed re-validations of an unchanged link;
+  changing the link clears everything immediately.
+- Failure UX is a CTA ("Choose location on map"), never a lat/lng form.
+  Manual confirmations are labeled "✓ Location selected", never
+  "automatically detected".
+- Public directions prefer `destination=LAT,LNG` for manual pins only;
+  auto pins keep the operator-link-wins rule (ADR-065 lineage).
+- Consistency amendment: whenever valid saved coordinates exist,
+  directions ALWAYS use `destination=LAT,LNG` regardless of provenance;
+  the stored vendor link is reference/editing only and the fallback
+  solely when no coordinates exist.

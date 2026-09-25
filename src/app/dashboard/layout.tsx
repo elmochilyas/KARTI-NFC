@@ -1,4 +1,7 @@
 import { redirect } from "next/navigation";
+// Manual map-pin picker tiles (Phase 34.7). Dashboard-only: the public
+// profile never loads Leaflet (read-only OSM embeds there).
+import "leaflet/dist/leaflet.css";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";

@@ -3567,6 +3567,153 @@ provider swap, no schema change.
 
 ---
 
+# Phase 34.6 — Google Maps Metadata Fallback (no-API, trusted tags only)
+
+Some real `maps.app.goo.gl/…` links resolve to final URLs with no trusted
+coordinates at all. Second-stage fallback: ONE bounded page fetch, parse
+ONLY `<link rel="canonical">` + `<meta property="og:url">`, feed back
+through the strict parser. See ADR-067. No API keys, no billing, no body
+scanning, no guessing.
+
+## 34.6.1 Resolver
+
+- [x] Tagged metadata candidates (`canonical` | `og`); `twitter:url`
+      deliberately skipped (operator-confirmed, keeps surface small).
+- [x] Explicit `https:` + Google-host gate on every metadata URL before
+      parsing (non-Google/hostile canonicals rejected outright).
+- [x] Metadata successes attributed to `google_canonical_metadata` /
+      `google_og_metadata` (inner `!3d`/explicit/`@` granularity
+      collapses into the tag source, per spec §7).
+- [x] Safe diagnostics (`finalHost`, `canonicalFound`, `ogFound`) attached
+      only when the metadata path runs; server action logs
+      `{ finalHost, canonicalFound, ogFound, resolutionSource }` via
+      `console.info` and strips diagnostics before responding — client UI
+      keeps only Detecting / ✓ / failure copy.
+- [x] Strict parser, redirect chain, one-fetch-max, timeout, 512 KB cap,
+      no-cookies/credentials/auth-headers envelope: untouched.
+
+## 34.6.2 Tests + verification
+
+- [x] B updated → `google_canonical_metadata` + diagnostics asserted.
+- [x] C added: `og:url` with trusted `!3d/!4d` → `google_og_metadata`
+      (exactly one page fetch).
+- [x] E added: non-Google + non-HTTPS canonical rejected (unit +
+      end-to-end, diagnostics still report tag presence).
+- [x] H added: oversized/unreadable (`bodyText: null`) fails safely with
+      diagnostics; existing G (timeout/throw) unchanged.
+- [x] `describePageMetadata` presence unit tests; D/F/viewport suites
+      pass untouched (return shape updated to `{ coords, via }`).
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` (64 files / 810 tests),
+      `pnpm build`, `pnpm audit` (clean) green (2026-09-25).
+- [x] Touched logic files Prettier-clean individually (`mapLinks.ts`,
+      `mapLinks.test.ts`); repo-wide `format:check` still shows the
+      pre-existing CRLF worktree baseline.
+
+## 34.6.3 Real-link verification (§10)
+
+Exact link `https://maps.app.goo.gl/h9BUXhJV3HohouEu5?g_st=ac`
+(Morocco) run end-to-end through the real `resolveMapLink` with live
+fetch/DNS (temp harness, removed afterwards; only safe fields printed):
+
+- redirect: `maps.app.goo.gl` → 302 → `www.google.com` → 200.
+- final pattern: `www.google.com/maps/place/<Plus-Code + locality slug>`
+  (`/place/`, no `@`, no `!3d`, no coord params) — strict parser
+  correctly finds nothing.
+- page: 200 `text/html`, ~220 KB; `og:title`/`og:image`/`og:description`
+  present but **no canonical, no `og:url`**
+  (`canonicalFound: false, ogFound: false`).
+- result: `NOT_RESOLVED` — "We couldn't confirm the exact location."
+  No guessing, no body scan, per the confirmed instruction. The Plus-Code
+  + locality slug in the path is noted as a possible future direction
+  (short-code recovery needs locality resolution — outside the current
+  trust model, NOT implemented).
+
+### Phase 34.6 gate
+
+- [x] Metadata fallback resolves canonical/`og:url` place URLs; hostile
+      metadata rejected; failures stay marker-less.
+- [x] No database change; no client-UI change; no new dependencies.
+- [x] Full verification green (format baseline standing note applies).
+
+> 2026-09-25: implemented + verified per plan. Not committed — left ready
+> for review.
+
+---
+
+# Phase 34.7 — Manual Map-Pin Fallback (OSM/Leaflet, no Google API)
+
+When strict auto-detection finds nothing (e.g. the Plus-Code Morocco
+share), the admin places the pin by hand on an interactive OSM map.
+See ADR-068. No Google API/billing/keys, no geocoding, no geolocation,
+no body scraping.
+
+## 34.7.1 Picker
+
+- [x] `leaflet@1.9.4` (+ `@types/leaflet`) — OSM tile layer +
+      attribution, same provider as the read-only embeds. Dynamically
+      imported inside the picker effect; public pages never load it
+      (dashboard layout carries the CSS; isolation test pins this).
+- [x] `MapPinPicker` (`"use client"`): native `<dialog>` sheet
+      (ImageCropEditor pattern), tap-to-place + draggable `divIcon` pin,
+      pan/zoom, `invalidateSize` after open, Cancel / Use-this-location
+      (≥44px, labeled, `aria-live` pin readout, Esc-to-cancel).
+- [x] Pure `mapPin.ts`: Casablanca-area default center (zoom 6), saved
+      point → zoom 15, tap normalization (lng wrap at 5-decimal
+      precision), `manualPinCommit` tagging `pinSource: "manual"`,
+      `shouldClearOnResolveFailure` (manual pins survive unchanged-link
+      re-validation failures).
+
+## 34.7.2 Editor states
+
+- [x] `LocationStatusBanner` (pure, SSR-safe): Detecting… / ✓ Location
+      detected / ✓ Location selected / unresolved CTA ("We couldn't
+      detect the exact point automatically." + Choose location on map).
+      Manual is never called "automatically detected".
+- [x] Success commits `{ lat, lng, pinSource: "auto" }`; confirm commits
+      `{ lat, lng, pinSource: "manual" }`; cancel commits nothing.
+- [x] Link change clears coords + `pinSource` immediately; mount adopts
+      persisted truth (saved pins shown as-is, unresolved links resolve).
+      This also fixes a latent wipe: re-validating an expired link on
+      editor open no longer deletes saved pins.
+- [x] `pinSource` added to `locationSettingsSchema` (legacy rows default
+      `null` = auto); invalid values rejected; no migration (JSONB).
+
+## 34.7.3 Public profile
+
+- [x] No resolver/fetch added (isolation test: public-profile imports
+      neither `mapLinks` nor server actions nor Leaflet).
+- [x] Manual pins render the saved marker; directions prefer
+      `destination=LAT,LNG` over the unresolvable short link. Apple
+      secondary link shown for manual.
+- [x] Consistency fix: whenever valid saved coordinates exist, directions
+      ALWAYS use `destination=LAT,LNG` regardless of provenance (saved
+      coordinates are the normalized source of truth); the stored vendor
+      link is reference/editing only and remains the fallback solely when
+      no coordinates exist.
+
+## 34.7.4 Tests + verification
+
+- [x] `mapPin` unit tests (center/normalize/commit/clear-matrix).
+- [x] Schema tests (provenance persists, junk rejected, legacy default).
+- [x] Banner markup tests (states distinct, CTA only on unresolved).
+- [x] Renderer tests (manual marker + coords directions, no short-link
+      leak; auto vendor-link behavior unchanged).
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` (65 files / 822 tests),
+      `pnpm build`, `pnpm audit` (clean) green (2026-09-25).
+- [x] Touched files Prettier-clean individually (repo CRLF baseline
+      standing note applies).
+
+### Phase 34.7 gate
+
+- [x] Unresolvable links offer a hand-placed pin; auto flow untouched.
+- [x] No database change; mobile-first dialog; no new Google surface.
+- [x] Full verification green.
+
+> 2026-09-25: implemented + verified per plan. Not committed — left ready
+> for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

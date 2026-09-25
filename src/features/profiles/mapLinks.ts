@@ -23,6 +23,8 @@ export type MapCoordinateSource =
   | "google_place_coordinates"
   | "explicit_coordinates"
   | "direct_map_coordinates"
+  | "google_canonical_metadata"
+  | "google_og_metadata"
   | "apple_coordinates"
   | "osm_coordinates";
 
@@ -195,42 +197,83 @@ function attrValue(tag: string, attr: string): string | null {
   return match?.[2] ?? null;
 }
 
-/** Candidate navigation URLs embedded in page metadata (canonical, og:url). */
-function pageCandidateUrls(html: string): string[] {
-  const out: string[] = [];
+/** Which metadata tag a candidate URL came from. */
+export type PageMetadataKind = "canonical" | "og";
+
+type PageMetadataCandidate = { kind: PageMetadataKind; url: string };
+
+/**
+ * Candidate navigation URLs embedded in page metadata: document-level
+ * `<link rel="canonical">` and `<meta property="og:url">` only. Nothing
+ * else in the markup is ever read — no body scans, no script blobs.
+ */
+function pageCandidateUrls(html: string): PageMetadataCandidate[] {
+  const out: PageMetadataCandidate[] = [];
   for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
     if (/rel\s*=\s*["']canonical["']/i.test(tag)) {
       const href = attrValue(tag, "href");
-      if (href) out.push(href);
+      if (href) out.push({ kind: "canonical", url: href });
     }
   }
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
     if (/property\s*=\s*["']og:url["']/i.test(tag)) {
       const content = attrValue(tag, "content");
-      if (content) out.push(content);
+      if (content) out.push({ kind: "og", url: content });
     }
   }
   return out;
 }
 
+export type PageMetadataPresence = { canonicalFound: boolean; ogFound: boolean };
+
+/** Tag presence only — never coordinates, never page text. */
+export function describePageMetadata(html: string): PageMetadataPresence {
+  const source = html.slice(0, MAX_MAP_PAGE_BYTES);
+  const candidates = pageCandidateUrls(source);
+  return {
+    canonicalFound: candidates.some((c) => c.kind === "canonical"),
+    ogFound: candidates.some((c) => c.kind === "og"),
+  };
+}
+
+/** True only for https: URLs on a Google Maps host (or a relative URL). */
+function isTrustedMetadataUrl(candidate: string, baseUrl: string): string | null {
+  let absolute: URL;
+  try {
+    absolute = new URL(candidate, baseUrl);
+  } catch {
+    return null;
+  }
+  if (absolute.protocol !== "https:") return null;
+  const host = absolute.hostname.toLowerCase();
+  if (host === "localhost") return null;
+  if (!/(^|\.)google\.[a-z.]+$/.test(host) && !/(^|\.)maps\.google\.[a-z.]+$/.test(host)) {
+    return null;
+  }
+  return absolute.toString();
+}
+
+export type PageMetadataResult = { coords: MapCoordinates; via: PageMetadataKind };
+
 /**
  * Check resolved destination-page HTML for coordinates WITHOUT executing
  * any page scripts and WITHOUT scanning the body for arbitrary pairs.
- * Only canonical / og:url metadata URLs are honored, re-checked with the
- * trusted URL extractor. Viewport coordinates, nearby POIs, localization
- * defaults, and JSON blobs in the markup can never become the place.
+ * Only canonical / og:url metadata URLs on Google hosts are honored,
+ * re-checked with the trusted URL extractor. Viewport coordinates,
+ * nearby POIs, localization defaults, and JSON blobs in the markup can
+ * never become the place.
  */
-export function extractCoordinatesFromPage(html: string, baseUrl: string): MapCoordinates | null {
+export function extractCoordinatesFromPage(
+  html: string,
+  baseUrl: string,
+): PageMetadataResult | null {
   const source = html.slice(0, MAX_MAP_PAGE_BYTES);
 
   for (const candidate of pageCandidateUrls(source)) {
-    try {
-      const absolute = new URL(candidate, baseUrl).toString();
-      const coords = extractCoordinates(absolute);
-      if (coords) return coords;
-    } catch {
-      // Ignore malformed metadata URLs.
-    }
+    const trusted = isTrustedMetadataUrl(candidate.url, baseUrl);
+    if (!trusted) continue;
+    const coords = extractCoordinates(trusted);
+    if (coords) return { coords, via: candidate.kind };
   }
 
   return null;
@@ -430,6 +473,17 @@ async function fetchResolvedPageText(
   return response.bodyText.slice(0, MAX_MAP_PAGE_BYTES);
 }
 
+/**
+ * Safe metadata-fallback diagnostics (server logs only — never returned
+ * to the client UI). Tag presence plus the final hostname; no URLs, no
+ * page text, no secrets.
+ */
+export type GoogleResolveDiagnostics = {
+  finalHost: string;
+  canonicalFound: boolean;
+  ogFound: boolean;
+};
+
 export type MapLinkResolution =
   | {
       ok: true;
@@ -441,8 +495,14 @@ export type MapLinkResolution =
       resolvedUrl: string;
       /** Google → directions URL; other providers → the resolved URL. */
       normalizedUrl: string;
+      /**
+       * Present only when the metadata fallback ran. The server action
+       * logs it and strips it before responding — it never reaches the
+       * browser.
+       */
+      diagnostics?: GoogleResolveDiagnostics;
     }
-  | { ok: false; message: string };
+  | { ok: false; message: string; diagnostics?: GoogleResolveDiagnostics };
 
 function normalizedUrlFor(provider: MapProvider, source: string, coords: MapCoordinates): string {
   if (provider === "google") {
@@ -451,10 +511,20 @@ function normalizedUrlFor(provider: MapProvider, source: string, coords: MapCoor
   return source;
 }
 
+function safeFinalHost(source: string): string {
+  try {
+    return new URL(source.trim()).hostname.toLowerCase();
+  } catch {
+    return "invalid";
+  }
+}
+
 /**
- * Google resolution: trusted URL patterns first, then the bounded
- * resolved-page fallback for place URLs that expose coordinates only in
- * page metadata (canonical / og:url). Never scans page bodies.
+ * Google resolution pipeline:
+ *   strict final-URL parser → (miss) one bounded page fetch → canonical /
+ *   og:url metadata → strict parser again → (miss) NOT_RESOLVED.
+ * Never scans page bodies. Metadata successes are attributed to
+ * `google_canonical_metadata` / `google_og_metadata`.
  */
 async function resolveGoogleMaps(
   source: string,
@@ -473,22 +543,29 @@ async function resolveGoogleMaps(
       normalizedUrl: normalizedUrlFor("google", source, coords),
     };
   }
+  const finalHost = safeFinalHost(source);
   const html = await fetchResolvedPageText(source, deps, timeoutMs);
+  const presence =
+    html !== null ? describePageMetadata(html) : { canonicalFound: false, ogFound: false };
+  const diagnostics: GoogleResolveDiagnostics = { finalHost, ...presence };
   if (html !== null) {
-    const pageCoords = extractCoordinatesFromPage(html, source);
-    if (pageCoords) {
+    const pageResult = extractCoordinatesFromPage(html, source);
+    if (pageResult) {
+      const metadataSource: MapCoordinateSource =
+        pageResult.via === "canonical" ? "google_canonical_metadata" : "google_og_metadata";
       return {
         ok: true,
         provider: "google",
-        latitude: pageCoords.latitude,
-        longitude: pageCoords.longitude,
-        source: pageCoords.source,
+        latitude: pageResult.coords.latitude,
+        longitude: pageResult.coords.longitude,
+        source: metadataSource,
         resolvedUrl: source,
-        normalizedUrl: normalizedUrlFor("google", source, pageCoords),
+        normalizedUrl: normalizedUrlFor("google", source, pageResult.coords),
+        diagnostics,
       };
     }
   }
-  return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE };
+  return { ok: false, message: MAPS_DETECT_FAILURE_MESSAGE, diagnostics };
 }
 
 /** Apple Maps resolution: explicit URL pairs only, never guessed. */

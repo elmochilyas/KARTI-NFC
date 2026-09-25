@@ -297,6 +297,59 @@ describe("ProfileSectionRenderer business sections", () => {
     expect(html).not.toContain("maps.google.com/maps?");
   });
 
+  it("renders a hand-placed pin from saved coordinates with coords-based directions", () => {
+    const html = renderBusiness([
+      {
+        ...LOCATION,
+        settings: {
+          ...LOCATION.settings,
+          latitude: 31.63,
+          longitude: -7.99,
+          mapsUrl: "https://maps.app.goo.gl/h9BUXhJV3HohouEu5?g_st=ac",
+          pinSource: "manual",
+        },
+      },
+    ]);
+    // Saved manual coordinates drive the marker — no re-resolution.
+    expect(html).toContain("marker=31.63,-7.99");
+    // Directions use the coordinates, never the unresolvable short link.
+    expect(html).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=31.63%2C-7.99");
+    expect(html).not.toContain("maps.app.goo.gl");
+    expect(html).toContain("https://maps.apple.com/?q=31.63%2C-7.99");
+  });
+
+  it("uses coordinate directions for auto-detected pins when coordinates exist", () => {
+    const html = renderBusiness([
+      {
+        ...LOCATION,
+        settings: {
+          ...LOCATION.settings,
+          mapsUrl: "https://www.google.com/maps/place/X",
+          pinSource: "auto",
+        },
+      },
+    ]);
+    // Saved coordinates win over the stored vendor link (any provenance).
+    expect(html).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=33.99%2C-6.84");
+    expect(html).not.toContain('href="https://www.google.com/maps/place/X"');
+  });
+
+  it("falls back to the saved vendor link when no coordinates exist", () => {
+    const html = renderBusiness([
+      {
+        ...LOCATION,
+        settings: {
+          ...LOCATION.settings,
+          latitude: null,
+          longitude: null,
+          mapsUrl: "https://www.google.com/maps/place/X",
+        },
+      },
+    ]);
+    expect(html).toContain('href="https://www.google.com/maps/place/X"');
+    expect(html).toContain("123 Main St");
+  });
+
   it("renders no iframe for address-only locations", () => {
     const html = renderBusiness([
       {

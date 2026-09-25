@@ -120,6 +120,15 @@ export const locationSettingsSchema = z.object({
       })
       .transform((v) => (v === "" ? null : v)),
   ),
+  /**
+   * Pin provenance (Phase 34.7 manual fallback). `"auto"` = resolver-found,
+   * `"manual"` = operator-placed on the map picker, `null` = legacy rows
+   * (treated as auto). Persisted so a manual pin survives editor reloads
+   * and failed re-validations of an unresolvable link; changing the link
+   * clears it. Carried in the public projection (needed for the manual
+   * directions preference); never rendered as content.
+   */
+  pinSource: z.enum(["auto", "manual"]).nullable().default(null),
   /** OSM embed zoom (Phase 34.2 map card). Blank clears to the default. */
   mapZoom: z.preprocess(emptyToNull, z.number().int().min(1).max(19).nullable().default(15)),
   showMap: z.boolean().default(true),
@@ -491,6 +500,8 @@ export type LocationTarget = {
   directLink: string | null;
   /** Coordinates for the embedded map, or null when unavailable. */
   coords: { latitude: number; longitude: number } | null;
+  /** True when the saved pin was placed by hand (never auto-detected). */
+  isManualPin: boolean;
 };
 
 /**
@@ -503,13 +514,19 @@ export function resolveLocationTarget(settings: {
   latitude?: unknown;
   longitude?: unknown;
   mapsUrl?: unknown;
+  pinSource?: unknown;
 }): LocationTarget {
   const lat = typeof settings.latitude === "number" ? settings.latitude : null;
   const lng = typeof settings.longitude === "number" ? settings.longitude : null;
   const coords = lat !== null && lng !== null ? { latitude: lat, longitude: lng } : null;
   const directLink = sanitizeMapsLink(settings.mapsUrl);
   const query = locationQuery(settings);
-  return { query: coords ? `${lat},${lng}` : (directLink ?? query), directLink, coords };
+  return {
+    query: coords ? `${lat},${lng}` : (directLink ?? query),
+    directLink,
+    coords,
+    isManualPin: settings.pinSource === "manual",
+  };
 }
 
 /**

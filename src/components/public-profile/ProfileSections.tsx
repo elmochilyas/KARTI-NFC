@@ -739,6 +739,7 @@ export function LocationSection({
     latitude: settings?.latitude ?? null,
     longitude: settings?.longitude ?? null,
     mapsUrl: settings?.mapsUrl ?? null,
+    pinSource: settings?.pinSource ?? null,
   });
   if (!target.query) {
     return previewPlaceholders ? (
@@ -759,13 +760,20 @@ export function LocationSection({
       ? osmEmbedUrl(target.coords.latitude, target.coords.longitude, zoom)
       : null;
   const urls = navigationUrls(query);
-  // Saved coordinates get a normalized Google directions URL so the
-  // button keeps working even if the original short link expires. The
-  // operator's original safe link still wins when present.
-  const googleHref =
+  // Saved trusted coordinates are the normalized location source of
+  // truth: whenever they exist, directions use them — regardless of pin
+  // provenance — so the button never depends on the original (possibly
+  // expiring) short link. The stored vendor link is kept for reference
+  // and editing, and remains the fallback only when no coordinates exist.
+  const coordsHref =
     target.coords !== null
       ? (googleDirectionsUrl(target.coords.latitude, target.coords.longitude) ?? urls.google)
       : urls.google;
+  const googleHref =
+    target.coords === null && typeof target.directLink === "string"
+      ? target.directLink
+      : coordsHref;
+  const useDirectLink = target.coords === null && target.directLink !== null;
 
   return (
     <section
@@ -809,10 +817,10 @@ export function LocationSection({
       ) : null}
       <div className="mt-2.5 flex flex-wrap items-center gap-2 px-1 pb-1">
         <a
-          href={target.directLink ?? googleHref}
+          href={googleHref}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={target.directLink ? buttonLabel : `${buttonLabel} (Google Maps)`}
+          aria-label={useDirectLink ? buttonLabel : `${buttonLabel} (Google Maps)`}
           className="inline-flex min-h-11 items-center gap-1 rounded-full px-3.5 text-[13px] font-bold"
           style={{
             backgroundColor: "color-mix(in srgb, var(--karti-accent) 12%, transparent)",
@@ -822,7 +830,7 @@ export function LocationSection({
           {buttonLabel}
           <LuChevronRight size={15} aria-hidden="true" />
         </a>
-        {target.directLink ? null : (
+        {!target.isManualPin && target.directLink ? null : (
           <a
             href={urls.apple}
             target="_blank"

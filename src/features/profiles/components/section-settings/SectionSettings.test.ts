@@ -21,6 +21,13 @@ vi.mock("@/app/dashboard/clients/[id]/profile/actions", () => ({
 
 import { SectionSettingsRenderer } from "./SectionSettingsRenderer";
 import { CatalogSettingsEditor, MenuSettingsEditor } from "./CollectionEditor";
+import { LocationStatusBanner, type LocationDetectStatus } from "./SectionEditors";
+
+function banner(status: LocationDetectStatus): string {
+  return renderToStaticMarkup(
+    createElement(LocationStatusBanner, { status, working: false, onChooseOnMap: () => {} }),
+  );
+}
 
 function render(type: string, settings: Record<string, unknown> = {}): string {
   return renderToStaticMarkup(
@@ -61,6 +68,32 @@ describe("SectionSettingsRenderer", () => {
     expect(html).not.toContain("Latitude");
     expect(html).not.toContain("Longitude");
     expect(html).not.toContain("Map zoom");
+  });
+
+  it("keeps automatic and manual location states distinct", () => {
+    const detected = banner({ state: "detected" });
+    expect(detected).toContain("✓ Location detected");
+    expect(detected).not.toContain("Choose location on map");
+    const selected = banner({ state: "selected" });
+    expect(selected).toContain("✓ Location selected");
+    expect(selected).not.toContain("automatically detected");
+    expect(selected).not.toContain("Location detected");
+  });
+
+  it("exposes the map-picker call to action when detection is unavailable", () => {
+    const html = banner({ state: "unresolved" });
+    expect(html).toContain("detect the exact point automatically");
+    expect(html).toContain("Choose location on map");
+    expect(html).toContain("<button");
+    expect(banner({ state: "idle" })).not.toContain("Choose location on map");
+    const detecting = renderToStaticMarkup(
+      createElement(LocationStatusBanner, {
+        status: { state: "idle" },
+        working: true,
+        onChooseOnMap: () => {},
+      }),
+    );
+    expect(detecting).toContain("Detecting location…");
   });
 
   it("reflects stored values in toggle states", () => {

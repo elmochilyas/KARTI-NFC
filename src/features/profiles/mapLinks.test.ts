@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describePageMetadata,
   detectMapProvider,
   extractCoordinates,
   extractCoordinatesFromPage,
@@ -395,7 +396,7 @@ describe("resolveMapLink", () => {
     expect(deps.pageCalls).toHaveLength(0);
   });
 
-  it("falls back to canonical metadata when the final URL has no coordinates", async () => {
+  it("B: falls back to canonical metadata when the final URL has no coordinates", async () => {
     const final = "https://www.google.com/maps/place/Jet+Sakan+Hay+Salam/0x123";
     const deps = depsWith(
       {
@@ -418,10 +419,82 @@ describe("resolveMapLink", () => {
       provider: "google",
       latitude: 33.5731,
       longitude: -7.5898,
-      source: "google_place_coordinates",
+      source: "google_canonical_metadata",
       resolvedUrl: final,
       normalizedUrl: "https://www.google.com/maps/dir/?api=1&destination=33.5731%2C-7.5898",
+      diagnostics: { finalHost: "www.google.com", canonicalFound: true, ogFound: false },
     });
+  });
+
+  it("C: og:url metadata with trusted place coordinates resolves", async () => {
+    const final = "https://www.google.com/maps/place/NoCoordsHere/0x456";
+    const deps = depsWith(
+      {
+        "https://maps.app.goo.gl/ogu": { status: 302, location: final },
+        [final]: { status: 200, location: null },
+      },
+      {},
+      {
+        [final]: {
+          status: 200,
+          contentType: "text/html; charset=utf-8",
+          bodyText:
+            '<html><head><meta property="og:url" content="https://www.google.com/maps/place/Jet/data=!3m1!4b1!3d30.4278!4d-9.5981"></head></html>',
+        },
+      },
+    );
+    const result = await resolveMapLink("https://maps.app.goo.gl/ogu", deps);
+    expect(result).toMatchObject({
+      ok: true,
+      provider: "google",
+      latitude: 30.4278,
+      longitude: -9.5981,
+      source: "google_og_metadata",
+      resolvedUrl: final,
+      diagnostics: { finalHost: "www.google.com", canonicalFound: false, ogFound: true },
+    });
+    expect(deps.pageCalls).toHaveLength(1);
+  });
+
+  it("E: canonical pointing to a non-Google host is rejected", async () => {
+    const base = "https://www.google.com/maps/place/X";
+    expect(
+      extractCoordinatesFromPage(
+        '<html><head><link rel="canonical" href="https://evil.example.com/maps/place/Jet/data=!3d33.5731!4d-7.5898"></head></html>',
+        base,
+      ),
+    ).toBeNull();
+    expect(
+      extractCoordinatesFromPage(
+        '<html><head><meta property="og:url" content="http://www.google.com/maps/place/Jet/data=!3d33.5731!4d-7.5898"></head></html>',
+        base,
+      ),
+    ).toBeNull();
+    const final = "https://www.google.com/maps/place/Evil/0x789";
+    const deps = depsWith(
+      {
+        "https://maps.app.goo.gl/evil": { status: 302, location: final },
+        [final]: { status: 200, location: null },
+      },
+      {},
+      {
+        [final]: {
+          status: 200,
+          contentType: "text/html; charset=utf-8",
+          bodyText:
+            '<html><head><link rel="canonical" href="https://evil.example.com/x"></head></html>',
+        },
+      },
+    );
+    const result = await resolveMapLink("https://maps.app.goo.gl/evil", deps);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toMatchObject({
+        finalHost: "www.google.com",
+        canonicalFound: true,
+        ogFound: false,
+      });
+    }
   });
 
   it("H: HTML containing unrelated coordinate pairs yields NO coordinates", async () => {
@@ -440,9 +513,26 @@ describe("resolveMapLink", () => {
         base,
       ),
     ).toEqual({
-      latitude: 33.5731,
-      longitude: -7.5898,
-      source: "google_place_coordinates",
+      coords: {
+        latitude: 33.5731,
+        longitude: -7.5898,
+        source: "google_place_coordinates",
+      },
+      via: "canonical",
+    });
+    // An og:url metadata URL with trusted coordinates resolves as og.
+    expect(
+      extractCoordinatesFromPage(
+        '<html><head><meta property="og:url" content="https://www.google.com/maps/place/Jet/data=!3m1!4b1!3d33.5731!4d-7.5898"></head></html>',
+        base,
+      ),
+    ).toEqual({
+      coords: {
+        latitude: 33.5731,
+        longitude: -7.5898,
+        source: "google_place_coordinates",
+      },
+      via: "og",
     });
     // A canonical /place/ URL with only a viewport @ stays unresolved.
     expect(
@@ -452,6 +542,23 @@ describe("resolveMapLink", () => {
       ),
     ).toBeNull();
     expect(extractCoordinatesFromPage("<html><body>Hello Agadir</body></html>", base)).toBeNull();
+  });
+
+  it("metadata tag presence is reported without coordinates", () => {
+    expect(
+      describePageMetadata(
+        '<html><head><link rel="canonical" href="https://www.google.com/maps/place/X"></head></html>',
+      ),
+    ).toEqual({ canonicalFound: true, ogFound: false });
+    expect(
+      describePageMetadata(
+        '<html><head><meta property="og:url" content="https://www.google.com/maps/place/X"></head></html>',
+      ),
+    ).toEqual({ canonicalFound: false, ogFound: true });
+    expect(describePageMetadata("<html><body>no tags here</body></html>")).toEqual({
+      canonicalFound: false,
+      ogFound: false,
+    });
   });
 
   it("does not rescue a /place/ viewport URL with decoy page bodies", async () => {
@@ -506,6 +613,28 @@ describe("resolveMapLink", () => {
       fetchFn: bare.fetchFn,
     });
     expect(failing.ok).toBe(false);
+  });
+
+  it("H: oversized/unreadable responses fail safely with diagnostics", async () => {
+    const final = "https://www.google.com/maps/place/Huge/0x999";
+    // Oversized pre-check shape from the server action: null body text.
+    const huge = depsWith(
+      {
+        "https://maps.app.goo.gl/huge": { status: 302, location: final },
+        [final]: { status: 200, location: null },
+      },
+      {},
+      { [final]: { status: 200, contentType: "text/html; charset=utf-8", bodyText: null } },
+    );
+    const result = await resolveMapLink("https://maps.app.goo.gl/huge", huge);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toEqual({
+        finalHost: "www.google.com",
+        canonicalFound: false,
+        ogFound: false,
+      });
+    }
   });
 
   it("never page-fetches off-allowlist or Apple/OSM links", async () => {

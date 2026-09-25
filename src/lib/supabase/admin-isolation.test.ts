@@ -48,6 +48,35 @@ describe("service-role isolation", () => {
     expect(env).not.toContain("NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY");
   });
 
+  it("public-profile rendering never touches the maps resolver or server actions", () => {
+    const offenders: string[] = [];
+    const queue: string[] = [path.join(SRC_ROOT, "components", "public-profile")];
+    while (queue.length > 0) {
+      const dir = queue.pop() as string;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          queue.push(full);
+        } else if (
+          /\.(ts|tsx)$/.test(entry.name) &&
+          !entry.name.endsWith(".test.ts") &&
+          !entry.name.endsWith(".test.tsx")
+        ) {
+          const content = fs.readFileSync(full, "utf8");
+          if (
+            content.includes("features/profiles/mapLinks") ||
+            content.includes("resolveMapLink") ||
+            content.includes("clients/[id]/profile/actions") ||
+            content.includes("leaflet")
+          ) {
+            offenders.push(path.relative(SRC_ROOT, full));
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("server secrets live only behind the server-only guard", () => {
     const envServer = fs.readFileSync(path.join(SRC_ROOT, "lib", "env-server.ts"), "utf8");
     expect(envServer).toContain('import "server-only"');

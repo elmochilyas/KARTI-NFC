@@ -7,8 +7,16 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { moveSectionId } from "@/features/profiles/sectionCatalog";
-import { MAPS_DETECT_FAILURE_MESSAGE } from "@/features/profiles/mapLinks";
+import {
+  manualPinCommit,
+  pickerInitialCenter,
+  readPinSource,
+  readSavedPoint,
+  shouldClearOnResolveFailure,
+  type MapPoint,
+} from "@/features/profiles/mapPin";
 import { osmEmbedUrl, WEEKDAY_LABELS } from "@/features/profiles/sectionSettings";
+import { MapPinPicker } from "@/features/profiles/components/MapPinPicker";
 import type { SectionSettingsProps } from "@/features/profiles/sectionCatalog";
 
 function readBoolean(settings: Record<string, unknown>, key: string, fallback: boolean): boolean {
@@ -120,9 +128,67 @@ function readText(value: unknown, fallback = ""): string {
 }
 
 /**
- * Phase 34.3 link-only Location editor: the operator pastes ONE maps link,
- * Karti resolves exact coordinates internally. No latitude/longitude/zoom
- * fields — coordinates stay an implementation detail in settings.
+ * Detection status for the Location editor. `detected` = resolver-found
+ * this session or persisted auto; `selected` = operator-placed manual pin
+ * (never labeled "automatically detected"); `unresolved` = automatic
+ * resolution found nothing — the map-picker CTA is the way forward.
+ */
+export type LocationDetectStatus =
+  | { state: "idle" }
+  | { state: "detecting" }
+  | { state: "detected" }
+  | { state: "selected" }
+  | { state: "unresolved" };
+
+/**
+ * Pure status banner (SSR-safe, unit-testable): detection states plus the
+ * manual-picker call to action. The Leaflet picker itself mounts only on
+ * demand and never renders here.
+ */
+export function LocationStatusBanner({
+  status,
+  working,
+  onChooseOnMap,
+}: {
+  status: LocationDetectStatus;
+  working: boolean;
+  onChooseOnMap: () => void;
+}) {
+  return (
+    <div aria-live="polite">
+      {status.state === "detecting" || working ? (
+        <p className="text-sm text-muted">Detecting location…</p>
+      ) : null}
+      {status.state === "detected" ? (
+        <p role="status" className="text-sm font-medium text-green-700">
+          ✓ Location detected
+        </p>
+      ) : null}
+      {status.state === "selected" ? (
+        <p role="status" className="text-sm font-medium text-green-700">
+          ✓ Location selected
+        </p>
+      ) : null}
+      {status.state === "unresolved" ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-text">
+            We couldn&apos;t detect the exact point automatically.
+          </p>
+          <Button type="button" variant="secondary" onClick={onChooseOnMap} className="min-h-11">
+            Choose location on map
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Phase 34.3 link-only Location editor (+ 34.7 manual fallback): the
+ * operator pastes ONE maps link, Karti resolves exact coordinates
+ * internally; when that fails, the map picker places the pin by hand.
+ * No latitude/longitude/zoom fields — coordinates stay an implementation
+ * detail in settings, tagged with their provenance (`pinSource`).
  */
 export function LocationSettingsEditor({
   settings,
@@ -145,25 +211,43 @@ export function LocationSettingsEditor({
   const commitLatest = (patch: Record<string, unknown>) =>
     onChange?.({ ...settingsRef.current, ...patch });
 
-  type DetectStatus =
-    | { state: "idle" }
-    | { state: "detecting" }
-    | { state: "detected" }
-    | { state: "error"; message: string };
-  const [status, setStatus] = useState<DetectStatus>({ state: "idle" });
+  const [status, setStatus] = useState<LocationDetectStatus>({ state: "idle" });
   const [detecting, startDetecting] = useTransition();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const attemptedRef = useRef<string | null>(null);
   // Monotonic id: stale in-flight responses never overwrite a newer link.
   const detectionIdRef = useRef(0);
   // Previous non-empty link; null until the first effect run so mounting
   // with a saved link never wipes the saved pin before re-validation.
   const prevLinkRef = useRef<string | null>(null);
+  // Latched once the link changes this session: failures then always
+  // clear (the saved pin belonged to another link).
+  const linkChangedRef = useRef(false);
+
+  function handleResolveFailure(id: number) {
+    if (detectionIdRef.current !== id) return;
+    const pinSource = readPinSource(settingsRef.current);
+    if (
+      shouldClearOnResolveFailure({
+        linkChangedThisSession: linkChangedRef.current,
+        pinSource,
+      })
+    ) {
+      commitLatest({ latitude: null, longitude: null, pinSource: null });
+      setStatus({ state: "unresolved" });
+    } else if (pinSource === "manual") {
+      // Manual pin whose link is unchanged survives: reaffirm it.
+      setStatus({ state: "selected" });
+    } else {
+      setStatus({ state: "unresolved" });
+    }
+  }
 
   function runDetection(url: string) {
     const trimmed = url.trim();
     if (trimmed === "" || attemptedRef.current === trimmed) return;
     if (!context?.resolveMapsLink) {
-      setStatus({ state: "error", message: "Location detection is unavailable here." });
+      setStatus({ state: "unresolved" });
       return;
     }
     const resolveMapsLink = context.resolveMapsLink;
@@ -176,43 +260,65 @@ export function LocationSettingsEditor({
         const result = await resolveMapsLink(trimmed);
         if (detectionIdRef.current !== id) return;
         if (result.ok) {
-          commitLatest({ latitude: result.latitude, longitude: result.longitude });
+          commitLatest({
+            latitude: result.latitude,
+            longitude: result.longitude,
+            pinSource: "auto",
+          });
           setStatus({ state: "detected" });
         } else {
-          commitLatest({ latitude: null, longitude: null });
-          setStatus({ state: "error", message: result.message });
+          handleResolveFailure(id);
         }
       } catch {
-        if (detectionIdRef.current !== id) return;
-        commitLatest({ latitude: null, longitude: null });
-        setStatus({ state: "error", message: MAPS_DETECT_FAILURE_MESSAGE });
+        handleResolveFailure(id);
       }
     });
   }
 
+  function confirmManualPick(point: MapPoint) {
+    // Cancel performs zero commits by construction (it only closes).
+    const commit = manualPinCommit(point.latitude, point.longitude);
+    if (commit) {
+      commitLatest(commit);
+      setStatus({ state: "selected" });
+    }
+    setPickerOpen(false);
+  }
+
   // Debounced auto-detect while typing; blur detects immediately. When the
-  // link changes, the previous pin is cleared immediately (no stale marker
-  // stays visible while the new URL resolves). Clearing the link clears a
-  // previously detected pin, but mount never touches saved coordinates.
+  // link changes, the previous pin (auto or manual) is cleared immediately
+  // — no stale marker stays visible while the new URL resolves, and a
+  // failed resolution never silently reuses it. Mount adopts persisted
+  // truth: saved pins are shown as-is and only unresolved links resolve.
   useEffect(() => {
     const trimmed = mapsUrl.trim();
     if (trimmed === "") {
       if (attemptedRef.current !== null || prevLinkRef.current !== null) {
         attemptedRef.current = null;
         prevLinkRef.current = null;
+        linkChangedRef.current = false;
         detectionIdRef.current += 1;
-        commitLatest({ latitude: null, longitude: null });
+        commitLatest({ latitude: null, longitude: null, pinSource: null });
         setStatus({ state: "idle" });
       }
       return;
     }
     if (prevLinkRef.current === null) {
       prevLinkRef.current = trimmed;
+      const saved = readSavedPoint(settingsRef.current);
+      if (saved) {
+        attemptedRef.current = trimmed;
+        setStatus({
+          state: readPinSource(settingsRef.current) === "manual" ? "selected" : "detected",
+        });
+        return;
+      }
     } else if (prevLinkRef.current !== trimmed) {
       prevLinkRef.current = trimmed;
+      linkChangedRef.current = true;
       attemptedRef.current = null;
       detectionIdRef.current += 1;
-      commitLatest({ latitude: null, longitude: null });
+      commitLatest({ latitude: null, longitude: null, pinSource: null });
       setStatus({ state: "detecting" });
     }
     const timer = window.setTimeout(() => runDetection(trimmed), 700);
@@ -264,21 +370,23 @@ export function LocationSettingsEditor({
           maxLength={2048}
         />
       </Field>
-      <div aria-live="polite">
-        {status.state === "detecting" || detecting ? (
-          <p className="text-sm text-muted">Detecting location…</p>
-        ) : null}
-        {status.state === "detected" ? (
-          <p role="status" className="text-sm font-medium text-green-700">
-            ✓ Location detected
-          </p>
-        ) : null}
-        {status.state === "error" ? (
-          <p role="alert" className="text-sm font-medium text-red-700">
-            {status.message}
-          </p>
-        ) : null}
-      </div>
+      <LocationStatusBanner
+        status={status}
+        working={detecting}
+        onChooseOnMap={() => setPickerOpen(true)}
+      />
+      {pickerOpen ? (
+        <MapPinPicker
+          initialCenter={pickerInitialCenter(settings)}
+          initialPoint={
+            typeof settings.latitude === "number" && typeof settings.longitude === "number"
+              ? { latitude: settings.latitude, longitude: settings.longitude }
+              : null
+          }
+          onConfirm={confirmManualPick}
+          onCancel={() => setPickerOpen(false)}
+        />
+      ) : null}
       {inlineMap ? (
         <div className="overflow-hidden rounded-xl border border-black/5">
           <iframe
