@@ -281,21 +281,24 @@ export async function getPublicProfileBySlug(
 
   if (profileError || !profile) return null;
 
-  const { data: links, error: linksError } = await supabase
-    .from("profile_links")
-    .select(PUBLIC_LINK_COLUMNS)
-    .eq("profile_id", profile.id)
-    .eq("enabled", true)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
+  // Legacy fallback only (embed unavailable): links + sections need just the
+  // profile id, so they run concurrently and save ~1 RTT on slow networks.
+  const [linksResult, sections] = await Promise.all([
+    supabase
+      .from("profile_links")
+      .select(PUBLIC_LINK_COLUMNS)
+      .eq("profile_id", profile.id)
+      .eq("enabled", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    loadLegacySections(supabase, profile.id),
+  ]);
 
-  if (linksError) return null;
-
-  const sections = await loadLegacySections(supabase, profile.id);
+  if (linksResult.error) return null;
 
   return {
     profile: toPublicProfile(profile as unknown as Record<string, unknown>),
-    links: links ?? [],
+    links: linksResult.data ?? [],
     sections,
   };
 }
@@ -347,24 +350,25 @@ export async function getPublicProfileByCode(
 
   if (profileError || !profile) return null;
 
-  const { data: links, error: linksError } = await supabase
-    .from("profile_links")
-    .select(PUBLIC_LINK_COLUMNS)
-    .eq("profile_id", (profile as unknown as Record<string, string>).id)
-    .eq("enabled", true)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
+  // Legacy fallback only (embed unavailable): links + sections need just the
+  // profile id, so they run concurrently and save ~1 RTT on slow networks.
+  const profileId = (profile as unknown as Record<string, string>).id;
+  const [linksResult, sections] = await Promise.all([
+    supabase
+      .from("profile_links")
+      .select(PUBLIC_LINK_COLUMNS)
+      .eq("profile_id", profileId)
+      .eq("enabled", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    loadLegacySections(supabase, profileId),
+  ]);
 
-  if (linksError) return null;
-
-  const sections = await loadLegacySections(
-    supabase,
-    (profile as unknown as Record<string, string>).id,
-  );
+  if (linksResult.error) return null;
 
   return {
     profile: toPublicProfile(profile as unknown as Record<string, unknown>),
-    links: links ?? [],
+    links: linksResult.data ?? [],
     sections,
   };
 }

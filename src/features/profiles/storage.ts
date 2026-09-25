@@ -6,9 +6,16 @@ export type StorageDb = SupabaseClient<Database>;
 // Client-safe URL helpers live in storagePaths (sharp must never reach the
 // browser bundle via the dashboard live preview). Re-exported here so all
 // existing server imports keep working unchanged.
-import { PROFILE_ASSETS_BUCKET, publicAssetPathUrl, storageOrigin } from "./storagePaths";
+import {
+  PROFILE_ASSETS_BUCKET,
+  detectImageKind,
+  publicAssetPathUrl,
+  storageOrigin,
+  type DetectedImageKind,
+} from "./storagePaths";
 
-export { PROFILE_ASSETS_BUCKET, publicAssetPathUrl, storageOrigin };
+export { PROFILE_ASSETS_BUCKET, detectImageKind, publicAssetPathUrl, storageOrigin };
+export type { DetectedImageKind };
 
 export const MAX_ASSET_BYTES = 5 * 1024 * 1024;
 /** Private CV bucket (Phase 31): never publicly readable, no SELECT policy. */
@@ -35,8 +42,6 @@ export type AssetKind = "avatar" | "cover";
 
 export type AssetResult = { ok: true; path: string } | { ok: false; message: string };
 
-export type DetectedImageKind = "jpg" | "png" | "webp";
-
 /**
  * Detect a PDF from magic bytes (`%PDF-`). Pure — unit-tested. The declared
  * `application/pdf` type is never trusted on its own.
@@ -50,28 +55,6 @@ export function detectPdfKind(header: Uint8Array): boolean {
     header[3] === 0x46 &&
     header[4] === 0x2d
   );
-}
-
-/**
- * Detect the real image kind from magic bytes (first 12 bytes suffice for
- * JPEG/PNG/WebP). Pure — unit-tested. Browser-provided `file.type` is never
- * trusted on its own: a forged type on an HTML/JS payload must not reach
- * the public bucket.
- */
-export function detectImageKind(header: Uint8Array): DetectedImageKind | null {
-  const startsWith = (sig: number[]): boolean => sig.every((byte, i) => header[i] === byte);
-  if (startsWith([0xff, 0xd8, 0xff])) return "jpg";
-  if (startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "png";
-  if (
-    startsWith([0x52, 0x49, 0x46, 0x46]) &&
-    header[8] === 0x57 &&
-    header[9] === 0x45 &&
-    header[10] === 0x42 &&
-    header[11] === 0x50
-  ) {
-    return "webp";
-  }
-  return null;
 }
 
 /**

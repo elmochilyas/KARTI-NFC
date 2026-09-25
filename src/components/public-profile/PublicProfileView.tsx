@@ -1,15 +1,15 @@
 import type { CSSProperties } from "react";
 import { KartiAttribution } from "./ProfilePreview";
 import { KeepProfileButton } from "./KeepProfileButton";
-import { PwaDiagnostics } from "./PwaDiagnostics";
+import { PwaDiagnosticsLazy } from "./PwaDiagnosticsLazy";
 import { ShareProfileButton } from "./ShareProfileButton";
 import { ProfileSectionRenderer } from "./ProfileSections";
 import type { PublicLink, PublicProfile, PublicSection } from "@/features/profiles/public";
 
 /**
  * Premium hero-first public profile view — server-rendered except the tiny
- * Share + Keep islands (plus the dev-only PWA diagnostics island, inert in
- * production). Phase 25: the hero/actions/links blocks render through
+ * Share + Keep islands (plus the dev-only PWA diagnostics island, split into
+ * a dev-only chunk via PwaDiagnosticsLazy, absent in production). Phase 25: the hero/actions/links blocks render through
  * `ProfileSectionRenderer` (data-driven order, same markup as before —
  * components live in `ProfileSections.tsx`). Keep this Card, Share Profile,
  * and attribution stay fixed after the sections, by product decision.
@@ -84,7 +84,7 @@ export function PublicProfileView({
           <div className="mt-4 pt-1 text-center">
             <KartiAttribution dark={dark} />
           </div>
-          <PwaDiagnostics />
+          <PwaDiagnosticsLazy />
         </ProfileSectionRenderer>
       </div>
     </main>

@@ -66,6 +66,16 @@ describe("section catalog", () => {
     }
   });
 
+  it("stays in sync with the public renderer's live-type list (tap bundle)", async () => {
+    // ProfileSections.tsx deliberately does NOT import this catalog (dashboard
+    // editors + lucide icons would ride into the public tap bundle). Its
+    // LIVE_PUBLIC_SECTION_TYPES mirror must match every live catalog type.
+    const { LIVE_PUBLIC_SECTION_TYPES } =
+      await import("@/components/public-profile/ProfileSections");
+    const liveCatalog = SECTION_CATALOG.filter((e) => e.status === "live").map((e) => e.type);
+    expect([...LIVE_PUBLIC_SECTION_TYPES].sort()).toEqual([...liveCatalog].sort());
+  });
+
   it("enforces the PERSON/BUSINESS audience split (RESTAURANT forward-declared)", () => {
     const audiences = new Map(SECTION_CATALOG.map((e) => [e.type, e.supportedProfiles]));
     expect(audiences.get("hero")).toEqual(["PERSON", "BUSINESS"]);

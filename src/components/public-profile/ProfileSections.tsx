@@ -16,7 +16,6 @@ import {
   type PublicProfile,
   type PublicSection,
 } from "@/features/profiles/public";
-import { getCatalogEntry, type SectionCatalogEntry } from "@/features/profiles/sectionCatalog";
 import type {
   AboutSettings,
   ActionsSettings,
@@ -1011,11 +1010,13 @@ function CollectionView({
                     className="flex items-center gap-3 rounded-[18px] border border-transparent px-1 py-1.5"
                   >
                     {imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={imageUrl}
                         alt=""
                         aria-hidden="true"
+                        width={128}
+                        height={128}
+                        sizes="64px"
                         loading="lazy"
                         className="h-16 w-16 shrink-0 rounded-2xl object-cover"
                       />
@@ -1328,8 +1329,18 @@ export function GallerySection({
             if (!url) return null;
             return (
               <figure key={photo.id} className="break-inside-avoid overflow-hidden rounded-2xl">
+                {/* Masonry keeps natural aspect (unknown at render time), so a
+                    plain img preserves it exactly; sizes + async decoding keep
+                    the download off the LCP path. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={photo.alt} loading="lazy" className="w-full object-cover" />
+                <img
+                  src={url}
+                  alt={photo.alt}
+                  loading="lazy"
+                  decoding="async"
+                  sizes="(max-width: 480px) 50vw, 240px"
+                  className="w-full object-cover"
+                />
               </figure>
             );
           })}
@@ -1341,10 +1352,12 @@ export function GallerySection({
             if (!url) return null;
             return (
               <figure key={photo.id} className="aspect-square overflow-hidden rounded-2xl">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={url}
                   alt={photo.alt}
+                  width={480}
+                  height={480}
+                  sizes="(max-width: 480px) 50vw, 240px"
                   loading="lazy"
                   className="h-full w-full object-cover"
                 />
@@ -1388,8 +1401,20 @@ export type SectionRenderProps = {
 
 export type SectionComponent = ComponentType<SectionRenderProps>;
 
+/**
+ * Minimal public section identity. Deliberately NOT the dashboard
+ * `SectionCatalogEntry`: importing the catalog pulls lucide-react icons +
+ * the client settings editors (SectionEditors/CollectionEditor) into the
+ * public server bundle and every tap's cold start. The public renderer only
+ * needs to know a type is live and has a component here.
+ */
+export type PublicSectionDefinition = {
+  type: string;
+  status: "live";
+};
+
 export type ResolvedSectionDefinition = {
-  definition: SectionCatalogEntry;
+  definition: PublicSectionDefinition;
   /** Null until the section ships its implementation (planned types). */
   component: SectionComponent | null;
 };
@@ -1539,17 +1564,33 @@ const LIVE_COMPONENTS: Record<string, SectionComponent> = {
 };
 
 /**
- * Pair a catalog entry with its renderer. Unknown types and planned types
- * (no implementation yet) resolve to a null component — the renderer skips
- * them without crashing. New sections ship by flipping the catalog status
- * and adding one map entry here.
+ * Pair a section type with its renderer. Unknown types resolve to null and
+ * known types without an implementation yet resolve to a null component —
+ * the renderer skips them without crashing. New sections ship by adding one
+ * map entry to LIVE_COMPONENTS (and the matching dashboard catalog entry).
+ *
+ * The live-type list mirrors the dashboard `SECTION_CATALOG` statuses;
+ * `sectionCatalog.test.ts` pins the two in sync so they cannot drift.
  */
+export const LIVE_PUBLIC_SECTION_TYPES = [
+  "hero",
+  "actions",
+  "links",
+  "location",
+  "opening_hours",
+  "menu",
+  "catalog",
+  "about",
+  "experience",
+  "cv",
+  "gallery",
+] as const;
+
 export function resolveSection(type: string): ResolvedSectionDefinition | null {
-  const definition = getCatalogEntry(type);
-  if (!definition) return null;
-  if (definition.status !== "live") return { definition, component: null };
-  const component = LIVE_COMPONENTS[definition.type] ?? null;
-  return component ? { definition, component } : null;
+  const component = LIVE_COMPONENTS[type] ?? null;
+  if (!component) return null;
+  if (!(LIVE_PUBLIC_SECTION_TYPES as readonly string[]).includes(type)) return null;
+  return { definition: { type, status: "live" }, component };
 }
 
 /* ------------------------------------------------------------------ */

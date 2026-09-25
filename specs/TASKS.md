@@ -3714,6 +3714,77 @@ no body scraping.
 
 ---
 
+# Phase 34.8 — Tap-path performance (zero-stale + 307 preserved)
+
+Operator report: loading the profile after tapping the card takes too long.
+Deep audit (2026-09-25) traced `GET /t/[code]` → 307 → `GET /[slug]` SSR.
+User constraints for this phase: keep zero-stale dashboard edits, keep the
+307 redirect architecture. All items below preserve both.
+
+## 34.8.1 Public bundle hygiene
+
+- [x] `ProfileSections.tsx` no longer imports `sectionCatalog` (dashboard
+      lucide-react icons + client SectionEditors/CollectionEditor rode into
+      the public server bundle). Local `LIVE_PUBLIC_SECTION_TYPES` +
+      minimal `PublicSectionDefinition`; drift pinned by a sync test in
+      `sectionCatalog.test.ts`.
+- [x] `[slug]` + `u/[code]` pages and `iconImage.ts` import pure helpers
+      from `storagePaths` (not the sharp/upload pipeline in `storage.ts`).
+      `detectImageKind` moved to `storagePaths`; `storage.ts` re-exports it
+      (storage.test.ts untouched).
+- [x] `PwaDiagnostics` (dev-only) split out of the prod tap bundle:
+      `PwaDiagnosticsLazy` client wrapper (`next/dynamic ssr:false`
+      inside — ssr:false is forbidden directly in Server Components) +
+      `NODE_ENV === "development"` guard (dead-code-eliminated in
+      production). Keep/Share islands stay static — required for no-JS
+      rendering + immediate CTA hydration (covered by
+      PublicProfileViewKeep/Share tests).
+
+## 34.8.2 Below-fold images
+
+- [x] Menu/catalog thumbs: raw `<img>` → `next/image` 128×128
+      (`sizes="64px"`, lazy) — display size is 64px, optimizer serves srcset.
+- [x] Gallery grid: raw `<img>` → `next/image` 480×480 with sizes
+      `(max-width: 480px) 50vw, 240px`, lazy. Masonry keeps `<img>`
+      (natural aspect unknown at render time) + `decoding="async"` + sizes.
+- [x] Hero LCP untouched (single-priority discipline already correct);
+      removed redundant `dns-prefetch` on both profile pages (preconnect
+      superset).
+
+## 34.8.3 Server path
+
+- [x] Legacy fallback (embed unavailable) runs links + sections queries
+      concurrently (`Promise.all`) in both `getPublicProfileBySlug/Code` —
+      saves ~1 RTT on that path. Fast-path single-RTT embed unchanged.
+- [x] Slow-tap observability: `publicCache.ts` logs cache-MISS DB fetches
+      ≥800ms (`SLOW_TAP_DB_MS`) with slug/code length only (no PII), so
+      Vercel logs keep outliers, not steady-state taps.
+- [x] Indexes verified live — no gaps (`cards(short_code,status)`,
+      `profiles(slug,status)`, `profiles(public_code,status)`,
+      `profile_links(profile_id,enabled,sort_order,created_at)`,
+      `profile_sections(profile_id,position)` all present).
+
+### Phase 34.8 gate
+
+- [x] No visual change (hero/actions/links markup identical; menu thumbs
+      128px render at 64px display; gallery grid identical crop; masonry
+      markup unchanged).
+- [x] No behavior change (307 + no-store resolver; zero-stale purge-only
+      profile cache; unavailable/404 states unchanged; PwaDiagnostics
+      still dev-only `?pwa-debug=1`).
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` (65 files / 824 tests),
+      `pnpm build` green (2026-09-25). One build iteration needed:
+      `ssr:false` is forbidden directly in Server Components — split moved
+      into the `PwaDiagnosticsLazy` client wrapper.
+- [x] Touched diffs surgical (`git diff --stat`: 12 files + 1 new, no
+      line-ending churn); repo-wide Prettier CRLF baseline note applies
+      (untouched files warn identically — no `--write` per git safety).
+
+> 2026-09-25: implemented + verified per plan. Not committed — left ready
+> for review.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

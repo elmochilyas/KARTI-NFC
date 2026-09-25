@@ -2315,3 +2315,31 @@ permission prompts.
   directions ALWAYS use `destination=LAT,LNG` regardless of provenance;
   the stored vendor link is reference/editing only and the fallback
   solely when no coordinates exist.
+
+## ADR-069 — Public tap bundle must not import the dashboard section catalog
+
+**Status:** Accepted
+**Date:** 2026-09-25
+
+### Context
+
+Tap-path audit (Phase 34.8): `ProfileSections.tsx` imported
+`getCatalogEntry` from `sectionCatalog.ts`, dragging lucide-react icons
+plus the client settings editors (`SectionEditors`, `CollectionEditor`)
+into the public server bundle and every tap's cold start. The public
+renderer only needs to know a section type is live and has a local
+component.
+
+### Decision
+
+- Public code imports dashboard-owned modules only when they are proven
+  dependency-free (pure helpers like `storagePaths`, zod schemas).
+- `ProfileSections.resolveSection` resolves against a local
+  `LIVE_PUBLIC_SECTION_TYPES` list; `sectionCatalog.test.ts` pins it in
+  sync with `SECTION_CATALOG` live statuses so the two cannot drift
+  (test-only import — zero production bundle impact).
+- Same rule applied to diagnostics: `PwaDiagnostics` loads via the
+  dev-guarded `PwaDiagnosticsLazy` client wrapper (`next/dynamic
+  ssr:false` inside — forbidden directly in Server Components) so
+  production taps never download it. Keep/Share islands stay static
+  (no-JS rendering + CTA hydration).
