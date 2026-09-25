@@ -10,13 +10,11 @@ import {
 
 describe("buildSharePayload", () => {
   it("shares the display name as title with a personalized message", () => {
-    expect(buildSharePayload("Ahmed Benali", "https://karti.pro/ahmed-benali")).toEqual(
-      {
-        title: "Ahmed Benali",
-        text: "Check out Ahmed Benali on Karti",
-        url: "https://karti.pro/ahmed-benali",
-      },
-    );
+    expect(buildSharePayload("Ahmed Benali", "https://karti.pro/ahmed-benali")).toEqual({
+      title: "Ahmed Benali",
+      text: "Check out Ahmed Benali on Karti",
+      url: "https://karti.pro/ahmed-benali",
+    });
   });
 
   it("trims the display name and falls back for blank names", () => {

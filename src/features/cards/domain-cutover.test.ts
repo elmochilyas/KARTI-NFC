@@ -199,10 +199,7 @@ describe("resolver host behavior (karti.pro cutover)", () => {
 
   it("old-host taps hit the same resolver and land on the same destination", async () => {
     vi.mocked(createAdminClient).mockReturnValue(fakeDb(ACTIVE_PROFILE_CARD, ACTIVE_PROFILE));
-    const res = await GET(
-      new Request("https://karti-bice.vercel.app/t/A8F92KXM"),
-      ctx("a8f92kxm"),
-    );
+    const res = await GET(new Request("https://karti-bice.vercel.app/t/A8F92KXM"), ctx("a8f92kxm"));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe("https://karti.pro/ilyas-el-moch");
   });
