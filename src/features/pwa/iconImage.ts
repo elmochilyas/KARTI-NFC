@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { detectImageKind, publicAssetPathUrl } from "@/features/profiles/storage";
+import { detectImageKind, publicAssetPathUrl } from "@/features/profiles/storagePaths";
 import { getCachedPublicProfileByCode } from "@/features/profiles/publicCache";
 import {
   ICON_SOURCE_MAX_BYTES,

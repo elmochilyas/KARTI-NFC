@@ -21,14 +21,28 @@ import { getPublicProfileByCode, getPublicProfileBySlug, type PublicProfileData 
  */
 export const PUBLIC_PROFILES_TAG = "public-profiles";
 
+/**
+ * Slow-tap threshold for the observability log below. Only cache-MISS DB
+ * fetches that exceed this are logged — steady-state cached taps stay silent
+ * so Vercel logs keep only the outliers worth investigating (cold starts,
+ * cross-region RTT spikes, embed-fallback 3-RTT paths).
+ */
+export const SLOW_TAP_DB_MS = 800;
+
 async function fetchPublicProfile(slug: string): Promise<PublicProfileData | null> {
+  const started = Date.now();
   let supabase;
   try {
     supabase = createAdminClient();
   } catch {
     return null;
   }
-  return getPublicProfileBySlug(slug, supabase);
+  const data = await getPublicProfileBySlug(slug, supabase);
+  const dur = Date.now() - started;
+  if (dur >= SLOW_TAP_DB_MS) {
+    console.info(`[tap] slow public-profile DB fetch slug=${slug.length}ch dur=${dur}ms`);
+  }
+  return data;
 }
 
 export const getCachedPublicProfileBySlug = unstable_cache(
@@ -41,13 +55,19 @@ export const getCachedPublicProfileBySlug = unstable_cache(
 );
 
 async function fetchPublicProfileByCode(code: string): Promise<PublicProfileData | null> {
+  const started = Date.now();
   let supabase;
   try {
     supabase = createAdminClient();
   } catch {
     return null;
   }
-  return getPublicProfileByCode(code, supabase);
+  const data = await getPublicProfileByCode(code, supabase);
+  const dur = Date.now() - started;
+  if (dur >= SLOW_TAP_DB_MS) {
+    console.info(`[tap] slow public-profile DB fetch code=${code.length}ch dur=${dur}ms`);
+  }
+  return data;
 }
 
 /**

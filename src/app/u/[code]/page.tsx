@@ -5,7 +5,7 @@ import { PublicProfileView } from "@/components/public-profile/PublicProfileView
 import { manifestShortName, manifestThemeColor } from "@/features/pwa/manifest";
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileByCode } from "@/features/profiles/publicCache";
-import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
+import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storagePaths";
 import { identityUrlForPublicCode } from "@/domain/publicCode";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 
@@ -85,12 +85,7 @@ export default async function IdentityProfilePage({ params }: IdentityPageProps)
 
   return (
     <>
-      {origin ? (
-        <>
-          <link rel="preconnect" href={origin} crossOrigin="anonymous" />
-          <link rel="dns-prefetch" href={origin} />
-        </>
-      ) : null}
+      {origin ? <link rel="preconnect" href={origin} crossOrigin="anonymous" /> : null}
       <PublicProfileView
         profile={data.profile}
         links={data.links}

@@ -10,6 +10,31 @@
 
 export const PROFILE_ASSETS_BUCKET = "profile-assets";
 
+export type DetectedImageKind = "jpg" | "png" | "webp";
+
+/**
+ * Detect the real image kind from magic bytes (first 12 bytes suffice for
+ * JPEG/PNG/WebP). Pure — unit-tested. Browser-provided `file.type` is never
+ * trusted on its own: a forged type on an HTML/JS payload must not reach
+ * the public bucket. Lives here (not storage.ts) so the on-demand PWA icon
+ * route stays free of the sharp/upload pipeline.
+ */
+export function detectImageKind(header: Uint8Array): DetectedImageKind | null {
+  const startsWith = (sig: number[]): boolean => sig.every((byte, i) => header[i] === byte);
+  if (startsWith([0xff, 0xd8, 0xff])) return "jpg";
+  if (startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "png";
+  if (
+    startsWith([0x52, 0x49, 0x46, 0x46]) &&
+    header[8] === 0x57 &&
+    header[9] === 0x45 &&
+    header[10] === 0x42 &&
+    header[11] === 0x50
+  ) {
+    return "webp";
+  }
+  return null;
+}
+
 /**
  * Zero-client public asset URL (tap-path fast path).
  *

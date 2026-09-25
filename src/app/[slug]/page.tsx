@@ -5,7 +5,7 @@ import { PublicProfileView } from "@/components/public-profile/PublicProfileView
 import { manifestShortName, manifestThemeColor } from "@/features/pwa/manifest";
 import { publicProfileDescription, publicProfileTitle } from "@/features/profiles/public";
 import { getCachedPublicProfileBySlug } from "@/features/profiles/publicCache";
-import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storage";
+import { publicAssetPathUrl, storageOrigin } from "@/features/profiles/storagePaths";
 import { identityUrlForPublicCode } from "@/domain/publicCode";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 
@@ -94,18 +94,14 @@ export default async function PublicProfilePage({ params }: SlugPageProps) {
     cover: data.profile.cover_path,
   });
   // Preconnect to the Supabase storage origin so the LCP image (avatar or
-  // cover) skips DNS+TLS setup on the critical path. Rendered as hoisted
-  // <link> tags (React 19); zero JS cost.
+  // cover) skips DNS+TLS setup on the critical path. Rendered as a hoisted
+  // <link> tag (React 19); zero JS cost. Preconnect already covers DNS, so
+  // no separate dns-prefetch (it would cost a second hint parse).
   const origin = storageOrigin();
 
   return (
     <>
-      {origin ? (
-        <>
-          <link rel="preconnect" href={origin} crossOrigin="anonymous" />
-          <link rel="dns-prefetch" href={origin} />
-        </>
-      ) : null}
+      {origin ? <link rel="preconnect" href={origin} crossOrigin="anonymous" /> : null}
       <PublicProfileView
         profile={data.profile}
         links={data.links}
