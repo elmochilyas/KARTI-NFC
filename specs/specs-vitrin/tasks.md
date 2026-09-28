@@ -272,3 +272,42 @@ Known limitations:
 Next:
 - Phase 3 (Orders dashboard & operational workflow)
 ```
+
+```text
+## Phase 2 hardening — 2026-09-28 (idempotency receipt + RPC ACL)
+
+Bug found by lost-response analysis (real bug, now fixed):
+- Old design minted a fresh random receipt token per action call while
+  the RPC discarded it on idempotency hits → retry-after-commit
+  returned a DEAD receipt (hash mismatch). Concurrent same-key losers
+  had the same fate, and the SELECT-then-INSERT race could surface
+  23505 as UNAVAILABLE instead of the existing receipt.
+
+Fix (simplest secure architecture, no plaintext storage):
+- Receipt token = HMAC-SHA256(RECEIPT_TOKEN_SECRET,
+  "karti-receipt-v1:<idempotencyKey>") — deterministic per key,
+  unforgeable without the server secret; stored as SHA-256 hash only.
+  Every retry re-derives the identical working credential.
+- RPC rewritten to INSERT ... ON CONFLICT (idempotency_key) DO NOTHING
+  (migration 20261001000000): race collapses on the unique index, no
+  23505 ever surfaces, stored hash untouched on hits.
+- New fail-closed server env RECEIPT_TOKEN_SECRET (min 16 chars).
+
+Security finding fixed (live):
+- Supabase default privileges had granted EXECUTE on both RPCs to
+  anon/authenticated despite REVOKE FROM PUBLIC — proven live (anon
+  created KARTI-000013, cleaned up). Tightened in migration
+  20261002000000: ACL is now owner + service_role only. Standing rule
+  documented: every future function migration must REVOKE explicitly.
+
+Verified live:
+- Lost-response retry (same key, changed payload): (KARTI-000017,
+  created=false), original row untouched, counts 1/1/1, derived retry
+  token resolves the receipt; wrong token resolves nothing; stored
+  value is the hash, never the token.
+- Concurrent same-key pair (parallel REST/RPC): both 200, same number
+  KARTI-000015 (true+false), counts 1/1/1, no error leak.
+- Post-fix ACL: anon full-payload RPC → 401; service wire path → 200.
+- All proof rows deleted; commercial tables back to 0, existing data
+  intact. pnpm typecheck/lint/test (85 files / 967 tests)/build pass.
+```

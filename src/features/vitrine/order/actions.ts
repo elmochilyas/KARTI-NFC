@@ -32,7 +32,7 @@ import {
   orderRateLimiter,
 } from "../antispam";
 import { ATTRIBUTION_COOKIE, parseAttributionCookie, type TouchContext } from "../attribution";
-import { generateReceiptToken, hashReceiptToken } from "./receipt";
+import { deriveReceiptToken, hashReceiptToken } from "./receipt";
 
 export type PublicMutationErrorCode = "VALIDATION" | "SPAM" | "RATE_LIMITED" | "UNAVAILABLE";
 
@@ -262,7 +262,9 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
       `/${input.locale}/order`,
     );
 
-    const receiptToken = generateReceiptToken();
+    // Deterministic per idempotency key: a lost-response retry re-derives
+    // the SAME token, so the returned receipt always resolves.
+    const receiptToken = deriveReceiptToken(input.idempotencyKey);
     const receiptTokenHash = hashReceiptToken(receiptToken);
 
     const writer = createOrderWriterClient();

@@ -26,3 +26,17 @@ export function getSalesWhatsapp(): string | null {
   if (digits.length < 7 || digits.length > 15) return null;
   return digits;
 }
+
+/**
+ * Server secret binding receipt tokens to idempotency keys
+ * (HMAC-SHA256). Fail-closed like the service-role key: order creation
+ * cannot mint valid receipts without it. Generate with
+ * `openssl rand -hex 32`; never expose to the browser or logs.
+ */
+export function getReceiptTokenSecret(): string {
+  const secret = process.env.RECEIPT_TOKEN_SECRET?.trim() ?? "";
+  if (secret.length < 16) {
+    throw new Error("RECEIPT_TOKEN_SECRET is not set (min 16 chars, see .env.example).");
+  }
+  return secret;
+}

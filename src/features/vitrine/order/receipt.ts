@@ -1,19 +1,30 @@
 /**
  * Receipt-token utilities (server-only).
  *
- * The human order number (KARTI-XXXXXX) is not authorization. A
- * high-entropy token is minted per order; only its SHA-256 hash is
- * stored in `orders.receipt_token_hash`. The raw token travels to the
- * browser once (success URL) and is never logged or persisted.
+ * The human order number (KARTI-XXXXXX) is not authorization. The token
+ * is DERIVED deterministically per idempotency key:
+ *
+ *   token = HMAC-SHA256(RECEIPT_TOKEN_SECRET, "karti-receipt-v1:<key>")
+ *
+ * Why deterministic: only `receipt_token_hash` is stored (never
+ * plaintext), so a lost-response retry cannot recover the original
+ * random token — but it CAN re-derive the same one. The commit-then-
+ * retry and concurrent same-key cases therefore always resolve to a
+ * WORKING receipt. Unforgeable without the server secret; the stored
+ * SHA-256 adds a second layer if the database leaks. The raw token
+ * travels to the browser once (success URL) and is never logged.
  */
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
+import { getReceiptTokenSecret } from "@/lib/env-server";
 
-export const RECEIPT_TOKEN_BYTES = 32;
+const RECEIPT_TOKEN_DOMAIN = "karti-receipt-v1:";
 
-export function generateReceiptToken(): string {
-  return randomBytes(RECEIPT_TOKEN_BYTES).toString("hex");
+export function deriveReceiptToken(idempotencyKey: string): string {
+  return createHmac("sha256", getReceiptTokenSecret())
+    .update(`${RECEIPT_TOKEN_DOMAIN}${idempotencyKey}`, "utf8")
+    .digest("hex");
 }
 
 export function hashReceiptToken(token: string): string {

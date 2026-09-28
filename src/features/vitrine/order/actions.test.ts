@@ -14,6 +14,8 @@ vi.mock("@/lib/supabase/orderWriter", () => ({
 import { orderRateLimiter } from "../antispam";
 import { createPublicInquiryAction, createPublicOrderAction } from "./actions";
 
+process.env.RECEIPT_TOKEN_SECRET = "test-receipt-secret-32-chars-minimum";
+
 const BASE_ORDER = {
   locale: "fr",
   productType: "PERSONAL_CARD",
@@ -109,6 +111,29 @@ describe("createPublicOrderAction", () => {
     rpcMock.mockResolvedValue({ data: null, error: { message: "23514 boom" } });
     const result = await createPublicOrderAction(BASE_ORDER);
     expect(result).toEqual({ ok: false, error: { code: "UNAVAILABLE" } });
+  });
+
+  it("returns the SAME working receipt token on idempotent retry", async () => {
+    // First call commits; second call hits the idempotency path.
+    rpcMock
+      .mockResolvedValueOnce({
+        data: [{ order_number: "KARTI-000010", created: true }],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ order_number: "KARTI-000010", created: false }],
+        error: null,
+      });
+    const first = await createPublicOrderAction(BASE_ORDER);
+    const retry = await createPublicOrderAction(BASE_ORDER);
+    expect(first.ok && retry.ok).toBe(true);
+    if (!first.ok || !retry.ok) throw new Error("expected ok");
+    expect(retry.data.orderNumber).toBe("KARTI-000010");
+    // Same derived credential: the retry receipt actually resolves.
+    expect(retry.data.receiptToken).toBe(first.data.receiptToken);
+    const firstHash = (rpcMock.mock.calls[0][1] as Record<string, unknown>).p_receipt_token_hash;
+    const retryHash = (rpcMock.mock.calls[1][1] as Record<string, unknown>).p_receipt_token_hash;
+    expect(retryHash).toBe(firstHash);
   });
 });
 

@@ -78,11 +78,10 @@ export function OrderWizard({
 
   // Minted once per wizard instance; reused across retries, rotated only
   // when a fresh wizard mounts (prevents double-submit duplicates).
-  const [idempotencyKey] = useState<string>(
-    () =>
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : "00000000-0000-4000-8000-000000000000",
+  const [idempotencyKey] = useState<string>(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : "00000000-0000-4000-8000-000000000000",
   );
   const [startedAt] = useState<number>(() => Date.now());
   const [honeypot, setHoneypot] = useState("");
