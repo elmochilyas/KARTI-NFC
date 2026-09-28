@@ -13,3 +13,16 @@ export function getServiceRoleKey(): string {
   }
   return key;
 }
+
+/**
+ * Centralized Karti sales WhatsApp number (digits only, e.g. 212612345678).
+ * Public sales contact, not a secret — but read server-side so the success
+ * page can hide the CTA cleanly when unconfigured instead of rendering a
+ * broken link. Returns null when unset or malformed.
+ */
+export function getSalesWhatsapp(): string | null {
+  const raw = process.env.KARTI_SALES_WHATSAPP?.trim() ?? "";
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.length < 7 || digits.length > 15) return null;
+  return digits;
+}

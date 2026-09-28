@@ -641,7 +641,78 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_profile_public_code: { Args: never; Returns: string }
+      create_public_inquiry: {
+        Args: {
+          p_company: string;
+          p_email: string;
+          p_email_normalized: string;
+          p_inquiry_type: string;
+          p_landing_path: string;
+          p_locale: string;
+          p_message: string;
+          p_name: string;
+          p_phone: string;
+          p_phone_normalized: string;
+          p_referrer: string;
+          p_source: string;
+          p_utm_campaign: string;
+          p_utm_content: string;
+          p_utm_medium: string;
+          p_utm_source: string;
+          p_utm_term: string;
+        };
+        Returns: string;
+      };
+      create_public_order: {
+        Args: {
+          p_city: string;
+          p_configuration: Json;
+          p_conversion_path: string;
+          p_customer_name: string;
+          p_customer_notes: string;
+          p_delivery_address: string;
+          p_delivery_fee_minor: number;
+          p_delivery_notes: string;
+          p_discount_minor: number;
+          p_email: string;
+          p_email_normalized: string;
+          p_first_landing_path: string;
+          p_first_referrer: string;
+          p_first_touch_source: string;
+          p_first_utm_campaign: string;
+          p_first_utm_content: string;
+          p_first_utm_medium: string;
+          p_first_utm_source: string;
+          p_first_utm_term: string;
+          p_idempotency_key: string;
+          p_last_referrer: string;
+          p_last_touch_source: string;
+          p_last_utm_campaign: string;
+          p_last_utm_content: string;
+          p_last_utm_medium: string;
+          p_last_utm_source: string;
+          p_last_utm_term: string;
+          p_line_total_minor: number;
+          p_locale: string;
+          p_phone: string;
+          p_phone_normalized: string;
+          p_preferred_contact: string;
+          p_pricing_status: string;
+          p_product_type: string;
+          p_quantity: number;
+          p_receipt_token_hash: string;
+          p_subtotal_minor: number;
+          p_total_minor: number;
+          p_unit_price_minor: number;
+          p_whatsapp: string;
+          p_whatsapp_normalized: string;
+        };
+        Returns: {
+          created: boolean;
+          order_number: string;
+        }[];
+      };
+      generate_profile_public_code: { Args: never; Returns: string };
     }
     Enums: {
       [_ in never]: never

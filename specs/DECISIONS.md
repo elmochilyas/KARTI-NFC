@@ -2378,3 +2378,74 @@ reduced to ordinal jumps.
 Migration 20260929000000 stays additive; RLS admin-only with anon
 default-deny; money in integer minor units; jsonb configuration/metadata
 pinned to objects; order numbers from order_number_seq.
+
+## ADR-071 — Atomic public writes via RPC + narrow order-writer client
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+Anonymous visitors hold zero grants on commercial tables (Phase 1 RLS),
+and supabase-js cannot span a transaction across calls — yet Phase 2
+must create Order + OrderItem + ORDER_CREATED atomically. Options were
+granting anon INSERTs (rejected: destroys the Phase 1 posture), three
+sequential service-role inserts (rejected: partial records on failure),
+or a database function owning the transaction.
+
+### Decision
+
+- `public.create_public_order` / `public.create_public_inquiry`
+  (migration 20260930000000): `SECURITY DEFINER`, `SET search_path =
+  ''`, fully-qualified refs, no dynamic SQL, `REVOKE ALL FROM PUBLIC`
+  (uncallable via PostgREST by any API role), in-function sanity gates
+  (quantity, jsonb object shapes, 64-hex receipt hash). Full semantic
+  validation (schemas, pricing, attribution, spam gates) stays in the
+  Server Action before the call.
+- `src/lib/supabase/orderWriter.ts` (server-only, browser import =
+  build error): creates the privileged client SOLELY for `.rpc()` calls
+  to those two functions. Raw table reads/writes through it are
+  forbidden by code review convention, mirroring the admin-client
+  "mutations forbidden" rule (ADR-032) which otherwise stands unchanged.
+- No table-grant changes: RLS posture is identical to Phase 1.
+
+### Consequences
+
+The only public write path is validated-action → atomic-RPC. Direct
+anon writes (tables and RPC) stay denied; partial Order records are
+impossible by construction; idempotency is enforced inside the same
+transaction that creates.
+
+## ADR-072 — Static locale routes + unchanged marketing root
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+`src/app/[slug]` occupies the single-segment dynamic route, so a
+`[locale]` segment is a Next.js build conflict. The vitrine needs
+`/fr|/ar|/en/...` without moving `/{slug}` or breaking profile
+resolution.
+
+### Decision
+
+- Static locale dirs `src/app/fr|ar|en/` with thin per-locale
+  `layout.tsx` (lang/dir wrapper + shared `VitrineShell`) and thin
+  pages over shared `src/features/vitrine/` components. Static segments
+  beat `[slug]` by framework precedence; reserved slugs
+  (`fr,ar,en,order,…`) back it at the data layer.
+- `/` keeps its existing brand landing (no redirect to `/fr`): safest
+  for `/{slug}` behavior, zero regression surface. Marketing home is
+  `/fr` (primary), `/ar` (RTL), `/en`.
+- Root `<html lang="en">` is unchanged (App Router single-document
+  limit); locale lang/dir is set on the vitrine wrapper. Revisit only
+  if crawlers demand per-locale document language.
+- `src/proxy.ts` matcher stays dashboard/login-only: vitrine pages
+  never pay Edge auth cost.
+
+### Consequences
+
+Locale routing needs no middleware, no i18n framework, no rewrites.
+Adding a locale means one static dir + one dict file satisfying
+`VitrineDict` (missing keys fail the build).

@@ -37,19 +37,19 @@ Database migrations apply cleanly, existing Client/Profile/Card/public-profile b
 
 **Goal:** Build the public conversion layer and make a real anonymous Order reach the database safely.
 
-- [ ] **2.1 Vitrine route/layout foundation**  
+- [x] **2.1 Vitrine route/layout foundation**  
   Add localized marketing route structure, navigation/footer conventions, locale handling/RTL readiness, product-page shell, noindex rules for checkout, and reserved-route compatibility with `/{slug}`.
 
-- [ ] **2.2 Four-step public Order wizard**  
+- [x] **2.2 Four-step public Order wizard**  
   Implement product preselection, all eight product configuration experiences, customer details, delivery, review step, responsive/accessibility behavior, client-side validation UX, and product/quantity pricing display.
 
-- [ ] **2.3 Secure public submission & receipt**  
+- [x] **2.3 Secure public submission & receipt**  
   Implement server-authoritative order creation, anti-spam, idempotency, pricing recalculation, attribution preservation, minimal receipt/success flow, WhatsApp continuation, and public inquiry submission.
 
 **Phase 2 completion gate:**  
 All eight products can create valid anonymous Orders from mobile/desktop without login; duplicate submission produces one Order; no private order data is publicly queryable.
 
-**Status:** Not started
+**Status:** Complete (2026-09-28)
 
 ---
 
@@ -138,7 +138,7 @@ The complete visitor → Order → dashboard → Client/Profile/Card → `/t/{sh
 | Phase | Status |
 |---|---|
 | Phase 1 — Domain Foundation & Database | Complete (2026-09-28) |
-| Phase 2 — Public Vitrine & Ordering | Not started |
+| Phase 2 — Public Vitrine & Ordering | Complete (2026-09-28) |
 | Phase 3 — Orders Dashboard | Not started |
 | Phase 4 — Client & Card Integration | Not started |
 | Phase 5 — SEO/GEO & Analytics | Not started |
@@ -227,4 +227,48 @@ Known limitations:
 
 Next:
 - Phase 2 (public vitrine shell, order wizard, atomic createPublicOrder)
+```
+
+```text
+## Phase 2 — 2026-09-28
+
+Completed:
+- 2.1 Routes/shell: static /fr|/ar|/en dirs (dynamic [locale] impossible
+  beside /[slug]; ADR-072), per-locale layouts (ar RTL), VitrineShell,
+  minimal landing, 8 product pages each, full FR+EN+AR copy via typed
+  VitrineDict, noindex on order/success, canonicals elsewhere.
+  `/` brand landing unchanged by design.
+- 2.2 Wizard: card/details/delivery/review, preselect via ?product= with
+  safe selector fallback, quantity >= 1, all 8 configs reusing Phase 1
+  schemas, same-WhatsApp toggle, EMAIL-requires-email, quote wording
+  ("Send request"), edit-backs, state preserved, no pre-submit writes.
+- 2.3 Server: createPublicOrder/createPublicInquiry actions (Zod +
+  normalize + server pricing QUOTE + server attribution + honeypot +
+  3s timing + per-IP buckets), atomic create_public_order/inquiry RPCs
+  (SECURITY DEFINER, no API grants; ADR-071), idempotency inside the
+  txn, SHA-256 receipt tokens, minimal success receipt, WhatsApp
+  continuation via KARTI_SALES_WHATSAPP (hides when unset), /contact
+  inquiry flow (inquiries only).
+
+Verified:
+- pnpm typecheck/lint/test/build: all pass (84 files / 962 tests).
+- Live dev DB: RPC applied; atomic 1+1+1 create; idempotent re-call
+  returns original receipt untouched; QUOTE null totals; attribution
+  persisted; anon table/RPC access denied (200 [] / 404); PostgREST
+  wire-shape call succeeds; inquiry isolated; all proof rows cleaned
+  (commercial tables back to 0; existing data intact).
+- Regression: /{slug}, /t/*, /api/vcard/*, dashboard, NFC suites green.
+
+Known limitations:
+- Homepage is minimal landing; solution/guide/example/pricing pages
+  reserved but unbuilt (Phase 5). EN/AR copy is complete but deserves
+  native-speaker review (flagged, non-blocking).
+- Rate limiter is per-instance memory (documented); durable limiter is
+  the Phase 6 upgrade path. No CAPTCHA by design.
+- Authenticated-admin REST proof needs operator credentials (same
+  standing note as Phase 1). No E2E framework exists; coverage is
+  unit + route/action + live proofs.
+
+Next:
+- Phase 3 (Orders dashboard & operational workflow)
 ```
