@@ -161,10 +161,17 @@ function notFound(entity: string) {
  * persists here — identity codes are minted by the DB DEFAULT generator
  * and backfilled by the migration, so a read path must not invent one.
  */
-function normalizeProfileRow(row: ProfileRow | Omit<ProfileRow, "public_code">): ProfileRow {
-  const publicCode = (row as { public_code?: unknown }).public_code;
-  if (typeof publicCode === "string") return row as ProfileRow;
-  return { ...row, public_code: "" } as ProfileRow;
+function normalizeProfileRow(
+  row: ProfileRow | Omit<ProfileRow, "public_code"> | Omit<ProfileRow, "public_code" | "template">,
+): ProfileRow {
+  const normalized =
+    typeof (row as { public_code?: unknown }).public_code === "string"
+      ? (row as ProfileRow)
+      : ({ ...row, public_code: "" } as ProfileRow);
+  if (typeof (normalized as { template?: unknown }).template === "string") {
+    return normalized;
+  }
+  return { ...normalized, template: "" };
 }
 
 /**
@@ -457,9 +464,11 @@ export async function createProfileInternal(
     error = legacy.error;
     data = legacy.data ? normalizeProfileRow(legacy.data) : null;
   }
-  if (data) data = normalizeProfileRow(data);
+  // Normalize through the pre-migration-tolerant funnel: the returning
+  // projection omits `template`, while the generated Row requires it.
+  const profile = data ? normalizeProfileRow(data) : null;
 
-  if (error || !data) {
+  if (error || !profile) {
     if (error?.code === "23505") {
       // The one-profile-per-client UNIQUE constraint (not the slug) fired —
       // a concurrent create won the race the app-level check could not see.
@@ -490,8 +499,8 @@ export async function createProfileInternal(
   // Template sections for the new profile (trio included in every template).
   // Best-effort: the public loader falls back to the default order when
   // rows are absent, so a seed failure never fails profile creation.
-  await seedTemplateSections(data.id, template, supabase);
-  return { ok: true, data };
+  await seedTemplateSections(profile.id, template, supabase);
+  return { ok: true, data: profile };
 }
 
 /** Public wrapper — same signature as before (verifies admin per call). */

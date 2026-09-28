@@ -2343,3 +2343,38 @@ component.
   ssr:false` inside — forbidden directly in Server Components) so
   production taps never download it. Keep/Share islands stay static
   (no-JS rendering + CTA hydration).
+
+## ADR-070 — Phase 1 vitrine orders: TEXT+CHECK, QUOTE-only, explicit fulfillment
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+Vitrine specs ask for database "enums" and priced ordering. Existing
+invariant ADR-010 mandates TEXT + CHECK for domain values, no approved
+Karti prices exist anywhere in repo/specs, and fulfillment must not be
+reduced to ordinal jumps.
+
+### Decision
+
+- Order domain uses TEXT + CHECK (marketing product type, order/payment/
+  fulfillment status, preferred contact, pricing status, acquisition
+  source, order channel, actor type, inquiry status) mirrored by
+  TypeScript unions in src/domain/orders/. No native enums.
+- All eight catalog products are QUOTE / QUOTE_REQUIRED with no
+  priceMinor. priceOrder() implements FIXED/FROM math for the future but
+  it is unreachable until an approved price lands in the catalog.
+- Fulfillment uses an explicit adjacency map (FULFILLMENT_TRANSITIONS);
+  legitimate skips are listed edges, ordering alone never validates.
+- Phone normalization is format hygiene only: Moroccan 0XXXXXXXXX (any
+  NDC) / 9-digit / 212... / +... / 00... to E.164; no telecom-validity
+  claim.
+- Phase 1 ships the idempotency key type + UNIQUE support only. Atomic
+  Order + OrderItem + ORDER_CREATED transaction belongs to Phase 2.
+
+### Consequences
+
+Migration 20260929000000 stays additive; RLS admin-only with anon
+default-deny; money in integer minor units; jsonb configuration/metadata
+pinned to objects; order numbers from order_number_seq.

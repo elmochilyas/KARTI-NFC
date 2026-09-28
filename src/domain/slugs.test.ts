@@ -41,6 +41,31 @@ describe("isReservedSlug", () => {
     expect(isReservedSlug("DASHBOARD")).toBe(true);
   });
 
+  it.each([
+    "fr",
+    "ar",
+    "en",
+    "products",
+    "solutions",
+    "pricing",
+    "examples",
+    "resources",
+    "guides",
+    "faq",
+    "contact",
+    "order",
+    "orders",
+    "about",
+    "delivery",
+    "returns",
+    "privacy",
+    "terms",
+    "how-it-works",
+  ])("reserves vitrine system route %s", (slug) => {
+    expect(isReservedSlug(slug)).toBe(true);
+    expect(isReservedSlug(slug.toUpperCase())).toBe(true);
+  });
+
   it("treats empty slugs as reserved", () => {
     expect(isReservedSlug("")).toBe(true);
     expect(isReservedSlug("!!!")).toBe(true);
