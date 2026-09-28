@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogIsQuoteOnly, priceOrder } from "./pricing";
+import { catalogIsQuoteOnly, isPricingStatus, priceOrder } from "./pricing";
 
 describe("order pricing contract", () => {
   it("resolves every V1 product to QUOTE_REQUIRED with null totals", () => {
@@ -42,5 +42,12 @@ describe("order pricing contract", () => {
     expect("unitPriceMinor" in quote).toBe(false);
     expect(quote.subtotalMinor).toBeUndefined();
     expect(quote.totalMinor).toBeUndefined();
+  });
+
+  it("narrows stored pricing strings", () => {
+    expect(isPricingStatus("PRICED")).toBe(true);
+    expect(isPricingStatus("QUOTE_REQUIRED")).toBe(true);
+    expect(isPricingStatus("FIXED")).toBe(false);
+    expect(isPricingStatus(null)).toBe(false);
   });
 });

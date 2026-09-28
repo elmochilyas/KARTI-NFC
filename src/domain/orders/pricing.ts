@@ -17,6 +17,10 @@ export const DEFAULT_CURRENCY = "MAD";
 
 export type PricingStatus = "PRICED" | "QUOTE_REQUIRED";
 
+export function isPricingStatus(value: unknown): value is PricingStatus {
+  return value === "PRICED" || value === "QUOTE_REQUIRED";
+}
+
 export type OrderPricingQuote = {
   pricingStatus: PricingStatus;
   unitPriceMinor?: number;

@@ -103,6 +103,18 @@ export const FULFILLMENT_TRANSITIONS: Record<FulfillmentStatus, readonly Fulfill
   DELIVERED: [],
 };
 
+export function isOrderStatus(value: unknown): value is OrderStatus {
+  return typeof value === "string" && (ORDER_STATUSES as readonly string[]).includes(value);
+}
+
+export function isPaymentStatus(value: unknown): value is PaymentStatus {
+  return typeof value === "string" && (PAYMENT_STATUSES as readonly string[]).includes(value);
+}
+
+export function isFulfillmentStatus(value: unknown): value is FulfillmentStatus {
+  return typeof value === "string" && (FULFILLMENT_STATUSES as readonly string[]).includes(value);
+}
+
 export function canTransitionOrder(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_TRANSITIONS[from].includes(to);
 }

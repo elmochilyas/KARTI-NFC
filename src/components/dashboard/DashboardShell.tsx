@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { CreditCard, LayoutDashboard, LogOut, Settings, Users } from "lucide-react";
+import { CreditCard, LayoutDashboard, LogOut, Package, Settings, Users } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", exact: true, Icon: LayoutDashboard },
+  { href: "/dashboard/orders", label: "Orders", exact: false, Icon: Package },
   { href: "/dashboard/clients", label: "Clients", exact: false, Icon: Users },
   { href: "/dashboard/cards", label: "Cards", exact: false, Icon: CreditCard },
   { href: "/dashboard/settings", label: "Settings", exact: false, Icon: Settings },
@@ -93,7 +94,7 @@ export function DashboardShell({ email, children }: { email?: string; children: 
           aria-label="Dashboard"
           className="fixed inset-x-0 bottom-0 border-t border-border bg-surface md:hidden"
         >
-          <ul className="grid grid-cols-4">
+          <ul className="grid grid-cols-5">
             {NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
               const Icon = item.Icon;

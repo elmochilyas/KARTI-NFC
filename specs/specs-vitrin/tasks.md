@@ -57,19 +57,19 @@ All eight products can create valid anonymous Orders from mobile/desktop without
 
 **Goal:** Let Karti operate submitted Orders completely from the dashboard before Client/Card conversion.
 
-- [ ] **3.1 Orders workspace**  
+- [x] **3.1 Orders workspace**  
   Add dashboard navigation, `/dashboard/orders`, server pagination, search, filters, summary counts, Needs Action derivation, responsive list/table behavior, and Inquiries tab.
 
-- [ ] **3.2 Order detail command center**  
+- [x] **3.2 Order detail command center**  
   Add customer/product/delivery/payment/attribution/notes/timeline sections, state-aware quick actions, WhatsApp/call/email actions, and linked-resource placeholders.
 
-- [ ] **3.3 Lifecycle operations**  
+- [x] **3.3 Lifecycle operations**  
   Implement contact, confirmation, cancellation, quote pricing, payment transitions, fulfillment transitions, concurrency protection, event logging, and Dashboard Home order summaries.
 
 **Phase 3 completion gate:**  
 An operator can safely process an Order from NEW through operational fulfillment states with complete event history and no stale-session overwrites.
 
-**Status:** Not started
+**Status:** Complete (2026-09-28)
 
 ---
 
@@ -139,7 +139,7 @@ The complete visitor → Order → dashboard → Client/Profile/Card → `/t/{sh
 |---|---|
 | Phase 1 — Domain Foundation & Database | Complete (2026-09-28) |
 | Phase 2 — Public Vitrine & Ordering | Complete (2026-09-28) |
-| Phase 3 — Orders Dashboard | Not started |
+| Phase 3 — Orders Dashboard | Complete (2026-09-28) |
 | Phase 4 — Client & Card Integration | Not started |
 | Phase 5 — SEO/GEO & Analytics | Not started |
 | Phase 6 — Hardening & Release | Not started |
@@ -271,6 +271,97 @@ Known limitations:
 
 Next:
 - Phase 3 (Orders dashboard & operational workflow)
+```
+
+```text
+## Phase 3 — 2026-09-28
+
+Completed:
+- 3.1 Workspace: Orders nav (desktop sidebar + mobile bottom bar),
+  /dashboard/orders with Orders/Inquiries tabs (?tab=), 7 views
+  (All/New/Needs action/In progress/Ready/Completed/Cancelled),
+  server pagination (25/page, ?page=), server search (number/name/
+  phone/whatsapp/email, LIKE-escaped + or()-safe), product/payment/
+  fulfillment/source filters (?product=&payment=&fulfillment=&source=),
+  DB-backed summary counts (New/Needs action/In progress/Ready),
+  centralized Needs Action derivation (domain/orders/attention.ts,
+  TS truth + PostgREST .or() serialization, 132-combo parity test),
+  desktop table + mobile cards, URL-driven state throughout.
+- 3.2 Detail (/dashboard/orders/[id]): customer (WhatsApp/call/email
+  links carry order number; links never mutate), product (human config
+  lines, never raw JSON), delivery, payment/quote, fulfillment,
+  attribution, internal/customer notes, immutable timeline with human
+  labels, related Client/Profiles/Cards ("Not linked yet" in Phase 3),
+  state-aware primary actions + cancel dialog with structured reasons.
+- 3.3 Lifecycle: 9 atomic admin_* RPCs (migration
+  20261003000000: contact/confirm/complete/cancel/quote/payment/
+  fulfillment/2×notes; SELECT FOR UPDATE + expected-state or
+  updated_at guards → typed CONFLICT; quote formula
+  total=subtotal+delivery-discount in minor units, re-quote allowed
+  with PRICE_SET per save; fulfillment auto-sync CONFIRMED→
+  IN_PROGRESS and DELIVERED→COMPLETED with exactly-once
+  ORDER_COMPLETED; notes events carry {updated:true} only).
+  Inquiry transitions via guarded single-statement UPDATEs.
+  Dashboard Home: New/Needs-action/Ready tiles + top-5 urgent list.
+
+Verified:
+- pnpm typecheck/lint/test/build: all pass (95 files / 1029 tests,
+  +10 files / +62 tests vs Phase 2).
+- Live dev DB: all 9 RPCs SECURITY DEFINER + search_path='' +
+  proacl owner+authenticated+service_role (anon execute = false on
+  all 9); random-sub call → UNAUTHORIZED; full chain NEW→CONTACTED→
+  CONFIRMED→PRICED(11500 exact)→PAID→REFUNDED→…→DELIVERED→COMPLETED
+  with 13-event trail, ORDER_COMPLETED exactly once; stale contact
+  repeat → CONFLICT with 1 CUSTOMER_CONTACTED; stale updated_at
+  quote → CONFLICT (99999 never wrote); invalid payment/fulfillment
+  jumps → INVALID_TRANSITION; bad reason/over-discount →
+  VALIDATION; cancel metadata exact; terminal re-cancel/fulfillment
+  rejected; note content absent from event metadata; direct
+  IN_PROGRESS→COMPLETED path proven. All proof rows deleted
+  (commercial 0/0/0/0; clients 2, cards 1 intact).
+- Regression: vitrine/NFC/dashboard suites green; no public-flow,
+  RLS, or Client/Profile/Card changes (additive migration only).
+
+Type freeze verification (2026-09-28, same session):
+- `pnpm db:types` CLI genuinely blocked (no SUPABASE_ACCESS_TOKEN in
+  env; CLI demands `supabase login` or the token). Used the connected
+  Supabase MCP type generator against the same migrated dev project
+  instead — full output captured, then applied surgically: the MCP
+  output covers the public schema only while the repo file carries
+  public+storage, so the file was restored and ONLY the 9 generated
+  admin_* Functions blocks were transplanted (git diff: +63/-0).
+  Existing function entries proved byte-identical, so no drift.
+- All 9 generated signatures verified against the live SQL: uuid→
+  string, text→string, bigint→number, timestamptz→string, returns
+  Json. No contract mismatch found.
+- Phase 3 RPC bypasses removed: service now calls
+  supabase.rpc(fn, args) through a typed AdminFunctionName dispatcher
+  (compile-enforced names + arg shapes); cancel sends p_note ?? ""
+  (SQL treats "" like NULL — same metadata outcome); mapEnvelope's
+  unreachable ok-branch + companion cast deleted. Zero `as never` /
+  `as any` remain in Phase 3 app code (two test-file casts kept:
+  mock wiring + a deliberate-invalid-input negative case).
+- Inquiry path verified without redesign: live policy is exactly
+  `Admins manage inquiries` for {authenticated} with
+  private.is_admin() on USING and WITH CHECK (anon default-deny, so
+  anon cannot update); service UPDATE carries id + expected status
+  with NOT_FOUND-vs-CONFLICT mapping; action passes expected status
+  through; stale-status unit test retained and green.
+- Re-run: typecheck 0, lint 0, test 95/1029 pass, build compiled.
+
+Known limitations:
+- database.ts Functions for the 9 admin RPCs came via the MCP
+  generator transplant (CLI token unavailable); content is genuine
+  generator output, verified byte-consistent with existing entries.
+- Inquiry status changes are unit-tested (guarded UPDATE) but not
+  live-proven (no operator JWT in this environment; RLS path).
+- "All" view sorts newest-first; priority surfacing lives in the
+  dedicated views + counts (documented interpretation).
+- No E2E framework; dashboard coverage is unit + service-fake +
+  live proofs per repo TESTING.md convention.
+
+Next:
+- Phase 4 (Client conversion & Card provisioning integration)
 ```
 
 ```text

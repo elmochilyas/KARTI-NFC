@@ -3,6 +3,9 @@ import {
   canTransitionFulfillment,
   canTransitionOrder,
   canTransitionPayment,
+  isFulfillmentStatus,
+  isOrderStatus,
+  isPaymentStatus,
   isTerminalOrderStatus,
   syncOrderStatusOnFulfillmentChange,
 } from "./lifecycle";
@@ -119,5 +122,17 @@ describe("fulfillment → order auto-synchronization", () => {
         fulfillmentStatus: "DELIVERED",
       }),
     ).toBe("CANCELLED");
+  });
+});
+
+describe("status guards", () => {
+  it("narrows stored strings to domain unions", () => {
+    expect(isOrderStatus("NEW")).toBe(true);
+    expect(isOrderStatus("SHIPPED")).toBe(false);
+    expect(isOrderStatus(null)).toBe(false);
+    expect(isPaymentStatus("PAID")).toBe(true);
+    expect(isPaymentStatus("NEW")).toBe(false);
+    expect(isFulfillmentStatus("READY")).toBe(true);
+    expect(isFulfillmentStatus("PAID")).toBe(false);
   });
 });

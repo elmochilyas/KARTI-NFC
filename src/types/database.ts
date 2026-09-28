@@ -641,6 +641,69 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_cancel_order: {
+        Args: {
+          p_expected_status: string
+          p_note: string
+          p_order_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      admin_complete_order: {
+        Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_confirm_order: {
+        Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_mark_order_contacted: {
+        Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_set_order_price: {
+        Args: {
+          p_delivery_fee_minor: number
+          p_discount_minor: number
+          p_expected_updated_at: string
+          p_order_id: string
+          p_subtotal_minor: number
+        }
+        Returns: Json
+      }
+      admin_update_customer_note: {
+        Args: {
+          p_expected_updated_at: string
+          p_note: string
+          p_order_id: string
+        }
+        Returns: Json
+      }
+      admin_update_fulfillment_status: {
+        Args: {
+          p_expected_fulfillment: string
+          p_order_id: string
+          p_target_fulfillment: string
+        }
+        Returns: Json
+      }
+      admin_update_internal_note: {
+        Args: {
+          p_expected_updated_at: string
+          p_note: string
+          p_order_id: string
+        }
+        Returns: Json
+      }
+      admin_update_payment_status: {
+        Args: {
+          p_expected_payment: string
+          p_order_id: string
+          p_target_payment: string
+        }
+        Returns: Json
+      }
       create_public_inquiry: {
         Args: {
           p_company: string;
