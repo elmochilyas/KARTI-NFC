@@ -3,20 +3,27 @@ import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Section } from "@/components/dashboard/Section";
 import {
   attentionLabel,
+  canProvisionAtFulfillment,
+  cardReadiness,
   deriveOrderAttention,
   formatMinorToMad,
   formatOrderConfiguration,
+  getProductDefinition,
   humanizeStatusValue,
+  isConvertibleOrderStatus,
   isFulfillmentStatus,
+  isOrderStatus,
   isPaymentStatus,
   isPricingStatus,
   isProductType,
   orderEventActorLabel,
   orderEventLabel,
+  resolveOrderItemDestination,
 } from "@/domain/orders";
 import type { ProductType } from "@/domain/orders";
 import type { OrderDetail } from "../types";
 import { productDisplayName } from "../productNames";
+import { ConvertClientDialog, ProvisionCardsPanel, ReviewUrlResolver } from "./ConversionForms";
 import {
   CancelOrderDialog,
   CompleteOrderButton,
@@ -332,12 +339,6 @@ export function FulfillmentSection({ detail }: { detail: OrderDetail }) {
           ) : null}
         </div>
       ) : null}
-      {order.fulfillment_status === "NFC_CONFIGURATION" ? (
-        <p className="mt-3 text-xs text-muted">
-          NFC configuration is operational tracking only in this phase — no cards are provisioned
-          from orders yet.
-        </p>
-      ) : null}
     </Section>
   );
 }
@@ -408,49 +409,202 @@ export function AttributionSection({ detail }: { detail: OrderDetail }) {
 }
 
 export function RelatedSection({ detail }: { detail: OrderDetail }) {
-  const { client, profiles, cards } = detail;
+  const { order, client, profiles, cards, items } = detail;
+  const terminal = order.status === "COMPLETED" || order.status === "CANCELLED";
+  const convertible =
+    !order.client_id && isOrderStatus(order.status) && isConvertibleOrderStatus(order.status);
+
   return (
-    <Section title="Related records" description="Client conversion arrives in Phase 4.">
+    <>
+      <Section
+        title="Client"
+        description="Conversion never happens automatically — the operator decides."
+      >
+        {client ? (
+          <p className="text-sm">
+            <Link href={`/dashboard/clients/${client.id}`} className="font-medium underline">
+              {client.name}
+            </Link>
+            {client.company ? <span className="text-muted"> · {client.company}</span> : null}
+          </p>
+        ) : convertible ? (
+          <ConvertClientDialog orderId={order.id} expectedStatus={order.status} />
+        ) : (
+          <p className="text-sm text-muted">
+            {terminal
+              ? `Order ${humanizeStatusValue(order.status)} — conversion is unavailable.`
+              : "Not linked yet. Conversion unlocks once the order is confirmed."}
+          </p>
+        )}
+      </Section>
+
+      {items.map((item) => (
+        <ItemProvisioning key={item.id} detail={detail} itemId={item.id} />
+      ))}
+
+      <Section title="Linked records">
+        <dl className="flex flex-col gap-2 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-muted">Profiles</dt>
+            <dd>
+              {profiles.length > 0 ? (
+                <span className="flex flex-col items-end gap-1">
+                  {profiles.map((profile) => (
+                    <span key={profile.id}>
+                      {order.client_id ? (
+                        <Link
+                          href={`/dashboard/clients/${order.client_id}/profile`}
+                          className="underline"
+                        >
+                          {profile.displayName}
+                        </Link>
+                      ) : (
+                        profile.displayName
+                      )}{" "}
+                      <span className="text-muted">
+                        · {humanizeStatusValue(profile.profileType)} ·{" "}
+                        {humanizeStatusValue(profile.status)}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                <span className="text-muted">Not linked yet</span>
+              )}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-muted">Cards</dt>
+            <dd>
+              {cards.length > 0 ? (
+                <span className="flex flex-col items-end gap-1">
+                  {cards.map((card) => (
+                    <Link key={card.id} href={`/dashboard/cards/${card.id}`} className="underline">
+                      {card.cardNumber} · {humanizeStatusValue(card.status)}
+                    </Link>
+                  ))}
+                </span>
+              ) : (
+                <span className="text-muted">Not linked yet</span>
+              )}
+            </dd>
+          </div>
+        </dl>
+        {cards.length > 0 ? (
+          <p className="mt-3 text-xs text-muted">
+            Every card keeps its permanent /t/ short-code URL. Physical NFC writing happens from the
+            card page.
+          </p>
+        ) : null}
+      </Section>
+    </>
+  );
+}
+
+function ItemProvisioning({ detail, itemId }: { detail: OrderDetail; itemId: string }) {
+  const { order, items, linkedCardCounts, linkedCardsByItem } = detail;
+  const item = items.find((entry) => entry.id === itemId);
+  if (!item || !isProductType(item.product_type)) return null;
+
+  const productType = item.product_type;
+  const definition = getProductDefinition(productType);
+  const readiness = cardReadiness(item.quantity, linkedCardCounts[item.id] ?? 0);
+  const linkedCards = linkedCardsByItem[item.id] ?? [];
+  const terminal = order.status === "COMPLETED" || order.status === "CANCELLED";
+  const fulfillmentReady =
+    isFulfillmentStatus(order.fulfillment_status) &&
+    canProvisionAtFulfillment(order.fulfillment_status, readiness.linked);
+
+  const profile =
+    definition.requiresProfile && item.profile_id
+      ? (detail.profiles.find((entry) => entry.id === item.profile_id) ?? null)
+      : null;
+  const resolved = definition.requiresProfile
+    ? null
+    : resolveOrderItemDestination(productType, item.configuration);
+  const destinationMissing = resolved !== null && !resolved.ok;
+  const storedReviewUrl = (() => {
+    if (productType !== "GOOGLE_REVIEW_CARD") return null;
+    if (typeof item.configuration !== "object" || item.configuration === null) return null;
+    const raw = (item.configuration as Record<string, unknown>).reviewUrl;
+    return typeof raw === "string" && raw.trim() !== "" ? raw : null;
+  })();
+
+  return (
+    <Section
+      title={`Cards · ${productDisplayName(productType)} ×${item.quantity}`}
+      description={
+        definition.requiresProfile
+          ? "Cards point at the linked profile."
+          : "Cards point at the resolved external destination."
+      }
+    >
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted">Client</dt>
-          <dd>
-            {client ? (
-              <Link href={`/dashboard/clients/${client.id}`} className="font-medium underline">
-                {client.name}
-              </Link>
+          <dt className="text-muted">Destination</dt>
+          <dd className="min-w-0 text-right">
+            {definition.requiresProfile ? (
+              profile ? (
+                profile.displayName
+              ) : (
+                <span className="text-muted">No profile linked yet</span>
+              )
+            ) : resolved && resolved.ok ? (
+              <span className="break-all">{resolved.url}</span>
             ) : (
-              <span className="text-muted">Not linked yet</span>
+              <span className="text-warning">Missing — resolve below</span>
             )}
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted">Profiles</dt>
-          <dd>
-            {profiles.length > 0 ? (
-              <span>{profiles.map((profile) => profile.displayName).join(", ")}</span>
-            ) : (
-              <span className="text-muted">Not linked yet</span>
-            )}
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted">Cards</dt>
-          <dd>
-            {cards.length > 0 ? (
-              <span className="flex flex-col items-end gap-1">
-                {cards.map((card) => (
-                  <Link key={card.id} href={`/dashboard/cards/${card.id}`} className="underline">
-                    {card.cardNumber}
-                  </Link>
-                ))}
-              </span>
-            ) : (
-              <span className="text-muted">Not linked yet</span>
-            )}
+          <dt className="text-muted">Provisioned</dt>
+          <dd aria-live="polite">
+            {readiness.linked} of {readiness.required}
           </dd>
         </div>
       </dl>
+
+      {linkedCards.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-1">
+          {linkedCards.map((card) => (
+            <li key={card.id} className="text-sm">
+              <Link href={`/dashboard/cards/${card.id}`} className="underline">
+                {card.cardNumber}
+              </Link>{" "}
+              <span className="text-muted">· /t/{card.shortCode}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {!terminal && productType === "GOOGLE_REVIEW_CARD" && destinationMissing ? (
+        <div className="mt-3 border-t border-border pt-3">
+          <ReviewUrlResolver
+            orderId={order.id}
+            itemId={item.id}
+            expectedItemUpdatedAt={item.updated_at}
+            currentUrl={storedReviewUrl}
+          />
+        </div>
+      ) : null}
+
+      {!terminal && order.client_id && readiness.remaining > 0 ? (
+        <div className="mt-3 border-t border-border pt-3">
+          {fulfillmentReady ? (
+            <ProvisionCardsPanel
+              orderId={order.id}
+              itemId={item.id}
+              expectedFulfillment={order.fulfillment_status}
+              required={readiness.required}
+              linked={readiness.linked}
+              remaining={readiness.remaining}
+              destinationMissing={destinationMissing}
+            />
+          ) : (
+            <p className="text-sm text-muted">Card provisioning unlocks at NFC configuration.</p>
+          )}
+        </div>
+      ) : null}
     </Section>
   );
 }

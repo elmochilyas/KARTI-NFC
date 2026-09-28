@@ -3,7 +3,7 @@ import { ORDER_EVENT_TYPES, isOrderEventType } from "./events";
 import { idempotencyKeySchema, isIdempotencyKey } from "./idempotency";
 
 describe("order event types", () => {
-  it("exposes the sixteen required canonical names", () => {
+  it("exposes the seventeen required canonical names", () => {
     expect(ORDER_EVENT_TYPES).toEqual([
       "ORDER_CREATED",
       "CUSTOMER_CONTACTED",
@@ -21,6 +21,7 @@ describe("order event types", () => {
       "CARD_CONFIGURED",
       "CUSTOMER_NOTE_UPDATED",
       "INTERNAL_NOTE_UPDATED",
+      "DESTINATION_RESOLVED",
     ]);
   });
 

@@ -20,7 +20,11 @@ import {
   cancelOrder,
   completeOrder,
   confirmOrder,
+  convertOrder,
+  findClientCandidates,
   markOrderContacted,
+  provisionOrderCards,
+  resolveReviewDestination,
   setOrderPrice,
   updateCustomerNote,
   updateFulfillmentStatus,
@@ -28,6 +32,7 @@ import {
   updateInternalNote,
   updatePaymentStatus,
 } from "./service";
+import type { ClientCandidate, ConversionMode } from "./types";
 
 export type OrderActionState = {
   ok: boolean;
@@ -258,6 +263,103 @@ export async function updateInquiryStatusAction(
   if (result.ok) {
     revalidatePath("/dashboard/orders");
     return { ok: true, message: "Inquiry updated." };
+  }
+  return toState(result, "");
+}
+
+// ---------------------------------------------------------------------------
+// Conversion & provisioning (Phase 4)
+// ---------------------------------------------------------------------------
+
+export type CandidatesActionState =
+  | { ok: true; candidates: ClientCandidate[] }
+  | { ok: false; message: string; code?: OrderErrorCode };
+
+export async function findClientCandidatesAction(orderId: string): Promise<CandidatesActionState> {
+  const supabase = await getServerClient();
+  if (!supabase) return { ok: false, message: "Order management is not configured yet." };
+  const result = await findClientCandidates(orderId, supabase);
+  if (!result.ok) {
+    return { ok: false, message: result.error.message, code: result.error.code };
+  }
+  return { ok: true, candidates: result.data };
+}
+
+function isConversionMode(value: unknown): value is ConversionMode {
+  return value === "existing" || value === "new";
+}
+
+export async function convertOrderAction(
+  orderId: string,
+  expectedStatus: string,
+  mode: string,
+  clientId: string | null,
+): Promise<OrderActionState> {
+  const supabase = await getServerClient();
+  if (!supabase) return NOT_CONFIGURED;
+  if (!isOrderStatus(expectedStatus) || !isConversionMode(mode)) {
+    return {
+      ok: false,
+      message: "This action is no longer available.",
+      code: "INVALID_TRANSITION",
+    };
+  }
+  const result = await convertOrder(orderId, expectedStatus, mode, clientId, supabase);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    return {
+      ok: true,
+      message: result.data.converted
+        ? "Order converted to client."
+        : "Order was already linked to this client.",
+    };
+  }
+  return toState(result, "");
+}
+
+export async function provisionOrderCardsAction(
+  orderId: string,
+  itemId: string,
+  expectedFulfillment: string,
+): Promise<OrderActionState> {
+  const supabase = await getServerClient();
+  if (!supabase) return NOT_CONFIGURED;
+  if (!isFulfillmentStatus(expectedFulfillment)) {
+    return {
+      ok: false,
+      message: "This action is no longer available.",
+      code: "INVALID_TRANSITION",
+    };
+  }
+  const result = await provisionOrderCards(orderId, itemId, expectedFulfillment, supabase);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    const count = result.data.provisioned;
+    return {
+      ok: true,
+      message:
+        count === 0
+          ? "All required cards are already linked."
+          : count === 1
+            ? "1 card provisioned and linked."
+            : `${count} cards provisioned and linked.`,
+    };
+  }
+  return toState(result, "");
+}
+
+export async function resolveReviewDestinationAction(
+  orderId: string,
+  itemId: string,
+  expectedItemUpdatedAt: string,
+  url: string,
+): Promise<OrderActionState> {
+  const supabase = await getServerClient();
+  if (!supabase) return NOT_CONFIGURED;
+  const result = await resolveReviewDestination(itemId, expectedItemUpdatedAt, url, supabase);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    return { ok: true, message: "Review destination saved." };
   }
   return toState(result, "");
 }

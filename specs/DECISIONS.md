@@ -2449,3 +2449,73 @@ resolution.
 Locale routing needs no middleware, no i18n framework, no rewrites.
 Adding a locale means one static dir + one dict file satisfying
 `VitrineDict` (missing keys fail the build).
+
+---
+
+## ADR-073 — Order conversion/provisioning as dedicated atomic RPCs
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+Phase 4 must convert orders (client + profile + links + events) and
+provision N cards (rows + relations + events) atomically with
+stale-session guards, but supabase-js cannot span a transaction and the
+existing `configureCardForClient` orchestration is single-card,
+application-layer, and transaction-incapable. Options were cloning the
+TS orchestration into every flow (rejected: two implementations), or
+dedicated SQL functions reusing the same DB-level invariants.
+
+### Decision
+
+- `admin_convert_order`, `admin_provision_order_cards`,
+  `admin_resolve_order_destination` (migration `20261004000000`):
+  `SECURITY DEFINER`, `SET search_path = ''`, internal
+  `private.is_admin()`, `SELECT ... FOR UPDATE`, typed jsonb
+  envelopes, explicit `REVOKE ... FROM PUBLIC, anon` + `GRANT EXECUTE
+  TO authenticated`.
+- Reuse, not duplication: card numbers come from `card_number_seq`,
+  destination legality from `cards_destination_consistent` +
+  `trg_cards_integrity`, identity from `UNIQUE(profiles.client_id)` +
+  slug unique (mapped to typed conflicts), slug/short-code *generation*
+  stays in TS (`suggestSlug`/`ensureUniqueSlug`/`generateCardShortCode`
+  passed in; RPC validates + returns retryable collision codes).
+  Either/or RPC slots use `DEFAULT NULL` so typed callers omit unused
+  keys (generator marks them optional — no casts).
+- Catalog mapping, short-code alphabet, and reserved slugs are mirrored
+  in SQL and pinned by `conversionMigration.test.ts`; TS stays
+  authoritative for UX, SQL enforces.
+- Deliberate deviation: provisioned cards go ACTIVE with a DRAFT
+  profile destination allowed (the orchestration's ACTIVE-profile gate
+  would deadlock the order flow); the resolver fail-closes until
+  activation. No fulfillment auto-moves on conversion/provisioning.
+
+### Addendum — rule residency audit (2026-09-28)
+
+Side-by-side audit of `configureCardForClient` (+ primitives) vs
+`admin_provision_order_cards` confirmed a single source per rule:
+
+- card_number: DB sequence default on both paths (never app-supplied).
+- short_code: same TS generator passed in; same alphabet enforced +
+  same UNIQUE guard (parity-pinned in CI).
+- destination consistency, ACTIVE owner/destination, same-client
+  profile, URL shape: `trg_cards_integrity` fires on BOTH paths'
+  writes — it is the shared backstop, not a duplicated definition.
+- Canonical split: normalize in TS (`validateSafeExternalUrl` and
+  friends resolve before any call), shape-enforce in SQL + trigger.
+  The RPC URL gate additionally rejects userinfo (`@` in authority)
+  to mirror the app parser's credential rule; path-`@` stays legal.
+- App-only extras that are path UX, not competing validity:
+  ACTIVE-profile-status gate, assignment-clearing + reassign gates
+  (fresh-row creation has nothing to clear or reassign),
+  short-code retry locus (app loop vs collision code + action retry).
+- `/t/{short_code}` + QR: pure builders over `short_code`; provisioned
+  rows are ordinary cards rows carrying `profile_id`/URL — never slugs
+  — so later destination/slug changes need no new card on either path.
+
+### Consequences
+
+Conversion/provisioning are all-or-nothing with idempotent retries and
+race-safe concurrency (proven live); the client NFC flow keeps its
+unchanged orchestration; no second card system exists.

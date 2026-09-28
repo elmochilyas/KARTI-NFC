@@ -37,7 +37,7 @@ import {
 } from "../actions";
 import type { InquiryListItem } from "../types";
 
-function useOrderMutation() {
+export function useOrderMutation() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [state, setState] = useState<OrderActionState | null>(null);
@@ -54,7 +54,7 @@ function useOrderMutation() {
   return { pending, state, submit };
 }
 
-function MutationFeedback({ state }: { state: OrderActionState | null }) {
+export function MutationFeedback({ state }: { state: OrderActionState | null }) {
   if (!state) return null;
   return (
     <p role={state.ok ? "status" : "alert"} aria-live="polite" className="text-sm">

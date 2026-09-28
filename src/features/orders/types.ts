@@ -13,7 +13,16 @@ export type OrderEventRow = Tables<"order_events">;
 export type InquiryRow = Tables<"inquiries">;
 
 export type OrderErrorCode =
-  "VALIDATION_ERROR" | "UNAUTHORIZED" | "NOT_FOUND" | "CONFLICT" | "INVALID_TRANSITION" | "UNKNOWN";
+  | "VALIDATION_ERROR"
+  | "UNAUTHORIZED"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "INVALID_TRANSITION"
+  | "PROFILE_CONFLICT"
+  | "DESTINATION_REQUIRED"
+  | "SLUG_TAKEN"
+  | "SHORT_CODE_COLLISION"
+  | "UNKNOWN";
 
 export type OrderResult<T> =
   | { ok: true; data: T }
@@ -89,6 +98,8 @@ export type LinkedProfileSummary = {
   id: string;
   displayName: string;
   slug: string;
+  profileType: string;
+  status: string;
 };
 
 export type LinkedCardSummary = {
@@ -106,6 +117,10 @@ export type OrderDetail = {
   client: LinkedClientSummary | null;
   profiles: LinkedProfileSummary[];
   cards: LinkedCardSummary[];
+  /** order_item_id → linked physical card count. */
+  linkedCardCounts: Record<string, number>;
+  /** order_item_id → linked physical cards (for per-item display). */
+  linkedCardsByItem: Record<string, LinkedCardSummary[]>;
 };
 
 export type OrdersSummary = {
@@ -145,4 +160,35 @@ export type AdminRpcEnvelope = {
   fulfillment_status?: string;
   pricing_status?: string;
   total_minor?: number;
+  converted?: boolean;
+  client_id?: string;
+  profile_id?: string;
+  profile_created?: boolean;
+  existing_profile_type?: string;
+  provisioned?: number;
+  card_ids?: string[];
+  url?: string;
+};
+
+export type ConversionMode = "existing" | "new";
+
+export type ConversionResult = {
+  converted: boolean;
+  clientId: string;
+  profileId: string | null;
+  profileCreated: boolean;
+};
+
+export type ProvisionResult = {
+  provisioned: number;
+  cardIds: string[];
+};
+
+export type ClientCandidate = {
+  id: string;
+  name: string;
+  company: string | null;
+  phone: string | null;
+  email: string | null;
+  matchReasons: Array<"PHONE" | "EMAIL" | "NAME">;
 };

@@ -4,12 +4,16 @@ import {
   cancelOrder,
   completeOrder,
   confirmOrder,
+  convertOrder,
   escapeOrderSearch,
+  findClientCandidates,
   getOrderDetail,
   getOrdersSummary,
   listInquiries,
   listOrders,
   markOrderContacted,
+  provisionOrderCards,
+  resolveReviewDestination,
   setOrderPrice,
   updateCustomerNote,
   updateFulfillmentStatus,
@@ -221,7 +225,10 @@ describe("orders service reads", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.client).toEqual({ id: "c1", name: "Ahmed", company: "Café X" });
-    expect(result.data.profiles).toEqual([{ id: "p1", displayName: "Ahmed", slug: "ahmed" }]);
+    expect(result.data.profiles).toEqual([
+      { id: "p1", displayName: "Ahmed", slug: "ahmed", profileType: undefined, status: undefined },
+    ]);
+    expect(result.data.linkedCardCounts).toEqual({ i1: 1 });
     expect(result.data.cards).toEqual([
       { id: "k1", cardNumber: "K-1", shortCode: "ABC123", status: "ACTIVE" },
     ]);
@@ -433,5 +440,443 @@ describe("orders service mutations", () => {
       p_expected_updated_at: "2026-09-28T10:00:00.000Z",
       p_note: "Ring twice",
     });
+  });
+});
+
+const CONVERT_SNAPSHOT = {
+  id: "22222222-2222-4222-8222-222222222222",
+  status: "CONFIRMED",
+  client_id: null,
+  customer_name: "Ahmed Benali",
+  phone: "+212612345678",
+  email: "ahmed@example.com",
+};
+
+describe("conversion service", () => {
+  it("finds exact phone/email candidates and ranks both-match first", async () => {
+    const fake = adminDb({
+      tables: {
+        orders: { data: CONVERT_SNAPSHOT, error: null },
+        clients: {
+          data: [
+            {
+              id: "c1",
+              name: "Ahmed B.",
+              company: null,
+              phone: "+212612345678",
+              email: "other@example.com",
+            },
+            {
+              id: "c2",
+              name: "Ahmed Benali",
+              company: "Café",
+              phone: "+212600000000",
+              email: "ahmed@example.com",
+            },
+            { id: "c3", name: "Unrelated", company: null, phone: null, email: null },
+          ],
+          error: null,
+        },
+      },
+    });
+    // Fakes do not apply ilike: scope the name-recall query to c1/c2.
+    const baseImpl = fake.from.getMockImplementation() as (table: string) => unknown;
+    let clientCalls = 0;
+    fake.from.mockImplementation(((table: string) => {
+      if (table === "clients") {
+        clientCalls += 1;
+        if (clientCalls === 2) {
+          const chain = makeChain({ data: [{ id: "c1" }, { id: "c2" }], error: null });
+          fake.chains.push({ table, chain });
+          return chain;
+        }
+      }
+      return baseImpl(table);
+    }) as never);
+    const result = await findClientCandidates(CONVERT_SNAPSHOT.id, fake.db);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // c1 phone-only, c2 email+name; c3 excluded.
+    expect(result.data.map((candidate) => candidate.id)).toEqual(["c1", "c2"]);
+    expect(result.data[0].matchReasons).toContain("PHONE");
+    expect(result.data[1].matchReasons).toContain("EMAIL");
+  });
+
+  it("finds exact matches beyond the first 100 clients", async () => {
+    const rows = Array.from({ length: 150 }, (_, index) => ({
+      id: `c-${index}`,
+      name: `P4X Person ${index}`,
+      company: null,
+      phone: `+21260000${1000 + index}`,
+      email: `p4x${index}@example.com`,
+    }));
+    const targetPhone = "+212600001120";
+    const targetEmail = "p4x120@example.com";
+    const fake = adminDb({
+      tables: {
+        orders: {
+          data: {
+            ...CONVERT_SNAPSHOT,
+            customer_name: "P4X Person 120",
+            phone: targetPhone,
+            email: targetEmail,
+          },
+          error: null,
+        },
+      },
+    });
+    const baseImpl = fake.from.getMockImplementation() as (table: string) => unknown;
+    fake.from.mockImplementation(((table: string) => {
+      if (table !== "clients") return baseImpl(table);
+      let sliceFrom = 0;
+      let sliceTo = rows.length;
+      let orUsed = false;
+      const chain = makeChain({ data: [], error: null });
+      chain.range = vi.fn((fromIdx: number, toIdx: number) => {
+        sliceFrom = fromIdx;
+        sliceTo = toIdx + 1;
+        return chain;
+      });
+      chain.or = vi.fn(() => {
+        orUsed = true;
+        return chain;
+      });
+      chain.then = (resolve: (value: TableResult) => void) =>
+        Promise.resolve({
+          data: orUsed ? [] : rows.slice(sliceFrom, sliceTo),
+          error: null,
+        }).then(resolve);
+      fake.chains.push({ table, chain });
+      return chain;
+    }) as never);
+
+    const result = await findClientCandidates(CONVERT_SNAPSHOT.id, fake.db);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.map((candidate) => candidate.id)).toEqual(["c-120"]);
+    expect(result.data[0].matchReasons).toEqual(expect.arrayContaining(["PHONE", "EMAIL"]));
+    // 150 rows fit one 500-row page: single range call, no cutoff.
+    const ranges = callsFor(fake, "clients", "range");
+    expect(ranges).toEqual([[0, 499]]);
+  });
+
+  it("pages past the first scan window for far-out matches", async () => {
+    const rows = Array.from({ length: 600 }, (_, index) => ({
+      id: `d-${index}`,
+      name: `P4Y Person ${index}`,
+      company: null,
+      phone: `+21261111${String(1000 + index).slice(-4)}`,
+      email: `p4y${index}@example.com`,
+    }));
+    const fake = adminDb({
+      tables: {
+        orders: {
+          data: {
+            ...CONVERT_SNAPSHOT,
+            customer_name: "P4Y Person 550",
+            phone: "+212611111550",
+            email: "p4y550@example.com",
+          },
+          error: null,
+        },
+      },
+    });
+    const baseImpl = fake.from.getMockImplementation() as (table: string) => unknown;
+    fake.from.mockImplementation(((table: string) => {
+      if (table !== "clients") return baseImpl(table);
+      let sliceFrom = 0;
+      let sliceTo = rows.length;
+      let orUsed = false;
+      const chain = makeChain({ data: [], error: null });
+      chain.range = vi.fn((fromIdx: number, toIdx: number) => {
+        sliceFrom = fromIdx;
+        sliceTo = toIdx + 1;
+        return chain;
+      });
+      chain.or = vi.fn(() => {
+        orUsed = true;
+        return chain;
+      });
+      chain.then = (resolve: (value: TableResult) => void) =>
+        Promise.resolve({
+          data: orUsed ? [] : rows.slice(sliceFrom, sliceTo),
+          error: null,
+        }).then(resolve);
+      fake.chains.push({ table, chain });
+      return chain;
+    }) as never);
+
+    const result = await findClientCandidates(CONVERT_SNAPSHOT.id, fake.db);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Name recall isolated away: the exact phone/email hit at index 550
+    // is found purely by the paged scan loop.
+    expect(result.data.map((candidate) => candidate.id)).toEqual(["d-550"]);
+    expect(result.data[0].matchReasons).toEqual(expect.arrayContaining(["PHONE", "EMAIL"]));
+    expect(callsFor(fake, "clients", "range")).toEqual([
+      [0, 499],
+      [500, 999],
+    ]);
+  });
+
+  it("refuses conversion from non-convertible states without an RPC", async () => {
+    const fake = adminDb({});
+    const result = await convertOrder(ORDER_ROW.id, "NEW", "new", null, fake.db);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("INVALID_TRANSITION");
+    expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns the existing relation when already linked", async () => {
+    const fake = adminDb({
+      tables: {
+        orders: { data: { ...CONVERT_SNAPSHOT, client_id: "client-9" }, error: null },
+      },
+    });
+    const result = await convertOrder(CONVERT_SNAPSHOT.id, "CONFIRMED", "new", null, fake.db);
+    expect(result).toEqual({
+      ok: true,
+      data: { converted: false, clientId: "client-9", profileId: null, profileCreated: false },
+    });
+    expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it("converts to a new client with a generated slug and no client-id key", async () => {
+    const fake = adminDb({
+      tables: {
+        orders: { data: CONVERT_SNAPSHOT, error: null },
+        order_items: {
+          data: [{ product_type: "BUSINESS_CARD", configuration: { businessName: "Café X" } }],
+          error: null,
+        },
+        profiles: { data: [], error: null },
+      },
+      rpcResult: {
+        data: {
+          ok: true,
+          converted: true,
+          client_id: "c-new",
+          profile_id: "p-new",
+          profile_created: true,
+        },
+        error: null,
+      },
+    });
+    const result = await convertOrder(CONVERT_SNAPSHOT.id, "CONFIRMED", "new", null, fake.db);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual({
+      converted: true,
+      clientId: "c-new",
+      profileId: "p-new",
+      profileCreated: true,
+    });
+    const args = fake.rpc.mock.calls[0][1] as Record<string, unknown>;
+    expect(args.p_mode).toBe("new");
+    expect(args.p_profile_slug).toBe("ahmed-benali");
+    expect("p_client_id" in args).toBe(false);
+    expect(args.p_client_company).toBe("Café X");
+  });
+
+  it("retries once on SLUG_TAKEN with a fresh slug", async () => {
+    const fake = adminDb({
+      tables: {
+        orders: { data: CONVERT_SNAPSHOT, error: null },
+        order_items: {
+          data: [{ product_type: "PERSONAL_CARD", configuration: { fullName: "Ahmed Benali" } }],
+          error: null,
+        },
+        profiles: { data: [], error: null },
+      },
+    });
+    fake.rpc
+      .mockResolvedValueOnce({ data: { ok: false, code: "SLUG_TAKEN" }, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          ok: true,
+          converted: true,
+          client_id: "c1",
+          profile_id: "p1",
+          profile_created: true,
+        },
+        error: null,
+      });
+    const result = await convertOrder(CONVERT_SNAPSHOT.id, "CONFIRMED", "new", null, fake.db);
+    expect(result.ok).toBe(true);
+    expect(fake.rpc).toHaveBeenCalledTimes(2);
+    const firstSlug = (fake.rpc.mock.calls[0][1] as Record<string, unknown>).p_profile_slug;
+    const secondSlug = (fake.rpc.mock.calls[1][1] as Record<string, unknown>).p_profile_slug;
+    expect(firstSlug).toBe("ahmed-benali");
+    expect(secondSlug).not.toBe("ahmed-benali");
+  });
+
+  it("maps PROFILE_CONFLICT to an operator-safe message", async () => {
+    const fake = adminDb({
+      tables: {
+        orders: { data: CONVERT_SNAPSHOT, error: null },
+        order_items: {
+          data: [{ product_type: "PERSONAL_CARD", configuration: { fullName: "Ahmed" } }],
+          error: null,
+        },
+        profiles: { data: [], error: null },
+      },
+      rpcResult: {
+        data: { ok: false, code: "PROFILE_CONFLICT", existing_profile_type: "BUSINESS" },
+        error: null,
+      },
+    });
+    const result = await convertOrder(
+      CONVERT_SNAPSHOT.id,
+      "CONFIRMED",
+      "existing",
+      "33333333-3333-4333-8333-333333333333",
+      fake.db,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("PROFILE_CONFLICT");
+      expect(result.error.message).toContain("Business profile");
+    }
+  });
+});
+
+describe("provisioning service", () => {
+  const PROVISION_ORDER = {
+    id: "44444444-4444-4444-8444-444444444444",
+    status: "CONFIRMED",
+    fulfillment_status: "NFC_CONFIGURATION",
+    client_id: "client-1",
+  };
+  const PROFILE_ITEM = {
+    id: "55555555-5555-4555-8555-555555555555",
+    quantity: 2,
+    product_type: "PERSONAL_CARD",
+    configuration: { fullName: "Ahmed" },
+    profile_id: "profile-1",
+  };
+
+  function provisionDb(item: unknown, links: unknown[], rpcResult: unknown) {
+    return adminDb({
+      tables: {
+        orders: { data: PROVISION_ORDER, error: null },
+        order_items: { data: item, error: null },
+        order_item_cards: { data: links, error: null },
+      },
+      rpcResult: rpcResult as { data: unknown; error: { message: string } | null },
+    });
+  }
+
+  it("provisions remaining cards with generated codes and no url key", async () => {
+    const fake = provisionDb(PROFILE_ITEM, [], {
+      data: { ok: true, provisioned: 2, card_ids: ["k1", "k2"] },
+      error: null,
+    });
+    const result = await provisionOrderCards(
+      PROVISION_ORDER.id,
+      PROFILE_ITEM.id,
+      "NFC_CONFIGURATION",
+      fake.db,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual({ provisioned: 2, cardIds: ["k1", "k2"] });
+    const args = fake.rpc.mock.calls[0][1] as Record<string, unknown>;
+    expect(args.p_profile_id).toBe("profile-1");
+    expect("p_destination_url" in args).toBe(false);
+    expect(args.p_short_codes as string[]).toHaveLength(2);
+    for (const code of args.p_short_codes as string[]) {
+      expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/);
+    }
+  });
+
+  it("short-circuits fully provisioned items without an RPC", async () => {
+    const fake = provisionDb(PROFILE_ITEM, [{ card_id: "k1" }, { card_id: "k2" }], null);
+    const result = await provisionOrderCards(
+      PROVISION_ORDER.id,
+      PROFILE_ITEM.id,
+      "NFC_CONFIGURATION",
+      fake.db,
+    );
+    expect(result).toEqual({ ok: true, data: { provisioned: 0, cardIds: [] } });
+    expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects unlinked orders and wrong fulfillment states", async () => {
+    const unlinked = adminDb({
+      tables: {
+        orders: { data: { ...PROVISION_ORDER, client_id: null }, error: null },
+      },
+    });
+    const rejected = await provisionOrderCards(
+      PROVISION_ORDER.id,
+      PROFILE_ITEM.id,
+      "NFC_CONFIGURATION",
+      unlinked.db,
+    );
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.error.code).toBe("INVALID_TRANSITION");
+
+    const wrongState = provisionDb(PROFILE_ITEM, [], null);
+    const stale = await provisionOrderCards(
+      PROVISION_ORDER.id,
+      PROFILE_ITEM.id,
+      "PRODUCTION",
+      wrongState.db,
+    );
+    expect(stale.ok).toBe(false);
+    if (!stale.ok) expect(stale.error.code).toBe("CONFLICT");
+  });
+
+  it("blocks unresolved Google destinations without an RPC", async () => {
+    const fake = provisionDb(
+      {
+        id: PROFILE_ITEM.id,
+        quantity: 1,
+        product_type: "GOOGLE_REVIEW_CARD",
+        configuration: { businessName: "Café X", needsUrlHelp: true },
+        profile_id: null,
+      },
+      [],
+      null,
+    );
+    const result = await provisionOrderCards(
+      PROVISION_ORDER.id,
+      PROFILE_ITEM.id,
+      "NFC_CONFIGURATION",
+      fake.db,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("DESTINATION_REQUIRED");
+    expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it("resolves review URLs through the atomic RPC", async () => {
+    const fake = adminDb({
+      rpcResult: { data: { ok: true, url: "https://g.page/x/review" }, error: null },
+    });
+    const result = await resolveReviewDestination(
+      PROFILE_ITEM.id,
+      "2026-09-28T10:00:00.000Z",
+      "https://g.page/x/review",
+      fake.db,
+    );
+    expect(result).toEqual({ ok: true, data: { url: "https://g.page/x/review" } });
+    expect(fake.rpc).toHaveBeenCalledWith("admin_resolve_order_destination", {
+      p_order_item_id: PROFILE_ITEM.id,
+      p_expected_item_updated_at: "2026-09-28T10:00:00.000Z",
+      p_review_url: "https://g.page/x/review",
+    });
+  });
+
+  it("rejects unsafe review URLs without touching the database", async () => {
+    const fake = adminDb({});
+    const result = await resolveReviewDestination(
+      PROFILE_ITEM.id,
+      "2026-09-28T10:00:00.000Z",
+      "javascript:alert(1)",
+      fake.db,
+    );
+    expect(result.ok).toBe(false);
+    expect(fake.rpc).not.toHaveBeenCalled();
   });
 });

@@ -29,6 +29,7 @@ const EVENT_LABELS: Record<string, string> = {
   CARD_CONFIGURED: "Card configured",
   CUSTOMER_NOTE_UPDATED: "Customer note updated",
   INTERNAL_NOTE_UPDATED: "Internal note updated",
+  DESTINATION_RESOLVED: "Destination resolved",
 };
 
 /**

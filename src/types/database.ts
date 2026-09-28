@@ -658,8 +658,41 @@ export type Database = {
         Args: { p_expected_status: string; p_order_id: string }
         Returns: Json
       }
+      admin_convert_order: {
+        Args: {
+          p_client_company?: string
+          p_client_email?: string
+          p_client_id?: string
+          p_client_name?: string
+          p_client_phone?: string
+          p_expected_status: string
+          p_mode: string
+          p_order_id: string
+          p_profile_slug?: string
+        }
+        Returns: Json
+      }
       admin_mark_order_contacted: {
         Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_provision_order_cards: {
+        Args: {
+          p_destination_url?: string
+          p_expected_fulfillment: string
+          p_order_id: string
+          p_order_item_id: string
+          p_profile_id?: string
+          p_short_codes?: string[]
+        }
+        Returns: Json
+      }
+      admin_resolve_order_destination: {
+        Args: {
+          p_expected_item_updated_at: string
+          p_order_item_id: string
+          p_review_url: string
+        }
         Returns: Json
       }
       admin_set_order_price: {

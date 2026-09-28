@@ -77,19 +77,19 @@ An operator can safely process an Order from NEW through operational fulfillment
 
 **Goal:** Connect confirmed Orders to the existing Karti operational domain without creating a parallel system.
 
-- [ ] **4.1 Existing/new Client conversion**  
+- [x] **4.1 Existing/new Client conversion**  
   Implement candidate matching, explicit existing-Client selection, atomic/idempotent new-Client conversion, conflict handling, and Client relation events.
 
-- [ ] **4.2 Product-to-Profile conversion**  
+- [x] **4.2 Product-to-Profile conversion**  
   Implement PERSON/BUSINESS profile creation/reuse for Personal, Career, Business, and Contact Cards while respecting the existing one-profile-per-client rule and surfacing incompatible-profile conflicts.
 
-- [ ] **4.3 Existing Card orchestration integration**  
+- [x] **4.3 Existing Card orchestration integration**  
   Resolve direct-action destinations, provision physical Cards only at the correct fulfillment stage using the existing Karti orchestration, support multi-quantity `order_item_cards`, and verify all cards continue using `/t/{short_code}`.
 
 **Phase 4 completion gate:**  
 A confirmed Order can become an existing/new Client, create/reuse only the required Profile, provision the correct number of Cards through existing logic, and preserve dynamic destination behavior.
 
-**Status:** Not started
+**Status:** Complete (2026-09-28)
 
 ---
 
@@ -140,7 +140,7 @@ The complete visitor → Order → dashboard → Client/Profile/Card → `/t/{sh
 | Phase 1 — Domain Foundation & Database | Complete (2026-09-28) |
 | Phase 2 — Public Vitrine & Ordering | Complete (2026-09-28) |
 | Phase 3 — Orders Dashboard | Complete (2026-09-28) |
-| Phase 4 — Client & Card Integration | Not started |
+| Phase 4 — Client & Card Integration | Complete (2026-09-28) |
 | Phase 5 — SEO/GEO & Analytics | Not started |
 | Phase 6 — Hardening & Release | Not started |
 
@@ -401,4 +401,98 @@ Verified live:
 - Post-fix ACL: anon full-payload RPC → 401; service wire path → 200.
 - All proof rows deleted; commercial tables back to 0, existing data
   intact. pnpm typecheck/lint/test (85 files / 967 tests)/build pass.
+```
+
+```text
+## Phase 4 — 2026-09-28
+
+Completed:
+- 4.1 Conversion: candidate search (exact normalized phone/email rank
+  first, bounded name recall, operator always decides), explicit
+  existing/new choice, atomic admin_convert_order (lock → eligibility
+  CONFIRMED/unlinked-IN_PROGRESS → idempotent return → existing-validate
+  / new-insert → profile reuse/create/conflict → links → events),
+  CLIENT_CREATED/C/or LINKED events with id-only metadata.
+- 4.2 Profiles: catalog-driven PERSON/BUSINESS mapping (incl. CONTACT_
+  CARD → PERSON), reuse on type match, typed PROFILE_CONFLICT with zero
+  writes on mismatch, DRAFT/personal-business templates, display/job/
+  contact mapped from order-safe data, foundation sections best-effort;
+  direct products create no profile.
+- 4.3 Cards: centralized resolveOrderItemDestination (Google/WhatsApp/
+  Instagram/Custom via Phase 1 helpers, DESTINATION_REQUIRED when
+  unresolved), operator Google-URL resolution (validated https merge +
+  DESTINATION_RESOLVED event), deliberate atomic
+  admin_provision_order_cards (NFC_CONFIGURATION, READY+ resume only,
+  remaining-under-lock, sequenced card numbers, ACTIVE + PROFILE/
+  EXTERNAL_URL via same trigger/CHECKs as orchestration, /t/ codes),
+  order_item_cards relations, CARD_LINKED/CONFIGURED per card.
+  Related section upgraded (client link, per-item provisioning with
+  Required/Linked/Remaining, linked cards with /t/ codes, NFC-writing
+  pointer to card pages). No fulfillment auto-moves. See ADR-073.
+
+Verified:
+- pnpm typecheck/lint/test/build: all pass (99 files / 1063 tests,
+  +4 files / +34 tests vs Phase 3 freeze).
+- Generated types: MCP regeneration incl. all 3 RPCs with optional
+  markers for defaulted args; transplant +33/-0; typed rpc calls,
+  zero `as never`/`as any` in Phase 4 app code.
+- Mirror-parity test pins short-code alphabet, all 34 reserved slugs,
+  all 8 product mappings, and RPC hygiene in CI.
+- Live dev DB: new PERSON (DRAFT/personal/job title) + BUSINESS
+  (company/display/template) conversions; idempotent retry (1/1/4);
+  PROFILE_CONFLICT atomic (unlinked, 0 events); direct conversion with
+  no profile; missing-destination block → resolve → EXTERNAL_URL card;
+  hostile javascript: URL rejected; WhatsApp canonical card; qty-3 →
+  3 ACTIVE PROFILE cards (sequenced numbers, same owner/profile);
+  repeat → 0; parallel same-order converts → 1 client/1 profile/4
+  events (converted true + false, same id); parallel provisions →
+  required 1/linked 1; existing-client reuse (LINKED only, no dupes);
+  READY resume → 0; NEW rejection; anon execute = false on all 3;
+  random-sub → UNAUTHORIZED. Full cleanup: 0/0/0/0/0 commercial,
+  clients 2, cards 1, profiles 2 intact.
+- Regression: full suite green; no public/RLS/Client/Profile/Card
+  flow changes (one additive migration; orchestration untouched).
+
+Known limitations:
+- App-layer candidate search scans ≤100 clients (operator scale);
+  no trigram index (documented upgrade path if volume grows).
+- Inquiry live-mutation proof still pending operator JWT (standing
+  note since Phase 1; RLS + unit coverage unchanged).
+- Profile completion (CV/links/appearance) stays in the profile
+  workflow; conversion seeds identity + foundation sections only.
+- Physical NFC writing remains a manual card-page step (by design;
+  UI never claims otherwise).
+
+Next:
+- Phase 5 (Acquisition, SEO/GEO & Analytics Integration)
+```
+
+```text
+## Phase 4 gate fixes — 2026-09-28 (exact matching + orchestration audit)
+
+1. Exact matching without cutoff: findClientCandidates now pages the
+   complete RLS-visible clients dataset server-side (500-row ranges
+   until a short page; matches only reach the browser); name recall
+   stays bounded at 10. No schema change; normalized columns remain a
+   documented later upgrade. Range-aware fakes prove an index-120 and
+   an index-550 exact phone/email hit with PHONE > EMAIL > NAME
+   ranking intact.
+2. Orchestration audit: side-by-side of configureCardForClient() vs
+   admin_provision_order_cards against the live trigger body confirms a
+   single source per rule (sequence, generator+alphabet+UNIQUE,
+   trigger as shared ACTIVE/consistency/same-client/URL-shape
+   backstop, /t/+QR builders). One gap closed: RPC URL gate now also
+   rejects userinfo (body-only change, no type regen). ADR-073 amended
+   with the residency table; parity test extended.
+
+Verified:
+- pnpm typecheck/lint/test/build: all pass (99 files / 1066 tests).
+- Live: 105 disposable clients → exact phone AND email reach the
+  backdated out-of-window row (invisible to newest-100); all 105
+  removed. Credentialed URL → DESTINATION_REQUIRED with zero writes.
+  Fresh qty-2 → 2 EXTERNAL cards → repeat 0 → parallel pair 0+0
+  (required 2/linked 2, no orphans). PROFILE card + disposable
+  ACTIVATEd profile → resolver triple (ACTIVE/ACTIVE/same-client,
+  FK-held destination, no slug on card). Full cleanup: 0/0/0/0
+  commercial, clients 2, cards 1, profiles 2.
 ```

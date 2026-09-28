@@ -20,6 +20,7 @@ export const ORDER_EVENT_TYPES = [
   "CARD_CONFIGURED",
   "CUSTOMER_NOTE_UPDATED",
   "INTERNAL_NOTE_UPDATED",
+  "DESTINATION_RESOLVED",
 ] as const;
 
 export type OrderEventType = (typeof ORDER_EVENT_TYPES)[number];
