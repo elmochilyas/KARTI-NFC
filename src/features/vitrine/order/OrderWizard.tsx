@@ -8,9 +8,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { ProductType } from "@/domain/orders/productTypes";
+import { trackEvent } from "../analytics";
 import type { VitrineDict, VitrineLocale } from "../i18n";
 import { createPublicOrderAction } from "./actions";
 import { CustomerStep } from "./CustomerStep";
@@ -86,6 +87,12 @@ export function OrderWizard({
   const [startedAt] = useState<number>(() => Date.now());
   const [honeypot, setHoneypot] = useState("");
 
+  // Funnel telemetry only — no PII, no behavior change.
+  useEffect(() => {
+    trackEvent("order_started", { product: initialProduct, locale });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const lockedProduct = initialProduct !== null;
 
   function handleProductChange(next: ProductType): void {
@@ -119,6 +126,10 @@ export function OrderWizard({
     }
     setErrors({});
     setStepMessage(null);
+    trackEvent("order_step_completed", { step: 0, product, locale });
+    trackEvent("order_product_selected", { product, locale });
+    trackEvent("order_quantity_changed", { product, quantity, locale });
+    trackEvent("order_step_viewed", { step: 1, locale });
     setStep(1);
   }
 
@@ -132,6 +143,8 @@ export function OrderWizard({
     }
     setErrors({});
     setStepMessage(null);
+    trackEvent("order_step_completed", { step: 1, locale });
+    trackEvent("order_step_viewed", { step: 2, locale });
     setStep(2);
   }
 
@@ -145,6 +158,8 @@ export function OrderWizard({
     }
     setErrors({});
     setStepMessage(null);
+    trackEvent("order_step_completed", { step: 2, locale });
+    trackEvent("order_step_viewed", { step: 3, locale });
     setStep(3);
   }
 
@@ -166,6 +181,7 @@ export function OrderWizard({
     }
     setSubmitting(true);
     setSubmitError(null);
+    trackEvent("order_submit_attempted", { product, quantity, locale });
     try {
       const result = await createPublicOrderAction({
         locale,
@@ -189,6 +205,7 @@ export function OrderWizard({
         startedAt: startedAt,
       });
       if (result.ok) {
+        trackEvent("order_submitted", { product, quantity, locale });
         const params = new URLSearchParams({
           r: result.data.orderNumber,
           t: result.data.receiptToken,
@@ -198,12 +215,14 @@ export function OrderWizard({
       }
       // Keep the same idempotency key so a retry reuses the receipt
       // if the order actually committed server-side.
+      trackEvent("order_submit_failed", { product, code: result.error.code, locale });
       setSubmitError(
         result.error.code === "VALIDATION"
           ? dict.order.errors.checkHighlighted
           : dict.order.errors.submitFailed,
       );
     } catch {
+      trackEvent("order_submit_failed", { product, code: "exception", locale });
       setSubmitError(dict.order.errors.submitFailed);
     } finally {
       setSubmitting(false);
@@ -211,10 +230,8 @@ export function OrderWizard({
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-12 pt-8">
-      <h1 className="text-2xl font-bold tracking-tight">{dict.order.title}</h1>
-      <p className="mt-1 text-muted">{dict.order.subtitle}</p>
-      <div className="mt-6">
+    <div className="mx-auto max-w-2xl px-4 pb-16">
+      <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
         <OrderProgress dict={dict} step={step} />
       </div>
 
@@ -303,6 +320,7 @@ export function OrderWizard({
           <Button
             type="button"
             size="lg"
+            className="w-full sm:w-auto"
             onClick={() => {
               if (step === 0) continueFromCard();
               else if (step === 1) continueFromDetails();
@@ -312,7 +330,13 @@ export function OrderWizard({
             {dict.order.continue}
           </Button>
         ) : (
-          <Button type="button" size="lg" loading={submitting} onClick={() => void submit()}>
+          <Button
+            type="button"
+            size="lg"
+            className="w-full sm:w-auto"
+            loading={submitting}
+            onClick={() => void submit()}
+          >
             {submitting ? dict.order.review.submitting : dict.order.review.sendRequest}
           </Button>
         )}

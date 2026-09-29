@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
 import { getDict } from "@/features/vitrine/i18n";
-import { OrderWizard } from "@/features/vitrine/order/OrderWizard";
+import { OrderPageView } from "@/features/vitrine/order/OrderPageView";
 import { productTypeFromSlug } from "@/features/vitrine/products";
-import { getAppUrl } from "@/lib/env";
+import { pageMetadata } from "@/features/vitrine/seo";
 
 export function generateMetadata(): Metadata {
   const dict = getDict("ar");
-  return {
+  return pageMetadata({
+    locale: "ar",
     title: `${dict.order.title} — Karti`,
     description: dict.order.subtitle,
-    alternates: { canonical: `${getAppUrl()}/ar/order` },
-    robots: { index: false, follow: true },
-  };
+    segments: ["order"],
+    index: false,
+    follow: true,
+  });
 }
 
 export default async function ArOrderPage({
@@ -20,7 +22,8 @@ export default async function ArOrderPage({
   searchParams: Promise<{ product?: string }>;
 }) {
   const { product } = await searchParams;
+  const dict = getDict("ar");
   return (
-    <OrderWizard locale="ar" dict={getDict("ar")} initialProduct={productTypeFromSlug(product)} />
+    <OrderPageView locale="ar" dict={dict} initialProduct={productTypeFromSlug(product)} />
   );
 }

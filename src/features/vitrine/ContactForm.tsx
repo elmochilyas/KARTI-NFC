@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import type { VitrineDict, VitrineLocale } from "./i18n";
+import { trackEvent } from "./analytics";
 import { createPublicInquiryAction } from "./order/actions";
 
 const INQUIRY_TYPES = [
@@ -61,6 +62,7 @@ export function ContactForm({ locale, dict }: { locale: VitrineLocale; dict: Vit
         startedAt: startedAt,
       });
       if (result.ok) {
+        trackEvent("contact_inquiry_submitted", { inquiryType, locale });
         setSent(true);
         return;
       }

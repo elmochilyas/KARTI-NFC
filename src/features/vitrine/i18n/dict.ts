@@ -32,7 +32,18 @@ export type ProductCopy = {
   steps: string[];
   pricing: string;
   faq: { q: string; a: string }[];
+  /** Distinct customer problem this product solves (never boilerplate). */
+  problem: string;
+  useCases: string[];
+  customization: string;
+  included: string[];
 };
+
+export type SolutionKey = "professionals" | "students" | "businesses";
+
+export type FaqItem = { q: string; a: string };
+
+export type ContentSection = { heading: string; paragraphs: string[] };
 
 export type OrderStepCopy = {
   card: string;
@@ -50,17 +61,27 @@ export type VitrineDict = {
     howItWorks: string;
     pricing: string;
     examples: string;
+    resources: string;
     faq: string;
     contact: string;
     orderCta: string;
+    menu: string;
+    closeMenu: string;
+    language: string;
+    profileGroup: string;
+    directGroup: string;
   };
   footer: {
     tagline: string;
     productsTitle: string;
+    solutionsTitle: string;
+    learnTitle: string;
     companyTitle: string;
+    legalTitle: string;
     contactLink: string;
     orderLink: string;
     notice: string;
+    rights: string;
   };
   home: {
     heroTitle: string;
@@ -90,6 +111,15 @@ export type VitrineDict = {
     orderCta: string;
     profileNote: string;
     directNote: string;
+    outcomeTitle: string;
+    demoTitle: string;
+    includedTitle: string;
+    useCasesTitle: string;
+    customizationTitle: string;
+    examplesTitle: string;
+    whyTitle: string;
+    finalTitle: string;
+    finalSubtitle: string;
   };
   order: {
     title: string;
@@ -207,5 +237,184 @@ export type VitrineDict = {
   common: {
     backToHome: string;
     unavailable: string;
+    skipToContent: string;
+    home: string;
+    products: string;
+    learnMore: string;
+    orderNow: string;
+    requestPrice: string;
+    talkToUs: string;
+    helpMeChoose: string;
+    viewExamples: string;
+    demoExample: string;
+    stickyOrder: string;
+    stickyRequest: string;
+  };
+  meta: {
+    home: { title: string; description: string };
+    solutionsProfessionals: { title: string; description: string };
+    solutionsStudents: { title: string; description: string };
+    solutionsBusinesses: { title: string; description: string };
+    howItWorks: { title: string; description: string };
+    pricing: { title: string; description: string };
+    examples: { title: string; description: string };
+    faq: { title: string; description: string };
+    resources: { title: string; description: string };
+    articleNfcVsQr: { title: string; description: string };
+    articleReviewLink: { title: string; description: string };
+    articleDestinationChange: { title: string; description: string };
+    legalPrivacy: { title: string; description: string };
+    legalTerms: { title: string; description: string };
+    legalDelivery: { title: string; description: string };
+  };
+  marketingHome: {
+    heroSupport: string;
+    heroSecondary: string;
+    trustItems: string[];
+    goals: { product: ProductType; title: string; desc: string; audience: string; tap: string }[];
+    goalCtaProduct: string;
+    goalCtaOrder: string;
+    demoTitle: string;
+    demoSubtitle: string;
+    demoTabs: { id: string; label: string; phoneTitle: string; phoneLines: string[] }[];
+    audiencesTitle: string;
+    audiencesSubtitle: string;
+    audiences: { solution: SolutionKey; title: string; desc: string }[];
+    whyTitle: string;
+    whySubtitle: string;
+    whyItems: { title: string; desc: string }[];
+    redirectTitle: string;
+    redirectSubtitle: string;
+    redirectSteps: { title: string; desc: string }[];
+    todayLabel: string;
+    laterLabel: string;
+    sameCardLabel: string;
+    examplesTitle: string;
+    examplesSubtitle: string;
+    pricingTiers: { title: string; desc: string; cta: string }[];
+    processTitle: string;
+    processSteps: { title: string; desc: string }[];
+    finalHelpTitle: string;
+    finalHelpCta: string;
+    finalTalkCta: string;
+  };
+  solutions: Record<
+    SolutionKey,
+    {
+      name: string;
+      tagline: string;
+      outcome: string;
+      problemsTitle: string;
+      problems: string[];
+      recommendTitle: string;
+      recommend: { product: ProductType; why: string }[];
+      faq: FaqItem[];
+    }
+  >;
+  howItWorks: {
+    title: string;
+    subtitle: string;
+    whatTitle: string;
+    whatBody: string[];
+    tapTitle: string;
+    tapSteps: { title: string; desc: string }[];
+    qrTitle: string;
+    qrBody: string;
+    redirectTitle: string;
+    redirectBody: string[];
+    compareTitle: string;
+    compare: { title: string; desc: string }[];
+    recipientTitle: string;
+    recipientBody: string;
+    operatorTitle: string;
+    operatorBody: string;
+    faqTitle: string;
+    faq: FaqItem[];
+  };
+  pricingPage: {
+    title: string;
+    subtitle: string;
+    tiersTitle: string;
+    tiers: { title: string; desc: string; points: string[]; cta: string }[];
+    includedTitle: string;
+    included: string[];
+    factorsTitle: string;
+    factors: string[];
+    processTitle: string;
+    processSteps: { title: string; desc: string }[];
+    faqTitle: string;
+    faq: FaqItem[];
+    ctaTitle: string;
+    ctaSubtitle: string;
+  };
+  examplesPage: {
+    title: string;
+    subtitle: string;
+    categories: { id: string; label: string }[];
+    items: {
+      name: string;
+      category: string;
+      product: ProductType;
+      useCase: string;
+      tapResult: string;
+    }[];
+    note: string;
+  };
+  faqHub: {
+    title: string;
+    subtitle: string;
+    categories: { name: string; items: FaqItem[] }[];
+  };
+  resourcesPage: {
+    title: string;
+    subtitle: string;
+    topicsTitle: string;
+    topics: { title: string; desc: string; href: string }[];
+    guidesTitle: string;
+    comingTitle: string;
+    comingDesc: string;
+  };
+  articles: Record<
+    ArticleSlug,
+    {
+      title: string;
+      description: string;
+      intro: string;
+      sections: ContentSection[];
+      faq: FaqItem[];
+    }
+  >;
+  legal: {
+    updatedLabel: string;
+    privacyTitle: string;
+    termsTitle: string;
+    deliveryTitle: string;
+    privacy: ContentSection[];
+    terms: ContentSection[];
+    delivery: ContentSection[];
   };
 };
+
+export type ArticleSlug = "nfc-vs-qr" | "get-review-link" | "destination-change";
+
+/**
+ * Phase 5 split: base dicts (fr/en/ar.ts) carry the Phase 2 namespaces,
+ * *-marketing files carry the new ones. getDict merges both halves into
+ * a full VitrineDict, so a missing key in either half is still a
+ * compile error.
+ */
+export type VitrineMarketingKeys =
+  | "meta"
+  | "marketingHome"
+  | "solutions"
+  | "howItWorks"
+  | "pricingPage"
+  | "examplesPage"
+  | "faqHub"
+  | "resourcesPage"
+  | "articles"
+  | "legal";
+
+export type VitrineBaseDict = Omit<VitrineDict, VitrineMarketingKeys>;
+
+export type VitrineMarketingDict = Pick<VitrineDict, VitrineMarketingKeys>;

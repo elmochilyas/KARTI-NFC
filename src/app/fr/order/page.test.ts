@@ -1,14 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
-import { OrderWizard } from "@/features/vitrine/order/OrderWizard";
+import { OrderPageView } from "@/features/vitrine/order/OrderPageView";
 
 vi.mock("@/features/vitrine/order/OrderWizard", () => ({ OrderWizard: vi.fn() }));
 
 import FrOrderPage, { generateMetadata } from "./page";
 
 function wizardProps(element: unknown) {
-  const el = element as { type?: unknown; props?: { initialProduct?: unknown } };
-  if (el?.type !== OrderWizard || !el.props) throw new Error("OrderWizard not rendered");
-  return el.props;
+  const stack: unknown[] = [element];
+  while (stack.length > 0) {
+    const node = stack.pop() as {
+      type?: unknown;
+      props?: { initialProduct?: unknown; children?: unknown };
+    } | null;
+    if (!node || typeof node !== "object") continue;
+    // The page renders the shared shell, which forwards initialProduct
+    // to the wizard; assert the same query → product wiring one level up.
+    if (node.type === OrderPageView && node.props) return node.props;
+    const children = node.props?.children;
+    if (Array.isArray(children)) stack.push(...children);
+    else if (children !== undefined && children !== null) stack.push(children);
+  }
+  throw new Error("OrderPageView not rendered");
 }
 
 describe("generateMetadata /fr/order", () => {

@@ -2,9 +2,9 @@
  * English vitrine copy. Same structure as French; factual only.
  */
 
-import type { VitrineDict } from "./dict";
+import type { VitrineBaseDict } from "./dict";
 
-export const enDict: VitrineDict = {
+export const enDict: VitrineBaseDict = {
   dir: "ltr",
   localeName: "English",
   nav: {
@@ -13,17 +13,27 @@ export const enDict: VitrineDict = {
     howItWorks: "How it works",
     pricing: "Pricing",
     examples: "Examples",
+    resources: "Resources",
     faq: "FAQ",
     contact: "Contact",
     orderCta: "Order your card",
+    menu: "Menu",
+    closeMenu: "Close menu",
+    language: "Language",
+    profileGroup: "Smart profiles",
+    directGroup: "Direct actions",
   },
   footer: {
     tagline: "The smart contact card, always up to date.",
     productsTitle: "Products",
+    solutionsTitle: "Solutions",
+    learnTitle: "Learn",
     companyTitle: "Karti",
+    legalTitle: "Information",
     contactLink: "Contact us",
     orderLink: "Order",
     notice: "Prices and timelines are confirmed after reviewing your request.",
+    rights: "Karti. All rights reserved.",
   },
   home: {
     heroTitle: "One card, one gesture. Your contact is shared.",
@@ -111,6 +121,22 @@ export const enDict: VitrineDict = {
           a: "Your profile is updated without changing the physical card.",
         },
       ],
+      problem:
+        "Paper cards get lost, and your details change faster than your card stacks. Every meeting replays the same number dictation.",
+      useCases: [
+        "Trade shows and networking events",
+        "Sales meetings",
+        "Consultants visiting clients",
+        "Creators sharing their links",
+      ],
+      customization:
+        "Name, title, contact details and links: you describe your identity at order time, we build the profile with you before production.",
+      included: [
+        "Physical card configured to your profile",
+        "Digital profile with contact details and links",
+        "Backup QR if NFC is unavailable",
+        "Editable profile without replacing the card",
+      ],
     },
     CAREER_CARD: {
       name: "Career Card",
@@ -148,6 +174,22 @@ export const enDict: VitrineDict = {
           a: "Yes, your professional links are part of your profile.",
         },
       ],
+      problem:
+        "At a career fair, your paper CV lands in a pile and your LinkedIn gets misspelled out loud. Recruiters lose track of you before re-reading you.",
+      useCases: [
+        "Career fairs and student forums",
+        "Interviews and spontaneous applications",
+        "Internship hunting",
+        "Freelancers prospecting",
+      ],
+      customization:
+        "Name, target title, field and CV presence at order time. LinkedIn, portfolio and GitHub complete the profile afterwards.",
+      included: [
+        "Physical card configured to your profile",
+        "Career-oriented personal profile",
+        "Backup QR if NFC is unavailable",
+        "Editable profile without replacing the card",
+      ],
     },
     BUSINESS_CARD: {
       name: "Business Card",
@@ -184,6 +226,22 @@ export const enDict: VitrineDict = {
           q: "Where should I place the card?",
           a: "Counter, checkout, waiting room: anywhere you meet customers.",
         },
+      ],
+      problem:
+        "Your customers look for your number, hours and website in different places. Every missing detail is a call or visit lost.",
+      useCases: [
+        "Restaurants and cafés",
+        "Salons and clinics",
+        "Agencies and service providers",
+        "Shops and real estate",
+      ],
+      customization:
+        "Business name, category and logo if you have one: the presentation is finalized with you before production.",
+      included: [
+        "Physical card configured to your business profile",
+        "Business profile: call, WhatsApp, directions, website",
+        "Backup QR if NFC is unavailable",
+        "Editable profile without replacing the card",
       ],
     },
     GOOGLE_REVIEW_CARD: {
@@ -226,6 +284,22 @@ export const enDict: VitrineDict = {
           a: "Yes, the card destination stays editable without replacing it.",
         },
       ],
+      problem:
+        "A happy customer leaves without reviewing: finding the business, finding the listing, finding the review button is three steps too many at checkout time.",
+      useCases: [
+        "Counters and checkouts",
+        "Restaurant tables",
+        "Receptions and waiting rooms",
+        "Desks and pickup points",
+      ],
+      customization:
+        "Business name and Google review link, or tick the help option: we find the link with you after your order.",
+      included: [
+        "Physical card configured to your review page",
+        "Backup QR if NFC is unavailable",
+        "Editable destination without replacing the card",
+        "No promise of extra reviews: the card removes steps, reviewing stays the customer's choice",
+      ],
     },
     WHATSAPP_CARD: {
       name: "WhatsApp Card",
@@ -262,6 +336,22 @@ export const enDict: VitrineDict = {
           q: "Can I change numbers later?",
           a: "Yes, the destination stays editable without replacing the card.",
         },
+      ],
+      problem:
+        "A number dictated or copied by hand is a typo that costs a conversation. Your customers give up before the first message.",
+      useCases: [
+        "In-store customer support",
+        "Craftspeople and repair services",
+        "Quick order taking",
+        "Field sales teams",
+      ],
+      customization:
+        "WhatsApp number and optional greeting message: the conversation opens already addressed to you.",
+      included: [
+        "Physical card configured to your conversation",
+        "Pre-filled message if you want one",
+        "Backup QR if NFC is unavailable",
+        "Editable number without replacing the card",
       ],
     },
     INSTAGRAM_CARD: {
@@ -300,6 +390,22 @@ export const enDict: VitrineDict = {
           a: "Yes, the destination stays editable without replacing the card.",
         },
       ],
+      problem:
+        "Your physical visitors will never remember the exact spelling of your handle. Every spelled-out letter is a potential follower lost.",
+      useCases: [
+        "Shops and counters",
+        "Restaurants and cafés",
+        "Salons and gyms",
+        "Creators at events",
+      ],
+      customization:
+        "Handle, @handle or profile URL: we normalize to your account's canonical URL.",
+      included: [
+        "Physical card configured to your profile",
+        "Backup QR if NFC is unavailable",
+        "Editable account without replacing the card",
+        "No follower promise: the card removes steps, following stays the visitor's choice",
+      ],
     },
     CONTACT_CARD: {
       name: "Contact Card",
@@ -336,6 +442,22 @@ export const enDict: VitrineDict = {
           q: "Can I change my number later?",
           a: "Yes, your sheet stays editable without changing the card.",
         },
+      ],
+      problem:
+        "Dictating your number at every meeting is slow and error-prone — and a paper card never updates when you change numbers.",
+      useCases: [
+        "Field professions",
+        "Event teams",
+        "Drivers and couriers",
+        "High-volume meetings",
+      ],
+      customization:
+        "Name, phone and optional email: only name and phone are required, the rest follows your actual use.",
+      included: [
+        "Physical card configured to your contact sheet",
+        "Minimal sheet: name, phone, email",
+        "Backup QR if NFC is unavailable",
+        "Editable contact details without replacing the card",
       ],
     },
     CUSTOM_LINK_CARD: {
@@ -374,6 +496,22 @@ export const enDict: VitrineDict = {
           a: "Yes, every destination is validated before configuration.",
         },
       ],
+      problem:
+        "Menus, bookings, campaigns: your links change, but printed materials stay frozen. Every link change obsoletes the old medium.",
+      useCases: [
+        "Restaurant menus",
+        "Booking pages",
+        "Temporary campaigns",
+        "Portfolios and event pages",
+      ],
+      customization:
+        "HTTPS link and intended use: we validate the destination, then the card follows it even as it changes.",
+      included: [
+        "Physical card configured to your validated link",
+        "Backup QR if NFC is unavailable",
+        "Reconfigurable destination for each use",
+        "One reusable card instead of reprinting",
+      ],
     },
   },
   productPage: {
@@ -386,6 +524,15 @@ export const enDict: VitrineDict = {
     orderCta: "Order this product",
     profileNote: "This product uses your Karti profile, editable at any time.",
     directNote: "This product opens your destination directly, with no profile.",
+    outcomeTitle: "What changes",
+    demoTitle: "After the tap",
+    includedTitle: "What you receive",
+    useCasesTitle: "Use cases",
+    customizationTitle: "Customization",
+    examplesTitle: "Examples",
+    whyTitle: "Why Karti",
+    finalTitle: "Ready to share in one tap?",
+    finalSubtitle: "Order in minutes, with no account.",
   },
   order: {
     title: "Order",
@@ -511,5 +658,17 @@ export const enDict: VitrineDict = {
   common: {
     backToHome: "Back to home",
     unavailable: "This page is unavailable.",
+    skipToContent: "Skip to content",
+    home: "Home",
+    products: "Products",
+    learnMore: "Learn more",
+    orderNow: "Order",
+    requestPrice: "Request a price",
+    talkToUs: "Talk to us",
+    helpMeChoose: "Help me choose",
+    viewExamples: "View examples",
+    demoExample: "Demo example",
+    stickyOrder: "Order",
+    stickyRequest: "Request",
   },
 };

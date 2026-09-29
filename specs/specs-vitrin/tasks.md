@@ -97,19 +97,19 @@ A confirmed Order can become an existing/new Client, create/reuse only the requi
 
 **Goal:** Make the vitrine discoverable, measurable, multilingual, and connected to real order attribution.
 
-- [ ] **5.1 SEO/GEO technical foundation**  
+- [x] **5.1 SEO/GEO technical foundation**  
   Implement canonical/indexing rules, sitemap behavior, localized URLs/hreflang, Organization/Product/Breadcrumb structured-data hooks where valid, crawlable internal navigation, and profile/noindex policy.
 
-- [ ] **5.2 Marketing page information architecture**  
+- [x] **5.2 Marketing page information architecture**  
   Implement the homepage/product/solution page structures defined in the vitrine specs with clear factual content areas, product goal selector, tap-demo framework, internal linking, FAQ structures, and conversion CTAs.
 
-- [ ] **5.3 Analytics and source-to-order attribution**  
+- [x] **5.3 Analytics and source-to-order attribution**  
   Implement centralized analytics events, first/last-touch persistence, source derivation, UTM/referrer handling, privacy-safe event payloads, and dashboard attribution display/verification.
 
 **Phase 5 completion gate:**  
 Marketing pages are crawlable and locale-correct, source attribution survives into Orders, and the main traffic → product → order funnel is measurable without sending personal data to analytics.
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
 
 ---
 
@@ -141,7 +141,7 @@ The complete visitor → Order → dashboard → Client/Profile/Card → `/t/{sh
 | Phase 2 — Public Vitrine & Ordering | Complete (2026-09-28) |
 | Phase 3 — Orders Dashboard | Complete (2026-09-28) |
 | Phase 4 — Client & Card Integration | Complete (2026-09-28) |
-| Phase 5 — SEO/GEO & Analytics | Not started |
+| Phase 5 — SEO/GEO & Analytics | Complete (2026-09-29) |
 | Phase 6 — Hardening & Release | Not started |
 
 ---
@@ -495,4 +495,66 @@ Verified:
   ACTIVATEd profile → resolver triple (ACTIVE/ACTIVE/same-client,
   FK-held destination, no slug on card). Full cleanup: 0/0/0/0
   commercial, clients 2, cards 1, profiles 2.
+```
+
+```text
+## Phase 5 — 2026-09-29
+
+Completed:
+- 5.1 SEO/GEO: site registry (24 routes) driving nav/footer/sitemap/
+  hreflang/language-switcher/tests; unique localized metadata +
+  self-canonicals + fr/ar/en + x-default hreflang everywhere; 72-URL
+  sitemap (marketing only); robots; Organization/Product (no prices)/
+  BreadcrumbList/FAQPage/Article JSON-LD; visible breadcrumbs;
+  noindex preserved (order/success/profiles/dashboard/t/API);
+  GEO Q&A structure per page; products+solutions+articles statically
+  generated.
+- 5.2 Site: / → /fr redirect; header (grouped dropdowns, mobile menu,
+  crawlable switcher) + full footer (incl. baseline Privacy/Terms/
+  Delivery from implemented behavior only); 15-section homepage
+  (hero CARD→TAP→PHONE→RESULT, goal selector, tap demo, audiences,
+  why-Karti, redirect explainer, previews, quote pricing, process,
+  FAQ, final CTA); 8 distinct product pages (15-block system);
+  3 solution pages; how-it-works; quote pricing page; demo-labeled
+  filterable examples; categorized FAQ hub; resources index + 3 full
+  guides; sticky mobile CTA; order/contact visually integrated
+  (business logic untouched); complete FR/EN/AR copy with polished
+  RTL and logical CSS properties.
+- 5.3 Analytics: centralized adapter (18 canonical events, dev-time
+  PII blocklist, pluggable transport, no vendor); wired to goal/tap/
+  product-CTA/FAQ/order-funnel/WhatsApp/inquiry/page-views; first/
+  last-touch cookie flow byte-untouched with end-to-end RPC
+  regression (Google/Instagram/TikTok/direct/spoof-proof).
+
+Verified:
+- pnpm typecheck: pass. pnpm lint: pass (0 warnings).
+- pnpm test: 106 files / 1095+ tests pass (new: site/seo/
+  analytics/sitemap/robots/routes/attribution suites; updated
+  order/product/root suites for new shells).
+- pnpm build: compiled (all 30 new routes + locales).
+- Link integrity: every rendered internal href resolves to registry/
+  order/anchor/tel/mailto/wa.me (tested FR shell+8 pages, all
+  locales shell).
+- Regression: Phases 1–4 suites green; wizard/contact/dashboard/
+  resolver/NFC/QR behavior unchanged; admin-isolation intact.
+- Structural visual QA: responsive containers, truncation/wrap,
+  44px+ targets, landmarks/labels/live-regions, keyboard-native
+  controls, reduced-motion (no animation libs), RTL logical
+  properties. True device/viewport visual pass remains operator-side
+  (no browser tooling in this environment).
+
+Known limitations / content gaps (factual, not hidden work):
+- No real photography yet: CSS card/phone mockups stand in, built
+  replaceable; no stock imagery used.
+- No testimonials/ratings/counts/logos (none exist to show).
+- No fixed prices, preparation/delivery timelines, returns terms,
+  store address, or business hours (nothing approved to state).
+- Legal baselines describe implemented behavior only; formal legal
+  review still recommended before production.
+- PWA/manifest/OG images: text-only social metadata (no binaries).
+- Analytics has no vendor: events validate + fan out to a pluggable
+  transport; provider wiring is a future decision.
+
+Next:
+- Phase 6 (Full-System Hardening & Release Gate)
 ```

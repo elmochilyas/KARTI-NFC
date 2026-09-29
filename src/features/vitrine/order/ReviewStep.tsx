@@ -104,7 +104,7 @@ export function ReviewStep({
     <div className="space-y-4">
       <h3 className="text-base font-bold">{r.title}</h3>
 
-      <section aria-label={r.product} className="rounded-xl border border-border bg-surface p-4">
+      <section aria-label={r.product} className="rounded-2xl border border-border bg-surface p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{r.product}</p>
@@ -132,7 +132,7 @@ export function ReviewStep({
         </dl>
       </section>
 
-      <section aria-label={r.customer} className="rounded-xl border border-border bg-surface p-4">
+      <section aria-label={r.customer} className="rounded-2xl border border-border bg-surface p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{r.customer}</p>
@@ -156,7 +156,7 @@ export function ReviewStep({
         </div>
       </section>
 
-      <section aria-label={r.delivery} className="rounded-xl border border-border bg-surface p-4">
+      <section aria-label={r.delivery} className="rounded-2xl border border-border bg-surface p-5 md:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{r.delivery}</p>
@@ -176,9 +176,9 @@ export function ReviewStep({
         </div>
       </section>
 
-      <section aria-label={r.pricing} className="rounded-xl bg-neutral-muted p-4">
+      <section aria-label={r.pricing} className="rounded-2xl bg-neutral-muted p-5 md:p-6">
         <p className="text-sm text-muted">{r.pricing}</p>
-        <p className="font-bold">{r.quotePending}</p>
+        <p className="mt-1 text-lg font-bold">{r.quotePending}</p>
         <p className="mt-1 text-sm text-muted">{dict.order.quoteNote}</p>
       </section>
     </div>

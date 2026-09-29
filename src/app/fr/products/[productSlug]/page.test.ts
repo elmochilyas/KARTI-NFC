@@ -12,8 +12,18 @@ import FrProductPage, { generateMetadata } from "./page";
 const props = (productSlug: string) => ({ params: Promise.resolve({ productSlug }) });
 
 function findProductPage(element: unknown) {
-  const root = element as { props: Record<string, unknown> };
-  if ((root as { type?: unknown }).type === ProductPage) return root.props;
+  const stack: unknown[] = [element];
+  while (stack.length > 0) {
+    const node = stack.pop() as {
+      type?: unknown;
+      props?: Record<string, unknown> & { children?: unknown };
+    } | null;
+    if (!node || typeof node !== "object") continue;
+    if (node.type === ProductPage && node.props) return node.props;
+    const children = node.props?.children;
+    if (Array.isArray(children)) stack.push(...children);
+    else if (children !== undefined && children !== null) stack.push(children);
+  }
   throw new Error("ProductPage not found in page output");
 }
 

@@ -1,12 +1,15 @@
 import { arDict } from "./ar";
+import { arMarketing } from "./arMarketing";
 import { enDict } from "./en";
+import { enMarketing } from "./enMarketing";
 import { frDict } from "./fr";
+import { frMarketing } from "./frMarketing";
 import { DEFAULT_LOCALE, isVitrineLocale, type VitrineDict, type VitrineLocale } from "./dict";
 
 const DICTS: Record<VitrineLocale, VitrineDict> = {
-  fr: frDict,
-  ar: arDict,
-  en: enDict,
+  fr: { ...frDict, ...frMarketing },
+  ar: { ...arDict, ...arMarketing },
+  en: { ...enDict, ...enMarketing },
 };
 
 export function getDict(locale: VitrineLocale): VitrineDict {

@@ -6,9 +6,9 @@
  * QUOTE-only catalog (Phase 1).
  */
 
-import type { VitrineDict } from "./dict";
+import type { VitrineBaseDict } from "./dict";
 
-export const frDict: VitrineDict = {
+export const frDict: VitrineBaseDict = {
   dir: "ltr",
   localeName: "Français",
   nav: {
@@ -17,17 +17,27 @@ export const frDict: VitrineDict = {
     howItWorks: "Comment ça marche",
     pricing: "Tarifs",
     examples: "Exemples",
+    resources: "Ressources",
     faq: "FAQ",
     contact: "Contact",
     orderCta: "Commander votre carte",
+    menu: "Menu",
+    closeMenu: "Fermer le menu",
+    language: "Langue",
+    profileGroup: "Profils intelligents",
+    directGroup: "Actions directes",
   },
   footer: {
     tagline: "La carte de visite intelligente, toujours à jour.",
     productsTitle: "Produits",
+    solutionsTitle: "Solutions",
+    learnTitle: "En savoir plus",
     companyTitle: "Karti",
+    legalTitle: "Informations",
     contactLink: "Nous contacter",
     orderLink: "Commander",
     notice: "Les prix et délais sont confirmés après étude de votre demande.",
+    rights: "Karti. Tous droits réservés.",
   },
   home: {
     heroTitle: "Une carte, un geste. Votre contact est partagé.",
@@ -115,6 +125,22 @@ export const frDict: VitrineDict = {
           a: "Votre profil est mis à jour sans changer la carte physique.",
         },
       ],
+      problem:
+        "Les cartes papier se perdent, et vos coordonnées changent plus vite que vos piles de cartes. Chaque rencontre rejoue la même dictée de numéro.",
+      useCases: [
+        "Salons et événements de networking",
+        "Rendez-vous commerciaux",
+        "Consultants et indépendants en clientèle",
+        "Créateurs qui partagent leurs liens",
+      ],
+      customization:
+        "Nom, fonction, coordonnées et liens : vous décrivez votre identité à la commande, nous construisons le profil avec vous avant production.",
+      included: [
+        "Carte physique configurée vers votre profil",
+        "Profil numérique avec coordonnées et liens",
+        "QR de secours si le NFC est indisponible",
+        "Profil modifiable sans remplacer la carte",
+      ],
     },
     CAREER_CARD: {
       name: "Carte Carrière",
@@ -156,6 +182,22 @@ export const frDict: VitrineDict = {
           a: "Oui, vos liens professionnels sont intégrés à votre profil.",
         },
       ],
+      problem:
+        "En forum emploi, votre CV papier finit en pile et votre LinkedIn s'épelle mal à l'oral. Les recruteurs perdent votre trace avant même de vous relire.",
+      useCases: [
+        "Forums emploi et salons étudiants",
+        "Entretiens et candidatures spontanées",
+        "Recherche de stage",
+        "Freelances en prospection",
+      ],
+      customization:
+        "Nom, titre visé, domaine et présence d'un CV à la commande. LinkedIn, portfolio et GitHub se complètent ensuite via votre profil.",
+      included: [
+        "Carte physique configurée vers votre profil",
+        "Profil personnel orienté carrière",
+        "QR de secours si le NFC est indisponible",
+        "Profil modifiable sans remplacer la carte",
+      ],
     },
     BUSINESS_CARD: {
       name: "Carte Business",
@@ -192,6 +234,22 @@ export const frDict: VitrineDict = {
           q: "Où placer la carte ?",
           a: "Comptoir, caisse, salle d'attente : partout où vos clients vous rencontrent.",
         },
+      ],
+      problem:
+        "Vos clients cherchent votre numéro, vos horaires et votre site à des endroits différents. Chaque information manquante est un appel ou une visite en moins.",
+      useCases: [
+        "Restaurants et cafés",
+        "Salons et instituts",
+        "Agences et prestataires de services",
+        "Commerces et immobilier",
+      ],
+      customization:
+        "Nom de l'entreprise, catégorie et logo si vous en avez un : la présentation se finalise avec vous avant production.",
+      included: [
+        "Carte physique configurée vers le profil de l'entreprise",
+        "Profil entreprise : appel, WhatsApp, itinéraire, site",
+        "QR de secours si le NFC est indisponible",
+        "Profil modifiable sans remplacer la carte",
       ],
     },
     GOOGLE_REVIEW_CARD: {
@@ -234,6 +292,22 @@ export const frDict: VitrineDict = {
           a: "Oui, la destination de la carte reste modifiable sans la remplacer.",
         },
       ],
+      problem:
+        "Un client satisfait repart sans laisser d'avis : chercher l'entreprise, trouver sa fiche, trouver le bouton d'avis, c'est trois étapes de trop au moment de payer.",
+      useCases: [
+        "Comptoirs et caisses",
+        "Tables de restaurant",
+        "Réceptions et salles d'attente",
+        "Bureaux et points de retrait",
+      ],
+      customization:
+        "Nom de l'entreprise et lien d'avis Google, ou cochez l'aide : nous retrouvons le lien avec vous après la commande.",
+      included: [
+        "Carte physique configurée vers votre page d'avis",
+        "QR de secours si le NFC est indisponible",
+        "Destination modifiable sans remplacer la carte",
+        "Aucune promesse d'avis supplémentaires : la carte supprime les étapes, l'avis reste au client",
+      ],
     },
     WHATSAPP_CARD: {
       name: "Carte WhatsApp",
@@ -275,6 +349,22 @@ export const frDict: VitrineDict = {
           a: "Oui, la destination reste modifiable sans remplacer la carte.",
         },
       ],
+      problem:
+        "Un numéro dicté ou recopié à la main, c'est une erreur de frappe qui coûte une conversation. Vos clients abandonnent avant même le premier message.",
+      useCases: [
+        "Service client en point de vente",
+        "Artisans et dépanneurs",
+        "Prise de commande rapide",
+        "Équipes commerciales sur le terrain",
+      ],
+      customization:
+        "Numéro WhatsApp et message d'accueil optionnel : la conversation s'ouvre déjà adressée à vous.",
+      included: [
+        "Carte physique configurée vers votre conversation",
+        "Message pré-rempli si vous le souhaitez",
+        "QR de secours si le NFC est indisponible",
+        "Numéro modifiable sans remplacer la carte",
+      ],
     },
     INSTAGRAM_CARD: {
       name: "Carte Instagram",
@@ -311,6 +401,22 @@ export const frDict: VitrineDict = {
           q: "Puis-je changer de compte plus tard ?",
           a: "Oui, la destination reste modifiable sans remplacer la carte.",
         },
+      ],
+      problem:
+        "Vos visiteurs physiques ne retiendront jamais l'orthographe exacte de votre pseudo. Chaque lettre épelée est un abonné potentiel perdu.",
+      useCases: [
+        "Boutiques et comptoirs",
+        "Restaurants et cafés",
+        "Salons et salles de sport",
+        "Créateurs en événement",
+      ],
+      customization:
+        "Pseudo, @pseudo ou lien de profil : nous normalisons vers l'URL canonique de votre compte.",
+      included: [
+        "Carte physique configurée vers votre profil",
+        "QR de secours si le NFC est indisponible",
+        "Compte modifiable sans remplacer la carte",
+        "Aucune promesse d'abonnés : la carte supprime les étapes, l'abonnement reste au visiteur",
       ],
     },
     CONTACT_CARD: {
@@ -353,6 +459,22 @@ export const frDict: VitrineDict = {
           a: "Oui, votre fiche reste modifiable sans changer la carte.",
         },
       ],
+      problem:
+        "Dicter son numéro à chaque rencontre, c'est lent et source d'erreurs — et une carte papier ne se met jamais à jour quand vous changez de numéro.",
+      useCases: [
+        "Professions de terrain",
+        "Équipes événementielles",
+        "Chauffeurs et livreurs",
+        "Rencontres en grand volume",
+      ],
+      customization:
+        "Nom, téléphone et e-mail optionnel : seuls le nom et le téléphone sont requis, le reste suit votre usage réel.",
+      included: [
+        "Carte physique configurée vers votre fiche contact",
+        "Fiche minimale : nom, téléphone, e-mail",
+        "QR de secours si le NFC est indisponible",
+        "Coordonnées modifiables sans remplacer la carte",
+      ],
     },
     CUSTOM_LINK_CARD: {
       name: "Carte Lien Personnalisé",
@@ -390,6 +512,22 @@ export const frDict: VitrineDict = {
           a: "Oui, chaque destination est validée avant configuration.",
         },
       ],
+      problem:
+        "Menus, réservations, campagnes : vos liens changent, mais les supports imprimés restent figés. Chaque changement de lien rend l'ancien support obsolète.",
+      useCases: [
+        "Menus de restaurant",
+        "Pages de réservation",
+        "Campagnes temporaires",
+        "Portfolios et pages d'événement",
+      ],
+      customization:
+        "Lien HTTPS et usage prévu : nous validons la destination, puis la carte la suit même si elle change.",
+      included: [
+        "Carte physique configurée vers votre lien validé",
+        "QR de secours si le NFC est indisponible",
+        "Destination reconfigurable pour chaque usage",
+        "Une seule carte réutilisable au lieu de réimprimer",
+      ],
     },
   },
   productPage: {
@@ -402,6 +540,15 @@ export const frDict: VitrineDict = {
     orderCta: "Commander ce produit",
     profileNote: "Ce produit utilise votre profil Karti, modifiable à tout moment.",
     directNote: "Ce produit ouvre directement votre destination, sans profil.",
+    outcomeTitle: "Ce que ça change",
+    demoTitle: "Après le passage",
+    includedTitle: "Ce que vous recevez",
+    useCasesTitle: "Cas d'usage",
+    customizationTitle: "Personnalisation",
+    examplesTitle: "Exemples",
+    whyTitle: "Pourquoi Karti",
+    finalTitle: "Prêt à partager en un geste ?",
+    finalSubtitle: "Commandez en quelques minutes, sans créer de compte.",
   },
   order: {
     title: "Commander",
@@ -527,5 +674,17 @@ export const frDict: VitrineDict = {
   common: {
     backToHome: "Retour à l'accueil",
     unavailable: "Cette page est indisponible.",
+    skipToContent: "Aller au contenu",
+    home: "Accueil",
+    products: "Produits",
+    learnMore: "En savoir plus",
+    orderNow: "Commander",
+    requestPrice: "Demander un prix",
+    talkToUs: "Parlons-nous",
+    helpMeChoose: "Aidez-moi à choisir",
+    viewExamples: "Voir les exemples",
+    demoExample: "Exemple de démonstration",
+    stickyOrder: "Commander",
+    stickyRequest: "Demander",
   },
 };
