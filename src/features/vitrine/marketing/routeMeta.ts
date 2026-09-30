@@ -48,7 +48,10 @@ export function articleMetadata(locale: VitrineLocale, slug: string): Metadata {
   ]);
 }
 
-export function legalMetadata(locale: VitrineLocale, slug: "privacy" | "terms" | "delivery"): Metadata {
+export function legalMetadata(
+  locale: VitrineLocale,
+  slug: "privacy" | "terms" | "delivery",
+): Metadata {
   const dict = getDict(locale);
   const meta = {
     privacy: dict.meta.legalPrivacy,

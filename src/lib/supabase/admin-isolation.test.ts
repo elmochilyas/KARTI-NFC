@@ -82,7 +82,10 @@ describe("service-role isolation", () => {
     expect(envServer).toContain('import "server-only"');
     const admin = fs.readFileSync(path.join(SRC_ROOT, "lib", "supabase", "admin.ts"), "utf8");
     expect(admin).toContain('import "server-only"');
-    const writer = fs.readFileSync(path.join(SRC_ROOT, "lib", "supabase", "orderWriter.ts"), "utf8");
+    const writer = fs.readFileSync(
+      path.join(SRC_ROOT, "lib", "supabase", "orderWriter.ts"),
+      "utf8",
+    );
     expect(writer).toContain('import "server-only"');
     const rateLimit = fs.readFileSync(
       path.join(SRC_ROOT, "features", "vitrine", "rateLimitServer.ts"),

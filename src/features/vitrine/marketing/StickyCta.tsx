@@ -26,18 +26,15 @@ export function StickyCta({
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || typeof IntersectionObserver === "undefined") return;
-    const heroObserver = new IntersectionObserver(
-      ([entry]) => setPastHero(!entry.isIntersecting),
-      { threshold: 0 },
-    );
+    const heroObserver = new IntersectionObserver(([entry]) => setPastHero(!entry.isIntersecting), {
+      threshold: 0,
+    });
     heroObserver.observe(sentinel);
     const bottomObserver = new IntersectionObserver(
       (entries) => setBottomVisible(entries.some((entry) => entry.isIntersecting)),
       { threshold: 0 },
     );
-    const targets: Element[] = Array.from(
-      document.querySelectorAll("footer, [data-final-cta]"),
-    );
+    const targets: Element[] = Array.from(document.querySelectorAll("footer, [data-final-cta]"));
     for (const target of targets) bottomObserver.observe(target);
     return () => {
       heroObserver.disconnect();

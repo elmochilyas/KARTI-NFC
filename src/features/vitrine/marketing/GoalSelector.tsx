@@ -29,13 +29,7 @@ const GOAL_ICONS: Record<ProductType, typeof LuUser> = {
   CUSTOM_LINK_CARD: LuLink2,
 };
 
-export function GoalSelector({
-  locale,
-  dict,
-}: {
-  locale: VitrineLocale;
-  dict: VitrineDict;
-}) {
+export function GoalSelector({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }) {
   const goals = dict.marketingHome.goals;
   const [selected, setSelected] = useState(0);
   const current = goals[selected] ?? goals[0];
@@ -94,10 +88,7 @@ export function GoalSelector({
           className="flex flex-col gap-5 rounded-2xl border-2 border-accent/30 bg-surface p-6 md:p-8"
         >
           <div className="flex justify-center">
-            <CardMockup
-              label={dict.products[current.product].name}
-              sublabel={current.audience}
-            />
+            <CardMockup label={dict.products[current.product].name} sublabel={current.audience} />
           </div>
           <div>
             <p className="text-sm font-semibold text-accent">

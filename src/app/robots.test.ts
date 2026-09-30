@@ -9,8 +9,6 @@ describe("robots policy", () => {
     const allow = ("allow" in rule ? rule.allow : []) as string[];
     const disallow = ("disallow" in rule ? rule.disallow : []) as string[];
     expect(allow).toEqual(expect.arrayContaining(["/fr", "/ar", "/en"]));
-    expect(disallow).toEqual(
-      expect.arrayContaining(["/dashboard", "/login", "/t/", "/api/"]),
-    );
+    expect(disallow).toEqual(expect.arrayContaining(["/dashboard", "/login", "/t/", "/api/"]));
   });
 });

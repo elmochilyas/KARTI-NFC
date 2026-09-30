@@ -38,7 +38,10 @@ export function ProductHero({
     ? template.profileNote
     : template.directNote;
   return (
-    <section aria-label={copy.name} className="grid items-center gap-10 py-10 md:grid-cols-2 md:gap-12 md:py-14">
+    <section
+      aria-label={copy.name}
+      className="grid items-center gap-10 py-10 md:grid-cols-2 md:gap-12 md:py-14"
+    >
       <div className={flip ? "md:order-2" : ""}>
         <p className="text-sm font-semibold text-accent">{copy.tagline}</p>
         <h1 className="mt-2 max-w-xl text-4xl font-bold tracking-tight text-text sm:text-5xl">

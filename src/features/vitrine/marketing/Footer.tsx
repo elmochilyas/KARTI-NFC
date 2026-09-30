@@ -68,7 +68,10 @@ export function SiteFooter({ locale, dict }: { locale: VitrineLocale; dict: Vitr
           <p className="mt-5 text-sm font-medium">{dict.footer.learnTitle}</p>
           <ul className="mt-3 space-y-2 text-[15px]">
             <li>
-              <Link className="text-muted hover:text-text" href={localePath(locale, "how-it-works")}>
+              <Link
+                className="text-muted hover:text-text"
+                href={localePath(locale, "how-it-works")}
+              >
                 {dict.nav.howItWorks}
               </Link>
             </li>

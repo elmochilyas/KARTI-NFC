@@ -35,7 +35,8 @@ export function pageMetadata(input: PageMetadataInput): Metadata {
   for (const { locale, url } of alternateUrls(appUrl, input.segments)) {
     languages[locale] = url;
   }
-  languages["x-default"] = `${appUrl}/${DEFAULT_LOCALE}${input.segments.length > 0 ? `/${input.segments.join("/")}` : ""}`;
+  languages["x-default"] =
+    `${appUrl}/${DEFAULT_LOCALE}${input.segments.length > 0 ? `/${input.segments.join("/")}` : ""}`;
   return {
     title: input.title,
     description: input.description,
@@ -112,11 +113,7 @@ export function faqJsonLd(faqs: { q: string; a: string }[]) {
   };
 }
 
-export function articleJsonLd(input: {
-  title: string;
-  description: string;
-  url: string;
-}) {
+export function articleJsonLd(input: { title: string; description: string; url: string }) {
   return {
     "@context": "https://schema.org",
     "@type": "Article",

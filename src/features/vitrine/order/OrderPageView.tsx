@@ -31,12 +31,8 @@ export function OrderPageView({
         ]}
       />
       <div className="mx-auto max-w-2xl py-8 md:py-10">
-        <h1 className="text-4xl font-bold tracking-tight text-text">
-          {dict.order.title}
-        </h1>
-        <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">
-          {dict.order.subtitle}
-        </p>
+        <h1 className="text-4xl font-bold tracking-tight text-text">{dict.order.title}</h1>
+        <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">{dict.order.subtitle}</p>
         {initialProduct ? (
           <div className="mt-6 flex items-center gap-4 rounded-2xl border-2 border-accent/30 bg-surface p-5">
             <span
@@ -54,11 +50,7 @@ export function OrderPageView({
               </span>
             </span>
             <Link
-              href={localePath(
-                locale,
-                "products",
-                productSlugFromType(initialProduct),
-              )}
+              href={localePath(locale, "products", productSlugFromType(initialProduct))}
               className="inline-flex min-h-11 shrink-0 items-center text-sm font-medium text-accent underline"
             >
               {dict.common.learnMore}

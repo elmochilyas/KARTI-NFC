@@ -20,11 +20,7 @@ export async function generateMetadata({
   return solutionMetadata("en", slug);
 }
 
-export default async function EnSolutionPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function EnSolutionPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const key = solutionSlugToKey(slug);
   if (!key) notFound();

@@ -62,9 +62,9 @@ describe("analytics adapter", () => {
   it("scrubs before transporting, never after", () => {
     const transport = vi.fn();
     setAnalyticsTransport(transport);
-    expect(() => trackEvent("order_submitted", { product: "X", quantity: 1, email: "a@b.c" })).toThrow(
-      "PII key: email",
-    );
+    expect(() =>
+      trackEvent("order_submitted", { product: "X", quantity: 1, email: "a@b.c" }),
+    ).toThrow("PII key: email");
     expect(transport).not.toHaveBeenCalled();
   });
 });

@@ -16,15 +16,7 @@ export function PageContainer({ children }: { children: ReactNode }) {
 }
 
 /** Full-bleed tinted band; inner content keeps page container width. */
-export function Band({
-  id,
-  label,
-  children,
-}: {
-  id?: string;
-  label: string;
-  children: ReactNode;
-}) {
+export function Band({ id, label, children }: { id?: string; label: string; children: ReactNode }) {
   return (
     <section id={id} aria-label={label} className="scroll-mt-20 bg-surface-muted/60">
       <div className="mx-auto w-full max-w-6xl px-4 py-14 md:px-8 md:py-20">{children}</div>
@@ -52,9 +44,7 @@ export function Section({
           <p className="text-xs font-semibold tracking-[0.18em] text-accent uppercase">{eyebrow}</p>
         ) : null}
         <h2 className="mt-3 text-3xl font-bold tracking-tight text-text md:text-4xl">{title}</h2>
-        {subtitle ? (
-          <p className="mt-3 text-lg leading-relaxed text-muted">{subtitle}</p>
-        ) : null}
+        {subtitle ? <p className="mt-3 text-lg leading-relaxed text-muted">{subtitle}</p> : null}
       </div>
       <div className="mt-8">{children}</div>
     </section>

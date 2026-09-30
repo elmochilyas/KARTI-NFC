@@ -246,10 +246,7 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
             const slug = productSlugFromType(product);
             const Icon = DIRECT_ICONS[product];
             return (
-              <li
-                key={product}
-                className="flex items-center gap-4 rounded-2xl bg-surface p-5"
-              >
+              <li key={product} className="flex items-center gap-4 rounded-2xl bg-surface p-5">
                 <span
                   aria-hidden="true"
                   className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-muted"
@@ -257,9 +254,7 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
                   <Icon className="h-6 w-6 text-text" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-base font-bold text-text">
-                    {copy.name}
-                  </span>
+                  <span className="block truncate text-base font-bold text-text">{copy.name}</span>
                   <TrackLink
                     href={orderPath(locale, slug)}
                     event="product_cta_click"
@@ -352,10 +347,15 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
             <p aria-hidden="true" className="text-2xl font-bold text-accent">
               ↓
             </p>
-            <p className="rounded-lg bg-surface-muted px-4 py-2 text-base font-semibold">Instagram</p>
+            <p className="rounded-lg bg-surface-muted px-4 py-2 text-base font-semibold">
+              Instagram
+            </p>
             <p className="text-center text-sm text-muted">{m.redirectSteps[0]?.desc ?? ""}</p>
           </div>
-          <div aria-hidden="true" className="flex items-center justify-center gap-3 md:flex-col md:gap-2">
+          <div
+            aria-hidden="true"
+            className="flex items-center justify-center gap-3 md:flex-col md:gap-2"
+          >
             <span className="h-px w-10 bg-border sm:w-16 md:h-16 md:w-px" />
             <p className="rounded-full border border-border bg-surface px-4 py-2 text-center text-sm font-semibold whitespace-nowrap text-muted">
               {m.sameCardLabel}
@@ -394,11 +394,7 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
                 <p className="mt-2 text-xl font-bold tracking-tight text-text">{item.name}</p>
                 <p className="mt-1 text-[15px] text-muted">{item.useCase}</p>
                 <div className="mt-4 flex justify-center rounded-xl bg-surface-muted/60 p-4">
-                  <PhoneFrame
-                    title={item.tapResult}
-                    lines={[item.useCase]}
-                    size="md"
-                  />
+                  <PhoneFrame title={item.tapResult} lines={[item.useCase]} size="md" />
                 </div>
                 <p className="mt-4 text-[15px] text-text">
                   <span aria-hidden="true" className="font-bold text-accent">

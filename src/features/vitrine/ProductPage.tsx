@@ -215,9 +215,7 @@ function LinkHero({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }
       visual={
         <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           <div className="flex flex-1 flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-4">
-            <p className="text-xs font-bold tracking-wide text-accent uppercase">
-              {m.todayLabel}
-            </p>
+            <p className="text-xs font-bold tracking-wide text-accent uppercase">{m.todayLabel}</p>
             <CardMockup label="Karti" size="md" />
             <p className="rounded-lg bg-surface-muted px-3 py-1.5 text-center text-sm font-semibold">
               {today}
@@ -227,9 +225,7 @@ function LinkHero({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }
             {m.sameCardLabel}
           </p>
           <div className="flex flex-1 flex-col items-center gap-2 rounded-2xl border border-border bg-surface p-4">
-            <p className="text-xs font-bold tracking-wide text-accent uppercase">
-              {m.laterLabel}
-            </p>
+            <p className="text-xs font-bold tracking-wide text-accent uppercase">{m.laterLabel}</p>
             <CardMockup label="Karti" size="md" />
             <p className="rounded-lg bg-surface-muted px-3 py-1.5 text-center text-sm font-semibold">
               {later}
@@ -439,9 +435,7 @@ export function ProductPage({
         </>
       )}
 
-      {concise ? null : (
-        <AudienceList title={copy.audienceTitle} items={copy.audience} />
-      )}
+      {concise ? null : <AudienceList title={copy.audienceTitle} items={copy.audience} />}
       {product === "GOOGLE_REVIEW_CARD" ? (
         <Section title={template.customizationTitle}>
           <div className="rounded-2xl border-2 border-accent/40 bg-surface p-6 md:p-8">

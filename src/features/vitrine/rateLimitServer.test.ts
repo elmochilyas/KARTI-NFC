@@ -56,7 +56,10 @@ describe("durable rate limiting", () => {
   });
 
   it("passes the HMAC key hash (never the raw IP) to the atomic RPC", async () => {
-    rpcMock.mockResolvedValue({ data: { allowed: true, count: 1, retry_after_secs: 0 }, error: null });
+    rpcMock.mockResolvedValue({
+      data: { allowed: true, count: 1, retry_after_secs: 0 },
+      error: null,
+    });
     const verdict = await checkPublicRateLimit("order", "9.9.9.9");
     expect(verdict).toEqual({ allowed: true });
     expect(rpcMock.mock.calls[0][0]).toBe("check_rate_limit");
@@ -69,7 +72,10 @@ describe("durable rate limiting", () => {
   });
 
   it("uses the inquiry budget for inquiry actions", async () => {
-    rpcMock.mockResolvedValue({ data: { allowed: true, count: 3, retry_after_secs: 0 }, error: null });
+    rpcMock.mockResolvedValue({
+      data: { allowed: true, count: 3, retry_after_secs: 0 },
+      error: null,
+    });
     await checkPublicRateLimit("inquiry", "9.9.9.9");
     const args = rpcMock.mock.calls[0][1] as Record<string, unknown>;
     expect(args.p_action).toBe("inquiry");

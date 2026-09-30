@@ -11,13 +11,7 @@ import { ContactForm } from "./ContactForm";
 import { Breadcrumbs } from "./marketing/Breadcrumbs";
 import { PageContainer } from "./marketing/Section";
 
-export function ContactPageView({
-  locale,
-  dict,
-}: {
-  locale: VitrineLocale;
-  dict: VitrineDict;
-}) {
+export function ContactPageView({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }) {
   return (
     <PageContainer>
       <Breadcrumbs
@@ -28,9 +22,7 @@ export function ContactPageView({
       />
       <div className="mx-auto max-w-2xl py-8 md:py-10">
         <h1 className="text-4xl font-bold tracking-tight text-text">{dict.contact.title}</h1>
-        <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">
-          {dict.contact.subtitle}
-        </p>
+        <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">{dict.contact.subtitle}</p>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <Link
             href={orderPath(locale)}

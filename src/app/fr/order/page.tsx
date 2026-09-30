@@ -23,7 +23,5 @@ export default async function FrOrderPage({
 }) {
   const { product } = await searchParams;
   const dict = getDict("fr");
-  return (
-    <OrderPageView locale="fr" dict={dict} initialProduct={productTypeFromSlug(product)} />
-  );
+  return <OrderPageView locale="fr" dict={dict} initialProduct={productTypeFromSlug(product)} />;
 }

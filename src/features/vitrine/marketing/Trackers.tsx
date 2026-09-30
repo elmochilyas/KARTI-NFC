@@ -9,7 +9,13 @@ import { useEffect, type ReactNode } from "react";
 import { trackEvent, type AnalyticsEventName, type AnalyticsPayload } from "../analytics";
 
 /** Fires once on mount (page-view style events). */
-export function PageView({ event, payload }: { event: AnalyticsEventName; payload?: AnalyticsPayload }) {
+export function PageView({
+  event,
+  payload,
+}: {
+  event: AnalyticsEventName;
+  payload?: AnalyticsPayload;
+}) {
   useEffect(() => {
     trackEvent(event, payload ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

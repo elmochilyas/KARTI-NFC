@@ -20,11 +20,7 @@ export default function FrHomePage() {
     <>
       <JsonLd
         id="karti-jsonld-organization"
-        data={organizationJsonLd(
-          getAppUrl(),
-          "Karti",
-          dict.meta.home.description,
-        )}
+        data={organizationJsonLd(getAppUrl(), "Karti", dict.meta.home.description)}
       />
       <HomePage locale="fr" dict={dict} />
     </>

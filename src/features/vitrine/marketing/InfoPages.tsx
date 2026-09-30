@@ -7,13 +7,7 @@
 import Link from "next/link";
 import type { ArticleSlug, SolutionKey, VitrineDict, VitrineLocale } from "../i18n/dict";
 import { productSlugFromType } from "../products";
-import {
-  articlePath,
-  localePath,
-  orderPath,
-  solutionKeyToSlug,
-  solutionPath,
-} from "../site";
+import { articlePath, localePath, orderPath, solutionKeyToSlug, solutionPath } from "../site";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { ExamplesGrid } from "./ExamplesGrid";
 import { FaqList } from "./Faq";
@@ -48,10 +42,7 @@ export function SolutionPage({
       <Section title={copy.problemsTitle}>
         <ul className="grid gap-4 md:grid-cols-2">
           {copy.problems.map((problem, index) => (
-            <li
-              key={problem}
-              className="flex gap-4 rounded-2xl bg-surface-muted/60 p-5 md:p-6"
-            >
+            <li key={problem} className="flex gap-4 rounded-2xl bg-surface-muted/60 p-5 md:p-6">
               <span
                 aria-hidden="true"
                 className="text-3xl font-black tracking-tight text-accent/30 tabular-nums"
@@ -95,9 +86,7 @@ export function SolutionPage({
           ))}
         </ul>
       </Section>
-      {scenario ? (
-        <ScenarioCards locale={locale} dict={dict} items={[scenario]} />
-      ) : null}
+      {scenario ? <ScenarioCards locale={locale} dict={dict} items={[scenario]} /> : null}
       <Section title={dict.productPage.faqTitle}>
         <FaqList items={copy.faq} idPrefix={`solution-faq-${solution}`} />
       </Section>
@@ -143,7 +132,10 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
       <LabeledFlow title={m.processTitle} steps={m.processSteps} />
       <Section title={copy.whatTitle}>
         {copy.whatBody.map((paragraph) => (
-          <p key={paragraph.slice(0, 24)} className="mt-3 max-w-2xl text-lg leading-relaxed text-muted first:mt-0">
+          <p
+            key={paragraph.slice(0, 24)}
+            className="mt-3 max-w-2xl text-lg leading-relaxed text-muted first:mt-0"
+          >
             {paragraph}
           </p>
         ))}
@@ -160,9 +152,7 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
       <Section title={copy.compareTitle}>
         <ul className="grid gap-5 md:grid-cols-2">
           <li className="flex flex-col rounded-2xl border-2 border-border bg-surface p-6 md:p-8">
-            <p className="text-sm font-semibold text-accent">
-              {dict.productPage.profileNote}
-            </p>
+            <p className="text-sm font-semibold text-accent">{dict.productPage.profileNote}</p>
             <p className="mt-2 text-2xl font-bold tracking-tight text-text">
               {copy.compare[0]?.title ?? dict.products.PERSONAL_CARD.name}
             </p>
@@ -177,9 +167,7 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
             </Link>
           </li>
           <li className="flex flex-col rounded-2xl border-2 border-border bg-surface p-6 md:p-8">
-            <p className="text-sm font-semibold text-accent">
-              {dict.productPage.directNote}
-            </p>
+            <p className="text-sm font-semibold text-accent">{dict.productPage.directNote}</p>
             <p className="mt-2 text-2xl font-bold tracking-tight text-text">
               {copy.compare[1]?.title ?? dict.products.GOOGLE_REVIEW_CARD.name}
             </p>
@@ -197,7 +185,10 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
       </Section>
       <Section title={copy.redirectTitle}>
         {copy.redirectBody.map((paragraph) => (
-          <p key={paragraph.slice(0, 24)} className="mt-3 max-w-2xl text-lg leading-relaxed text-muted first:mt-0">
+          <p
+            key={paragraph.slice(0, 24)}
+            className="mt-3 max-w-2xl text-lg leading-relaxed text-muted first:mt-0"
+          >
             {paragraph}
           </p>
         ))}
@@ -208,9 +199,14 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
             <p aria-hidden="true" className="text-2xl font-bold text-accent">
               ↓
             </p>
-            <p className="rounded-lg bg-surface-muted px-4 py-2 text-base font-semibold">Instagram</p>
+            <p className="rounded-lg bg-surface-muted px-4 py-2 text-base font-semibold">
+              Instagram
+            </p>
           </div>
-          <div aria-hidden="true" className="flex items-center justify-center gap-3 md:flex-col md:gap-2">
+          <div
+            aria-hidden="true"
+            className="flex items-center justify-center gap-3 md:flex-col md:gap-2"
+          >
             <span className="h-px w-10 bg-border sm:w-16 md:h-16 md:w-px" />
             <p className="rounded-full border border-border bg-surface px-4 py-2 text-center text-sm font-semibold whitespace-nowrap text-muted">
               {m.sameCardLabel}
@@ -320,7 +316,10 @@ export function PricingPage({ locale, dict }: { locale: VitrineLocale; dict: Vit
         <Section title={copy.factorsTitle}>
           <ul className="flex flex-col gap-3">
             {copy.factors.map((item, index) => (
-              <li key={item} className="flex items-start gap-3 text-base leading-relaxed text-muted">
+              <li
+                key={item}
+                className="flex items-start gap-3 text-base leading-relaxed text-muted"
+              >
                 <span
                   aria-hidden="true"
                   className="text-base font-black text-accent/40 tabular-nums"
@@ -361,7 +360,12 @@ export function ExamplesHubPage({ locale, dict }: { locale: VitrineLocale; dict:
       />
       <PageHero title={copy.title} subtitle={copy.subtitle} />
       <div className="py-6">
-        <ExamplesGrid locale={locale} dict={dict} items={copy.items} demoLabel={dict.common.demoExample} />
+        <ExamplesGrid
+          locale={locale}
+          dict={dict}
+          items={copy.items}
+          demoLabel={dict.common.demoExample}
+        />
       </div>
       <p className="pb-10 text-sm text-muted">{copy.note}</p>
     </PageContainer>
@@ -434,10 +438,7 @@ export function ResourcesPage({ locale, dict }: { locale: VitrineLocale; dict: V
                 href={localePath(locale, topic.href)}
                 className="group flex items-baseline gap-4 py-5 md:gap-6 md:py-6"
               >
-                <span
-                  aria-hidden="true"
-                  className="text-sm font-black text-accent/40 tabular-nums"
-                >
+                <span aria-hidden="true" className="text-sm font-black text-accent/40 tabular-nums">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -462,7 +463,10 @@ export function ResourcesPage({ locale, dict }: { locale: VitrineLocale; dict: V
           {(Object.keys(dict.articles) as ArticleSlug[]).map((slug, index) => {
             const article = dict.articles[slug];
             return (
-              <li key={slug} className="flex flex-col rounded-2xl border border-border bg-surface p-6">
+              <li
+                key={slug}
+                className="flex flex-col rounded-2xl border border-border bg-surface p-6"
+              >
                 <p
                   aria-hidden="true"
                   className="text-sm font-black tracking-[0.18em] text-accent/50 tabular-nums"
@@ -529,7 +533,10 @@ export function ArticlePage({
             {section.heading}
           </h2>
           {section.paragraphs.map((paragraph) => (
-            <p key={paragraph.slice(0, 32)} className="mt-3 max-w-2xl text-base leading-relaxed text-muted">
+            <p
+              key={paragraph.slice(0, 32)}
+              className="mt-3 max-w-2xl text-base leading-relaxed text-muted"
+            >
               {paragraph}
             </p>
           ))}
@@ -581,7 +588,10 @@ export function LegalPage({
         <section key={section.heading} aria-label={section.heading} className="py-4">
           <h2 className="text-xl font-bold tracking-tight text-text">{section.heading}</h2>
           {section.paragraphs.map((paragraph) => (
-            <p key={paragraph.slice(0, 32)} className="mt-2 max-w-2xl text-base leading-relaxed text-muted">
+            <p
+              key={paragraph.slice(0, 32)}
+              className="mt-2 max-w-2xl text-base leading-relaxed text-muted"
+            >
               {paragraph}
             </p>
           ))}
@@ -590,5 +600,3 @@ export function LegalPage({
     </PageContainer>
   );
 }
-
-

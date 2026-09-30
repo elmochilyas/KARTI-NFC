@@ -54,8 +54,7 @@ export const enMarketing: VitrineMarketingDict = {
     },
     articleNfcVsQr: {
       title: "NFC business card or QR code: which to choose? — Karti guide",
-      description:
-        "Tap speed, QR universality: how Karti combines both on a single reusable card.",
+      description: "Tap speed, QR universality: how Karti combines both on a single reusable card.",
     },
     articleReviewLink: {
       title: "How to find your Google review link? — Karti guide",
@@ -77,7 +76,8 @@ export const enMarketing: VitrineMarketingDict = {
     },
     legalDelivery: {
       title: "Delivery — Karti",
-      description: "Ordering, confirmation and handover of your Karti card: the current process, nothing invented.",
+      description:
+        "Ordering, confirmation and handover of your Karti card: the current process, nothing invented.",
     },
   },
   marketingHome: {
@@ -156,7 +156,11 @@ export const enMarketing: VitrineMarketingDict = {
         id: "personal",
         label: "Personal",
         phoneTitle: "Sara Bennani's profile",
-        phoneLines: ["Freelance designer", "Call · WhatsApp · Email", "Portfolio · LinkedIn · Website"],
+        phoneLines: [
+          "Freelance designer",
+          "Call · WhatsApp · Email",
+          "Portfolio · LinkedIn · Website",
+        ],
       },
       {
         id: "career",
@@ -496,7 +500,12 @@ export const enMarketing: VitrineMarketingDict = {
       "Editable destination after delivery",
     ],
     factorsTitle: "What affects the price",
-    factors: ["The chosen product", "The ordered quantity", "The requested customization", "Delivery"],
+    factors: [
+      "The chosen product",
+      "The ordered quantity",
+      "The requested customization",
+      "Delivery",
+    ],
     processTitle: "How to get your price",
     processSteps: [
       {
@@ -701,8 +710,7 @@ export const enMarketing: VitrineMarketingDict = {
   articles: {
     "nfc-vs-qr": {
       title: "NFC business card or QR code: which to choose?",
-      description:
-        "Tap speed, QR universality: why Karti combines both on a single reusable card.",
+      description: "Tap speed, QR universality: why Karti combines both on a single reusable card.",
       intro:
         "NFC tap and QR code answer the same need — opening a destination from a physical object — with different strengths. Here is how to choose, and why you don't have to.",
       sections: [

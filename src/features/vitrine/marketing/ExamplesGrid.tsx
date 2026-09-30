@@ -61,14 +61,15 @@ export function ExamplesGrid({
             key={item.name}
             className="flex flex-col rounded-2xl border border-border bg-surface p-6"
           >
-            <p className="text-xs font-semibold tracking-wide text-muted uppercase">
-              {demoLabel}
-            </p>
+            <p className="text-xs font-semibold tracking-wide text-muted uppercase">{demoLabel}</p>
             <p className="mt-2 text-xl font-bold tracking-tight text-text">{item.name}</p>
             <p className="mt-1 text-[15px] text-muted">{item.useCase}</p>
             <div className="mt-4 flex flex-col items-center justify-center gap-4 rounded-xl bg-surface-muted/60 p-5 min-[420px]:flex-row">
               <CardMockup label={item.name} sublabel={demoLabel} size="md" />
-              <span aria-hidden="true" className="text-2xl font-bold text-accent min-[420px]:hidden">
+              <span
+                aria-hidden="true"
+                className="text-2xl font-bold text-accent min-[420px]:hidden"
+              >
                 ↓
               </span>
               <span

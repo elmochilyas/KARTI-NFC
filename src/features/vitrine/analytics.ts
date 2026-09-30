@@ -32,9 +32,7 @@ export const ANALYTICS_EVENTS = [
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
 
 export function isAnalyticsEventName(value: unknown): value is AnalyticsEventName {
-  return (
-    typeof value === "string" && (ANALYTICS_EVENTS as readonly string[]).includes(value)
-  );
+  return typeof value === "string" && (ANALYTICS_EVENTS as readonly string[]).includes(value);
 }
 
 export type AnalyticsPayload = Record<string, string | number | boolean | null | undefined>;

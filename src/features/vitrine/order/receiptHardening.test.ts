@@ -44,7 +44,10 @@ function mockReceiptRows(orderRow: unknown, itemRow: unknown) {
 }
 
 function eqArgs(): [string, unknown][] {
-  const orderChain = fromMock.mock.results[0].value as Record<string, { mock: { calls: unknown[][] } }>;
+  const orderChain = fromMock.mock.results[0].value as Record<
+    string,
+    { mock: { calls: unknown[][] } }
+  >;
   return orderChain.eq.mock.calls.map((call) => call as unknown as [string, unknown]);
 }
 
@@ -73,7 +76,12 @@ describe("receipt hardening", () => {
   it("order number alone cannot retrieve a receipt", async () => {
     mockReceiptRows(null, null);
     // Wrong token (right shape, wrong value) resolves nothing.
-    expect(await getPublicReceipt(ORDER_NUMBER, deriveReceiptToken("223e4567-e89b-12d3-a456-426614174000"))).toBeNull();
+    expect(
+      await getPublicReceipt(
+        ORDER_NUMBER,
+        deriveReceiptToken("223e4567-e89b-12d3-a456-426614174000"),
+      ),
+    ).toBeNull();
     // Missing token resolves nothing.
     expect(await getPublicReceipt(ORDER_NUMBER, null)).toBeNull();
     expect(await getPublicReceipt(ORDER_NUMBER, undefined)).toBeNull();
@@ -103,7 +111,9 @@ describe("receipt hardening", () => {
       productSlug: "whatsapp-card",
       quantity: 2,
     });
-    expect(JSON.stringify(receipt)).not.toMatch(/address|notes|client|profile|attribution|phone|email/i);
+    expect(JSON.stringify(receipt)).not.toMatch(
+      /address|notes|client|profile|attribution|phone|email/i,
+    );
   });
 
   it("rejects unknown products and missing items without leaking existence", async () => {

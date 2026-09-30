@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createRateLimiter, getClientIp, isHoneypotFilled, isTooFast, MIN_FILL_MS } from "./antispam";
+import {
+  createRateLimiter,
+  getClientIp,
+  isHoneypotFilled,
+  isTooFast,
+  MIN_FILL_MS,
+} from "./antispam";
 
 describe("anti-spam helpers", () => {
   it("flags filled honeypots only", () => {

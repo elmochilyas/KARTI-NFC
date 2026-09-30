@@ -104,7 +104,10 @@ export function ReviewStep({
     <div className="space-y-4">
       <h3 className="text-base font-bold">{r.title}</h3>
 
-      <section aria-label={r.product} className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+      <section
+        aria-label={r.product}
+        className="rounded-2xl border border-border bg-surface p-5 md:p-6"
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{r.product}</p>
@@ -132,7 +135,10 @@ export function ReviewStep({
         </dl>
       </section>
 
-      <section aria-label={r.customer} className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+      <section
+        aria-label={r.customer}
+        className="rounded-2xl border border-border bg-surface p-5 md:p-6"
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{r.customer}</p>
@@ -156,7 +162,10 @@ export function ReviewStep({
         </div>
       </section>
 
-      <section aria-label={r.delivery} className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+      <section
+        aria-label={r.delivery}
+        className="rounded-2xl border border-border bg-surface p-5 md:p-6"
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted">{r.delivery}</p>

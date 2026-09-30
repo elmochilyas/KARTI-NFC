@@ -43,7 +43,11 @@ export function CardMockup({
             <span
               aria-hidden="true"
               className={`flex items-center justify-center rounded-lg bg-accent font-bold text-accent-contrast ${
-                size === "xl" ? "h-11 w-11 text-2xl" : large ? "h-10 w-10 text-xl" : "h-7 w-7 text-sm"
+                size === "xl"
+                  ? "h-11 w-11 text-2xl"
+                  : large
+                    ? "h-10 w-10 text-xl"
+                    : "h-7 w-7 text-sm"
               }`}
             >
               K
@@ -121,7 +125,9 @@ export function PhoneFrame({
         size === "xl" ? "max-w-[340px]" : large ? "max-w-[300px]" : "max-w-[240px]"
       }`}
     >
-      <div className={`rounded-[2rem] bg-background ${size === "xl" ? "px-6 py-7" : large ? "px-5 py-6" : "px-4 py-5"}`}>
+      <div
+        className={`rounded-[2rem] bg-background ${size === "xl" ? "px-6 py-7" : large ? "px-5 py-6" : "px-4 py-5"}`}
+      >
         <p aria-hidden="true" className="mx-auto h-1.5 w-20 rounded-full bg-border" />
         <p
           aria-hidden="true"
@@ -134,7 +140,11 @@ export function PhoneFrame({
             <li
               key={line}
               className={`truncate rounded-lg bg-surface-muted text-muted ${
-                size === "xl" ? "px-3 py-3 text-[15px]" : large ? "px-3 py-2.5 text-sm" : "px-2 py-1.5 text-xs"
+                size === "xl"
+                  ? "px-3 py-3 text-[15px]"
+                  : large
+                    ? "px-3 py-2.5 text-sm"
+                    : "px-2 py-1.5 text-xs"
               }`}
             >
               {line}
@@ -172,9 +182,19 @@ export function TapVisual({
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-8">
       <CardMockup label={cardLabel} sublabel={cardSub} size={size} />
       <span aria-hidden="true" className="flex items-center gap-2 text-accent">
-        <span className={`font-bold sm:hidden ${size === "xl" ? "text-4xl" : size === "lg" ? "text-3xl" : "text-2xl"}`}>↓</span>
-        <span className={`hidden font-bold sm:block ${size === "xl" ? "text-4xl" : size === "lg" ? "text-3xl" : "text-2xl"}`}>→</span>
-        <span className={`relative flex ${size === "xl" ? "h-5 w-5" : size === "lg" ? "h-4 w-4" : "h-3 w-3"}`}>
+        <span
+          className={`font-bold sm:hidden ${size === "xl" ? "text-4xl" : size === "lg" ? "text-3xl" : "text-2xl"}`}
+        >
+          ↓
+        </span>
+        <span
+          className={`hidden font-bold sm:block ${size === "xl" ? "text-4xl" : size === "lg" ? "text-3xl" : "text-2xl"}`}
+        >
+          →
+        </span>
+        <span
+          className={`relative flex ${size === "xl" ? "h-5 w-5" : size === "lg" ? "h-4 w-4" : "h-3 w-3"}`}
+        >
           <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-60 motion-safe:animate-ping" />
           <span className="relative inline-flex h-full w-full rounded-full bg-accent" />
         </span>
@@ -191,15 +211,9 @@ export function MockupCaption({ children }: { children: ReactNode }) {
 /** Abstract QR fallback mark: deterministic schematic grid, no real code. */
 export function QrMock({ label }: { label: string }) {
   const cells = [
-    1, 1, 1, 0, 1, 0, 1, 1, 1,
-    1, 0, 1, 0, 0, 0, 1, 0, 1,
-    1, 1, 1, 1, 0, 1, 1, 1, 1,
-    0, 0, 1, 0, 1, 0, 1, 0, 0,
-    1, 0, 0, 1, 1, 1, 0, 0, 1,
-    0, 1, 1, 0, 1, 0, 1, 1, 0,
-    1, 1, 1, 0, 0, 1, 1, 1, 1,
-    1, 0, 1, 1, 0, 0, 1, 0, 1,
-    1, 1, 1, 0, 1, 0, 1, 1, 1,
+    1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1,
+    0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1,
+    0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1,
   ];
   return (
     <div
@@ -246,10 +260,7 @@ export function ChatPhone({
     >
       <div className={`rounded-[2rem] bg-background ${large ? "px-5 py-6" : "px-4 py-5"}`}>
         <p aria-hidden="true" className="mx-auto h-1.5 w-20 rounded-full bg-border" />
-        <p
-          aria-hidden="true"
-          className="mt-4 flex items-center gap-2 truncate font-bold text-text"
-        >
+        <p aria-hidden="true" className="mt-4 flex items-center gap-2 truncate font-bold text-text">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted">
             {icon}
           </span>

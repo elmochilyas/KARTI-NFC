@@ -21,8 +21,6 @@ const DIRECT_PRODUCTS = [
   "CUSTOM_LINK_CARD",
 ] as const;
 
-
-
 export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -151,7 +149,11 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
         </div>
       </div>
       {open ? (
-        <nav id="mobile-nav" aria-label="Primary" className="border-t border-border px-4 py-3 lg:hidden">
+        <nav
+          id="mobile-nav"
+          aria-label="Primary"
+          className="border-t border-border px-4 py-3 lg:hidden"
+        >
           <p className="pt-1 text-xs font-semibold tracking-wide text-muted uppercase">
             {dict.nav.profileGroup}
           </p>
@@ -228,7 +230,12 @@ export function LanguageLinks({
     <p className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
       <span>{dict.nav.language}:</span>
       {VITRINE_LOCALES.filter((code) => code !== locale).map((code) => (
-        <a key={code} href={`/${code}${suffix === "/" ? "" : suffix}`} hrefLang={code} className="underline hover:text-text">
+        <a
+          key={code}
+          href={`/${code}${suffix === "/" ? "" : suffix}`}
+          hrefLang={code}
+          className="underline hover:text-text"
+        >
           {code === "fr" ? "Français" : code === "ar" ? "العربية" : "English"}
         </a>
       ))}

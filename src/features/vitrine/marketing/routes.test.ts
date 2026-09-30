@@ -96,9 +96,7 @@ describe("marketing link integrity", () => {
 
   it("keeps product order CTAs on valid ?product= slugs", () => {
     const dict = getDict("fr");
-    const html = renderToStaticMarkup(
-      ProductPage({ locale: "fr", dict, slug: "whatsapp-card" }),
-    );
+    const html = renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "whatsapp-card" }));
     expect(html).toContain("/fr/order?product=whatsapp-card");
   });
 
@@ -126,9 +124,7 @@ describe("marketing render smoke", () => {
     for (const slug of SOLUTION_SLUGS) {
       const key =
         slug === "students-job-seekers" ? "students" : (slug as "professionals" | "businesses");
-      const html = renderToStaticMarkup(
-        SolutionPage({ locale: "en", dict, solution: key }),
-      );
+      const html = renderToStaticMarkup(SolutionPage({ locale: "en", dict, solution: key }));
       expect(html).toContain(dict.solutions[key].name.replace(/&/g, "&amp;"));
       expect(html).toContain(`/en/order`);
     }

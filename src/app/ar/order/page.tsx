@@ -23,7 +23,5 @@ export default async function ArOrderPage({
 }) {
   const { product } = await searchParams;
   const dict = getDict("ar");
-  return (
-    <OrderPageView locale="ar" dict={dict} initialProduct={productTypeFromSlug(product)} />
-  );
+  return <OrderPageView locale="ar" dict={dict} initialProduct={productTypeFromSlug(product)} />;
 }

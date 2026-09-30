@@ -23,7 +23,5 @@ export default async function EnOrderPage({
 }) {
   const { product } = await searchParams;
   const dict = getDict("en");
-  return (
-    <OrderPageView locale="en" dict={dict} initialProduct={productTypeFromSlug(product)} />
-  );
+  return <OrderPageView locale="en" dict={dict} initialProduct={productTypeFromSlug(product)} />;
 }

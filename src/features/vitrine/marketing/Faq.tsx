@@ -2,7 +2,13 @@
  * FAQ accordion built on native <details> — zero client JS, keyboard
  * operable by construction, screen-reader announced via group names.
  */
-export function FaqList({ items, idPrefix }: { items: { q: string; a: string }[]; idPrefix: string }) {
+export function FaqList({
+  items,
+  idPrefix,
+}: {
+  items: { q: string; a: string }[];
+  idPrefix: string;
+}) {
   return (
     <div className="flex flex-col gap-2">
       {items.map((item, index) => (

@@ -54,7 +54,9 @@ describe("durable rate-limit migration contract", () => {
     const sql = migrationSql();
     expect(sql).toContain("alter table public.rate_limits enable row level security");
     expect(sql.toLowerCase()).not.toContain("create policy");
-    expect(sql).toContain("revoke all on table public.rate_limits from public, anon, authenticated");
+    expect(sql).toContain(
+      "revoke all on table public.rate_limits from public, anon, authenticated",
+    );
   });
 
   it("checks limits atomically in a locked-down SECURITY DEFINER function", () => {
@@ -63,7 +65,9 @@ describe("durable rate-limit migration contract", () => {
     expect(sql).toContain("set search_path = ''");
     expect(sql).toContain("on conflict (key_hash, action, bucket_start)");
     expect(sql).toContain("do update set count = public.rate_limits.count + 1");
-    expect(sql).toContain("revoke all on function public.check_rate_limit(text, text, integer, integer)");
+    expect(sql).toContain(
+      "revoke all on function public.check_rate_limit(text, text, integer, integer)",
+    );
     expect(sql).toContain("from public, anon, authenticated");
   });
 

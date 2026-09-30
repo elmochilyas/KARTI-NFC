@@ -80,7 +80,9 @@ export function legalPath(locale: VitrineLocale, slug: LegalSlug): string {
 }
 
 export function orderPath(locale: VitrineLocale, product?: ProductPublicSlug): string {
-  return product ? localePath(locale, "order") + `?product=${product}` : localePath(locale, "order");
+  return product
+    ? localePath(locale, "order") + `?product=${product}`
+    : localePath(locale, "order");
 }
 
 /** Every indexable marketing page (sitemap + hreflang source). */

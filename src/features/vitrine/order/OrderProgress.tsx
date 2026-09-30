@@ -14,7 +14,10 @@ export function OrderProgress({ dict, step }: { dict: VitrineDict; step: number 
   return (
     <nav aria-label={`${dict.order.stepOf} ${step + 1} / 4`}>
       <ol className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span aria-hidden="true" className="absolute top-3 right-8 left-8 hidden h-px bg-border sm:block" />
+        <span
+          aria-hidden="true"
+          className="absolute top-3 right-8 left-8 hidden h-px bg-border sm:block"
+        />
         {steps.map((label, index) => {
           const state = index < step ? "done" : index === step ? "current" : "todo";
           return (

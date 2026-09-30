@@ -3,12 +3,7 @@ import { notFound } from "next/navigation";
 import { ArticlePage } from "@/features/vitrine/marketing/InfoPages";
 import { getDict } from "@/features/vitrine/i18n";
 import { getAppUrl } from "@/lib/env";
-import {
-  articleJsonLd,
-  breadcrumbJsonLd,
-  faqJsonLd,
-  JsonLd,
-} from "@/features/vitrine/seo";
+import { articleJsonLd, breadcrumbJsonLd, faqJsonLd, JsonLd } from "@/features/vitrine/seo";
 import { articlePath, localePath } from "@/features/vitrine/site";
 import { ARTICLE_SLUGS, type ArticleSlug } from "@/features/vitrine/site";
 import { articleMetadata } from "@/features/vitrine/marketing/routeMeta";
@@ -26,11 +21,7 @@ export async function generateMetadata({
   return articleMetadata("fr", slug);
 }
 
-export default async function FrArticlePage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function FrArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!(ARTICLE_SLUGS as readonly string[]).includes(slug)) notFound();
   const articleSlug = slug as ArticleSlug;

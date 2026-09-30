@@ -27,7 +27,11 @@ const BASE_ORDER = {
   locale: "fr",
   productType: "GOOGLE_REVIEW_CARD",
   quantity: 1,
-  configuration: { businessName: "Café X", reviewUrl: "https://g.page/cafe-x/review", needsUrlHelp: false },
+  configuration: {
+    businessName: "Café X",
+    reviewUrl: "https://g.page/cafe-x/review",
+    needsUrlHelp: false,
+  },
   customer: {
     fullName: "Younes Barrag",
     phone: "0612345678",
@@ -47,7 +51,10 @@ function cookieStore(value: string | null) {
   } as never);
 }
 
-function snapshot(first: Record<string, string | null>, last: Record<string, string | null> | null) {
+function snapshot(
+  first: Record<string, string | null>,
+  last: Record<string, string | null> | null,
+) {
   const touch = (fields: Record<string, string | null>) => ({
     path: null,
     referrerHost: null,
@@ -65,7 +72,10 @@ beforeEach(() => {
   rpcMock.mockReset();
   rpcMock.mockImplementation((fn: string) => {
     if (fn === "check_rate_limit") {
-      return Promise.resolve({ data: { allowed: true, count: 1, retry_after_secs: 0 }, error: null });
+      return Promise.resolve({
+        data: { allowed: true, count: 1, retry_after_secs: 0 },
+        error: null,
+      });
     }
     return Promise.resolve({
       data: [{ order_number: "KARTI-000010", created: true }],
@@ -75,7 +85,9 @@ beforeEach(() => {
 });
 
 function rpcArgs(): Record<string, unknown> {
-  const orderCall = rpcMock.mock.calls.find((call) => (call as unknown[])[0] === "create_public_order");
+  const orderCall = rpcMock.mock.calls.find(
+    (call) => (call as unknown[])[0] === "create_public_order",
+  );
   if (!orderCall) throw new Error("expected create_public_order call");
   return (orderCall as unknown[])[1] as Record<string, unknown>;
 }
@@ -83,10 +95,7 @@ function rpcArgs(): Record<string, unknown> {
 describe("attribution survives into orders", () => {
   it("keeps a Google first touch through internal navigation", async () => {
     cookieStore(
-      snapshot(
-        { path: "/fr/products/google-review-card", referrerHost: "www.google.com" },
-        null,
-      ),
+      snapshot({ path: "/fr/products/google-review-card", referrerHost: "www.google.com" }, null),
     );
     const result = await createPublicOrderAction(BASE_ORDER);
     expect(result.ok).toBe(true);
@@ -140,9 +149,7 @@ describe("attribution survives into orders", () => {
   });
 
   it("never trusts browser-submitted source enums", async () => {
-    cookieStore(
-      snapshot({ path: "/fr", referrerHost: "evil.example" }, null),
-    );
+    cookieStore(snapshot({ path: "/fr", referrerHost: "evil.example" }, null));
     const result = await createPublicOrderAction({
       ...BASE_ORDER,
       // Even if a caller smuggles junk, server classification rules apply.

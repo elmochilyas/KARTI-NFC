@@ -163,7 +163,11 @@ export const frMarketing: VitrineMarketingDict = {
         id: "personal",
         label: "Personnel",
         phoneTitle: "Profil de Sara Bennani",
-        phoneLines: ["Designer indépendante", "Appeler · WhatsApp · E-mail", "Portfolio · LinkedIn · Site"],
+        phoneLines: [
+          "Designer indépendante",
+          "Appeler · WhatsApp · E-mail",
+          "Portfolio · LinkedIn · Site",
+        ],
       },
       {
         id: "career",
