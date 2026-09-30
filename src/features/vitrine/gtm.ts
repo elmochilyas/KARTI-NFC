@@ -36,6 +36,9 @@ export function buildGtmNoscriptUrl(gtmId: string): string {
 /** DOM id for the injected GTM script (exactly one per page). */
 export const GTM_SCRIPT_ID = "karti-gtm";
 
+/** DOM id for the blocking pre-GTM Consent Mode init script. */
+export const CONSENT_SCRIPT_ID = "karti-consent-default";
+
 /** Window flag proving GTM bootstrap ran once (no duplicate init). */
 export const GTM_LOADED_FLAG = "__kartiGtmLoaded";
 
@@ -94,7 +97,9 @@ export function consentUpdateFor(analyticsAccepted: boolean): {
 /**
  * Push a `gtag('consent', mode, params)` command using Google's standard
  * dataLayer/gtag semantics. Defines the `gtag` shim when GTM has not
- * loaded yet (it just queues into dataLayer). Never throws — consent
+ * loaded yet — the exact Google snippet shape
+ * (`function gtag(){dataLayer.push(arguments);}`), so the queued entry is
+ * the `arguments` object, not a plain event object. Never throws — consent
  * must never break the page, including when GTM is blocked.
  */
 export function pushGtagConsent(mode: "default" | "update", params: Record<string, string>): void {
@@ -102,9 +107,11 @@ export function pushGtagConsent(mode: "default" | "update", params: Record<strin
     if (typeof window === "undefined") return;
     ensureDataLayer();
     if (typeof window.gtag !== "function") {
-      window.gtag = function gtagShim(...args: unknown[]): void {
+      // Google's canonical gtag shim: queues the `arguments` object itself.
+      window.gtag = function gtagShim(): void {
         try {
-          (window.dataLayer as unknown[]).push(args);
+          // eslint-disable-next-line prefer-rest-params
+          (window.dataLayer as unknown[]).push(arguments);
         } catch {
           // DataLayer unavailable — analytics stays silent, page keeps working.
         }
@@ -114,6 +121,87 @@ export function pushGtagConsent(mode: "default" | "update", params: Record<strin
   } catch {
     // Consent/bookkeeping must never break application functionality.
   }
+}
+
+/**
+ * True when dataLayer already holds a `gtag('consent', mode, …)` command.
+ *
+ * Accepts both encodings: a real array (`["consent", mode, params]`) and
+ * the `arguments` object queued by Google's
+ * `function gtag(){dataLayer.push(arguments);}` shim. Plain
+ * `{event: …}` objects never match — consent commands are not events.
+ */
+export function dataLayerHasConsent(mode: "default" | "update"): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    const layer = window.dataLayer;
+    if (!Array.isArray(layer)) return false;
+    return layer.some((entry) => {
+      if (entry === null || typeof entry !== "object") return false;
+      const cmd = entry as unknown as ArrayLike<unknown>;
+      return cmd[0] === "consent" && cmd[1] === mode;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Blocking pre-GTM Consent Mode init script (inner JS for the
+ * `#karti-consent-default` inline `<script>`, rendered synchronously in
+ * the document before the GTM container loads).
+ *
+ * Runtime order in the actual browser:
+ *   1. receipt routes (`/fr|en|ar/order/success`) bail out first — no
+ *      dataLayer, no consent, no footprint (private credential URLs);
+ *   2. `window.dataLayer` exists;
+ *   3. `window.gtag` exists (Google's canonical
+ *      `function gtag(){dataLayer.push(arguments);}` shim);
+ *   4. `gtag('consent', 'default', …)` — all four categories denied;
+ *   5. stored `karti_consent` choice: fresh `analytics=1` →
+ *      `gtag('consent', 'update', …)` granting analytics only (ads stay
+ *      denied); anything else keeps the denied defaults.
+ *
+ * Deliberately regex-free so the builder needs no escape juggling. The
+ * 15552000s freshness window mirrors `CONSENT_MAX_AGE_SECONDS` from
+ * `./consent` (pinned by unit test).
+ */
+export function buildConsentInitScript(): string {
+  return (
+    "(function(){" +
+    "try{" +
+    'var segs=(window.location.pathname||"/").split("/");' +
+    'if((segs[1]==="fr"||segs[1]==="en"||segs[1]==="ar")&&segs[2]==="order"&&segs[3]==="success"){return;}' +
+    "}catch(e){}" +
+    "window.dataLayer=window.dataLayer||[];" +
+    "function gtag(){window.dataLayer.push(arguments);}" +
+    "window.gtag=gtag;" +
+    'window.gtag("consent","default",{analytics_storage:"denied",ad_storage:"denied",ad_user_data:"denied",ad_personalization:"denied"});' +
+    "try{" +
+    'var parts=document.cookie.split(";");' +
+    "var raw=null;" +
+    "for(var i=0;i<parts.length;i++){" +
+    'var kv=parts[i].split("=");' +
+    'if(kv[0].trim()==="karti_consent"){raw=kv.slice(1).join("=");break;}' +
+    "}" +
+    "if(raw){" +
+    "var val=raw;" +
+    "try{val=decodeURIComponent(raw);}catch(d){}" +
+    'var prefix="v1:analytics=1:ts=";' +
+    "if(val.indexOf(prefix)===0){" +
+    "var rest=val.substring(prefix.length);" +
+    "var ts=parseInt(rest,10);" +
+    "if(String(ts)===rest&&ts>0){" +
+    "var now=Math.floor(Date.now()/1000);" +
+    "if(now-ts>=0&&now-ts<=15552000){" +
+    'window.gtag("consent","update",{analytics_storage:"granted",ad_storage:"denied",ad_user_data:"denied",ad_personalization:"denied"});' +
+    "}" +
+    "}" +
+    "}" +
+    "}" +
+    "}catch(e){}" +
+    "})();"
+  );
 }
 
 /**
