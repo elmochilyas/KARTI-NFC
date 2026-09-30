@@ -148,10 +148,7 @@ test("product → order navigation keeps analytics flowing (no duplicates)", asy
   await page.goto("/fr");
   await page.getByTestId("consent-reject").click();
   await page.goto("/fr/products/personal-card");
-  await page
-    .locator('a[href*="/fr/order?product=personal-card"]:visible')
-    .first()
-    .click();
+  await page.locator('a[href*="/fr/order?product=personal-card"]:visible').first().click();
   await expect(page).toHaveURL(/\/fr\/order\?product=personal-card/);
 
   const layer = await dataLayer(page);

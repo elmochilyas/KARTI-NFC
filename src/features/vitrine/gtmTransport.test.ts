@@ -98,7 +98,12 @@ describe("GTM dataLayer transport", () => {
       page_type: "order_success",
     });
     expect(dataLayerOf(win)).toEqual([
-      { event: "page_view", page_path: "/fr/order/success", locale: "fr", page_type: "order_success" },
+      {
+        event: "page_view",
+        page_path: "/fr/order/success",
+        locale: "fr",
+        page_type: "order_success",
+      },
     ]);
   });
 
@@ -140,10 +145,7 @@ describe("GTM dataLayer transport", () => {
     // The success URL carries a private credential: the wizard must emit
     // the conversion event first, then leave via a full document load
     // (never SPA router.push — GA4 would auto-collect page_location).
-    const source = fs.readFileSync(
-      path.join(__dirname, "order", "OrderWizard.tsx"),
-      "utf8",
-    );
+    const source = fs.readFileSync(path.join(__dirname, "order", "OrderWizard.tsx"), "utf8");
     const submittedAt = source.indexOf('trackEvent("order_submitted"');
     expect(submittedAt).toBeGreaterThan(-1);
     const assignAt = source.indexOf("window.location.assign");

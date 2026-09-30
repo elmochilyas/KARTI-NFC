@@ -14,7 +14,12 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { isFreshConsent, readConsentCookie, writeConsentCookie, CONSENT_OPEN_EVENT } from "./consent";
+import {
+  isFreshConsent,
+  readConsentCookie,
+  writeConsentCookie,
+  CONSENT_OPEN_EVENT,
+} from "./consent";
 import { consentUpdateFor, isReceiptRoute, pushGtagConsent } from "./gtm";
 import type { VitrineDict } from "./i18n";
 

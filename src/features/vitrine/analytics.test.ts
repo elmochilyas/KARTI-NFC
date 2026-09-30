@@ -44,9 +44,7 @@ describe("analytics adapter", () => {
     expect(() => scrubAnalyticsPayload({ receipt_hash: "b".repeat(64) })).toThrow(
       "PII key: receipt_hash",
     );
-    expect(() => scrubAnalyticsPayload({ customer_note: "hi" })).toThrow(
-      "PII key: customer_note",
-    );
+    expect(() => scrubAnalyticsPayload({ customer_note: "hi" })).toThrow("PII key: customer_note");
     expect(() => scrubAnalyticsPayload({ delivery_instructions: "ring" })).toThrow(
       "PII key: delivery_instructions",
     );

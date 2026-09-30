@@ -166,10 +166,7 @@ describe("service-role isolation", () => {
     // page_location — so the islands must self-suppress there, not just
     // sanitize. Static pin; behavior is proven in e2e/gtm-consent.spec.ts.
     for (const island of ["GtmBootstrap.tsx", "PageViewTracker.tsx", "ConsentBanner.tsx"]) {
-      const content = fs.readFileSync(
-        path.join(SRC_ROOT, "features", "vitrine", island),
-        "utf8",
-      );
+      const content = fs.readFileSync(path.join(SRC_ROOT, "features", "vitrine", island), "utf8");
       expect(content).toContain("isReceiptRoute");
     }
     const bootstrap = fs.readFileSync(

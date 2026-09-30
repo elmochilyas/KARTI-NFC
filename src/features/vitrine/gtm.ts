@@ -122,9 +122,7 @@ export function pushGtagConsent(mode: "default" | "update", params: Record<strin
  * so sanitizing our own events is not enough: GTM must not load there at
  * all — no script, no iframe, no transport, no page_view.
  */
-const RECEIPT_ROUTE_PATTERN = new RegExp(
-  `^/(${VITRINE_LOCALES.join("|")})/order/success(?=/|$)`,
-);
+const RECEIPT_ROUTE_PATTERN = new RegExp(`^/(${VITRINE_LOCALES.join("|")})/order/success(?=/|$)`);
 
 /** True for `/fr|en|ar/order/success` (query/hash ignored). */
 export function isReceiptRoute(pathname: string | null | undefined): boolean {

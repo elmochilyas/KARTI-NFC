@@ -34,7 +34,8 @@ export function gtmTransport(event: AnalyticsEventName, payload: AnalyticsPayloa
       ) {
         if (value === undefined) continue;
         // Defense in depth: page paths are pathname-only (no ?r=&t=).
-        safe[key] = key === "page_path" && typeof value === "string" ? sanitizePagePath(value) : value;
+        safe[key] =
+          key === "page_path" && typeof value === "string" ? sanitizePagePath(value) : value;
       }
       // Non-primitive values are dropped silently (never pushed to GTM).
     }
