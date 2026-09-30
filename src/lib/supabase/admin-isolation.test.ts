@@ -82,5 +82,36 @@ describe("service-role isolation", () => {
     expect(envServer).toContain('import "server-only"');
     const admin = fs.readFileSync(path.join(SRC_ROOT, "lib", "supabase", "admin.ts"), "utf8");
     expect(admin).toContain('import "server-only"');
+    const writer = fs.readFileSync(
+      path.join(SRC_ROOT, "lib", "supabase", "orderWriter.ts"),
+      "utf8",
+    );
+    expect(writer).toContain('import "server-only"');
+    const rateLimit = fs.readFileSync(
+      path.join(SRC_ROOT, "features", "vitrine", "rateLimitServer.ts"),
+      "utf8",
+    );
+    expect(rateLimit).toContain('import "server-only"');
+    // The rate-limit secret is server-only: never NEXT_PUBLIC_, never logged.
+    expect(envServer).toContain("RATE_LIMIT_SECRET");
+    expect(envServer).not.toContain("NEXT_PUBLIC_RATE_LIMIT");
+    expect(rateLimit).not.toContain("console.");
+  });
+
+  it("no client component imports the rate-limit server module or receipt internals", () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles(SRC_ROOT)) {
+      const content = fs.readFileSync(file, "utf8");
+      if (!content.includes('"use client"')) continue;
+      if (
+        content.includes("rateLimitServer") ||
+        content.includes("vitrine/order/receipt") ||
+        content.includes("RATE_LIMIT_SECRET") ||
+        content.includes("RECEIPT_TOKEN_SECRET")
+      ) {
+        offenders.push(path.relative(SRC_ROOT, file));
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

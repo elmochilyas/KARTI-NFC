@@ -37,39 +37,10 @@ beforeEach(() => {
   vi.mocked(createClient).mockReset();
 });
 
-function homepageHtml(): string {
-  return renderToStaticMarkup(HomePage());
-}
-
-describe("public homepage brand cleanup", () => {
-  it("does not expose an admin sign-in entry point", () => {
-    const html = homepageHtml();
-    expect(html).not.toContain("Admin sign in");
-    expect(html.toLowerCase()).not.toContain("admin");
-  });
-
-  it("does not link to /login or /dashboard anywhere", () => {
-    const html = homepageHtml();
-    expect(html).not.toContain("/login");
-    expect(html).not.toContain("/dashboard");
-    expect(html).not.toContain("<a");
-    expect(html.toLowerCase()).not.toContain("dashboard");
-  });
-
-  it("does not expose implementation details", () => {
-    const html = homepageHtml();
-    expect(html).not.toContain("permanent URL");
-    expect(html).not.toContain("rewriting the tag");
-    expect(html).not.toContain("destination can change");
-  });
-
-  it("stays a minimal premium brand page", () => {
-    const html = homepageHtml();
-    expect(html).toContain("Karti");
-    expect(html).toContain("Your smart contact card.");
-    expect(html).toContain("Share your contact details");
-    expect(html).toContain("NFC");
-    expect(html).toContain("QR");
+describe("public root redirect", () => {
+  it("redirects exact / to the primary French locale", () => {
+    expect(() => renderToStaticMarkup(HomePage())).toThrow("NEXT_REDIRECT:/fr");
+    expect(vi.mocked(redirect)).toHaveBeenCalledWith("/fr");
   });
 
   it("has no login/admin route referenced in its source", () => {

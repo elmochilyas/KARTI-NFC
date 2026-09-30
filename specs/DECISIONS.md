@@ -2343,3 +2343,232 @@ component.
   ssr:false` inside — forbidden directly in Server Components) so
   production taps never download it. Keep/Share islands stay static
   (no-JS rendering + CTA hydration).
+
+## ADR-070 — Phase 1 vitrine orders: TEXT+CHECK, QUOTE-only, explicit fulfillment
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+Vitrine specs ask for database "enums" and priced ordering. Existing
+invariant ADR-010 mandates TEXT + CHECK for domain values, no approved
+Karti prices exist anywhere in repo/specs, and fulfillment must not be
+reduced to ordinal jumps.
+
+### Decision
+
+- Order domain uses TEXT + CHECK (marketing product type, order/payment/
+  fulfillment status, preferred contact, pricing status, acquisition
+  source, order channel, actor type, inquiry status) mirrored by
+  TypeScript unions in src/domain/orders/. No native enums.
+- All eight catalog products are QUOTE / QUOTE_REQUIRED with no
+  priceMinor. priceOrder() implements FIXED/FROM math for the future but
+  it is unreachable until an approved price lands in the catalog.
+- Fulfillment uses an explicit adjacency map (FULFILLMENT_TRANSITIONS);
+  legitimate skips are listed edges, ordering alone never validates.
+- Phone normalization is format hygiene only: Moroccan 0XXXXXXXXX (any
+  NDC) / 9-digit / 212... / +... / 00... to E.164; no telecom-validity
+  claim.
+- Phase 1 ships the idempotency key type + UNIQUE support only. Atomic
+  Order + OrderItem + ORDER_CREATED transaction belongs to Phase 2.
+
+### Consequences
+
+Migration 20260929000000 stays additive; RLS admin-only with anon
+default-deny; money in integer minor units; jsonb configuration/metadata
+pinned to objects; order numbers from order_number_seq.
+
+## ADR-071 — Atomic public writes via RPC + narrow order-writer client
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+Anonymous visitors hold zero grants on commercial tables (Phase 1 RLS),
+and supabase-js cannot span a transaction across calls — yet Phase 2
+must create Order + OrderItem + ORDER_CREATED atomically. Options were
+granting anon INSERTs (rejected: destroys the Phase 1 posture), three
+sequential service-role inserts (rejected: partial records on failure),
+or a database function owning the transaction.
+
+### Decision
+
+- `public.create_public_order` / `public.create_public_inquiry`
+  (migration 20260930000000): `SECURITY DEFINER`, `SET search_path =
+  ''`, fully-qualified refs, no dynamic SQL, `REVOKE ALL FROM PUBLIC`
+  (uncallable via PostgREST by any API role), in-function sanity gates
+  (quantity, jsonb object shapes, 64-hex receipt hash). Full semantic
+  validation (schemas, pricing, attribution, spam gates) stays in the
+  Server Action before the call.
+- `src/lib/supabase/orderWriter.ts` (server-only, browser import =
+  build error): creates the privileged client SOLELY for `.rpc()` calls
+  to those two functions. Raw table reads/writes through it are
+  forbidden by code review convention, mirroring the admin-client
+  "mutations forbidden" rule (ADR-032) which otherwise stands unchanged.
+- No table-grant changes: RLS posture is identical to Phase 1.
+
+### Consequences
+
+The only public write path is validated-action → atomic-RPC. Direct
+anon writes (tables and RPC) stay denied; partial Order records are
+impossible by construction; idempotency is enforced inside the same
+transaction that creates.
+
+## ADR-072 — Static locale routes + unchanged marketing root
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+`src/app/[slug]` occupies the single-segment dynamic route, so a
+`[locale]` segment is a Next.js build conflict. The vitrine needs
+`/fr|/ar|/en/...` without moving `/{slug}` or breaking profile
+resolution.
+
+### Decision
+
+- Static locale dirs `src/app/fr|ar|en/` with thin per-locale
+  `layout.tsx` (lang/dir wrapper + shared `VitrineShell`) and thin
+  pages over shared `src/features/vitrine/` components. Static segments
+  beat `[slug]` by framework precedence; reserved slugs
+  (`fr,ar,en,order,…`) back it at the data layer.
+- `/` keeps its existing brand landing (no redirect to `/fr`): safest
+  for `/{slug}` behavior, zero regression surface. Marketing home is
+  `/fr` (primary), `/ar` (RTL), `/en`.
+- Root `<html lang="en">` is unchanged (App Router single-document
+  limit); locale lang/dir is set on the vitrine wrapper. Revisit only
+  if crawlers demand per-locale document language.
+- `src/proxy.ts` matcher stays dashboard/login-only: vitrine pages
+  never pay Edge auth cost.
+
+### Consequences
+
+Locale routing needs no middleware, no i18n framework, no rewrites.
+Adding a locale means one static dir + one dict file satisfying
+`VitrineDict` (missing keys fail the build).
+
+---
+
+## ADR-073 — Order conversion/provisioning as dedicated atomic RPCs
+
+**Status:** Accepted
+**Date:** 2026-09-28
+
+### Context
+
+Phase 4 must convert orders (client + profile + links + events) and
+provision N cards (rows + relations + events) atomically with
+stale-session guards, but supabase-js cannot span a transaction and the
+existing `configureCardForClient` orchestration is single-card,
+application-layer, and transaction-incapable. Options were cloning the
+TS orchestration into every flow (rejected: two implementations), or
+dedicated SQL functions reusing the same DB-level invariants.
+
+### Decision
+
+- `admin_convert_order`, `admin_provision_order_cards`,
+  `admin_resolve_order_destination` (migration `20261004000000`):
+  `SECURITY DEFINER`, `SET search_path = ''`, internal
+  `private.is_admin()`, `SELECT ... FOR UPDATE`, typed jsonb
+  envelopes, explicit `REVOKE ... FROM PUBLIC, anon` + `GRANT EXECUTE
+  TO authenticated`.
+- Reuse, not duplication: card numbers come from `card_number_seq`,
+  destination legality from `cards_destination_consistent` +
+  `trg_cards_integrity`, identity from `UNIQUE(profiles.client_id)` +
+  slug unique (mapped to typed conflicts), slug/short-code *generation*
+  stays in TS (`suggestSlug`/`ensureUniqueSlug`/`generateCardShortCode`
+  passed in; RPC validates + returns retryable collision codes).
+  Either/or RPC slots use `DEFAULT NULL` so typed callers omit unused
+  keys (generator marks them optional — no casts).
+- Catalog mapping, short-code alphabet, and reserved slugs are mirrored
+  in SQL and pinned by `conversionMigration.test.ts`; TS stays
+  authoritative for UX, SQL enforces.
+- Deliberate deviation: provisioned cards go ACTIVE with a DRAFT
+  profile destination allowed (the orchestration's ACTIVE-profile gate
+  would deadlock the order flow); the resolver fail-closes until
+  activation. No fulfillment auto-moves on conversion/provisioning.
+
+### Addendum — rule residency audit (2026-09-28)
+
+Side-by-side audit of `configureCardForClient` (+ primitives) vs
+`admin_provision_order_cards` confirmed a single source per rule:
+
+- card_number: DB sequence default on both paths (never app-supplied).
+- short_code: same TS generator passed in; same alphabet enforced +
+  same UNIQUE guard (parity-pinned in CI).
+- destination consistency, ACTIVE owner/destination, same-client
+  profile, URL shape: `trg_cards_integrity` fires on BOTH paths'
+  writes — it is the shared backstop, not a duplicated definition.
+- Canonical split: normalize in TS (`validateSafeExternalUrl` and
+  friends resolve before any call), shape-enforce in SQL + trigger.
+  The RPC URL gate additionally rejects userinfo (`@` in authority)
+  to mirror the app parser's credential rule; path-`@` stays legal.
+- App-only extras that are path UX, not competing validity:
+  ACTIVE-profile-status gate, assignment-clearing + reassign gates
+  (fresh-row creation has nothing to clear or reassign),
+  short-code retry locus (app loop vs collision code + action retry).
+- `/t/{short_code}` + QR: pure builders over `short_code`; provisioned
+  rows are ordinary cards rows carrying `profile_id`/URL — never slugs
+  — so later destination/slug changes need no new card on either path.
+
+### Consequences
+
+Conversion/provisioning are all-or-nothing with idempotent retries and
+race-safe concurrency (proven live); the client NFC flow keeps its
+unchanged orchestration; no second card system exists.
+
+## ADR-074 — Phase 6 production hardening (durable rate limiting, E2E, indexes)
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Context
+
+Phase 2 left a documented per-instance in-memory rate limiter, no browser
+E2E framework, and operator-lifecycle live proofs blocked on credentials.
+Phase 6 must close these without new vendors or redesign.
+
+### Decision
+
+- Durable rate limiting in Postgres, not Redis/Upstash: new
+  `public.rate_limits(key_hash, action, bucket_start, count, expires_at)`
+  + `check_rate_limit()` RPC (migration `20261005000000`). Atomic
+  single-statement upsert (`ON CONFLICT DO UPDATE`), fixed 10-minute
+  windows, same budgets (orders 5, inquiries 10), opportunistic bounded
+  cleanup (`LIMIT 100` expired rows per call — no cron). RLS enabled with
+  zero policies; execute owner + `service_role` only (standing REVOKE
+  rule honored). Abuse key is `HMAC(RATE_LIMIT_SECRET, ip:action)`
+  derived in `rateLimitServer.ts` (`server-only`); raw IPs never stored,
+  never logged, never analytics identity. Transport/RPC failure throws so
+  actions fail closed to `UNAVAILABLE` (never silent skip).
+- `clients_created_at_idx` (migration `20261006000000`): candidate search
+  pages newest-first in 500-row ranges; the btree makes that
+  index-ordered at scale. Threshold documented in-migration: normalized
+  lookup columns only if volume ever demands (~50k+ clients).
+- E2E is hermetic Playwright (`playwright.config.ts`, `e2e/`,
+  `pnpm test:e2e`, dedicated `:3100` prod server): entry/validation/SEO
+  only, zero DB writes. Operator journeys stay in integration tests +
+  live disposable proofs because browser tests must never hold
+  production credentials. Live proofs used a disposable `auth.users` +
+  `admin_users` pair (no triggers on `auth.users`, verified) with
+  single-statement `CASEWHEN(set_config(...))` auth scoping, fully
+  cleaned afterwards.
+- CSRF: no custom system. Mutations are Next Server Actions (same-origin,
+  framework-handled) with per-call `requireAdmin(getClaims)` +
+  server-side validation + `private.is_admin()` inside every `admin_*`
+  RPC; public writes additionally pass honeypot/timing/durable limits.
+- `http:` destinations stay accepted by `validateSafeExternalUrl`
+  (rejects only non-web schemes/userinfo/overlong/controls): narrowing
+  to https-only would break existing provisioned cards; production
+  posture (HSTS, canonical https URLs) is enforced at the app/edge
+  layer instead.
+
+### Consequences
+
+No new vendor, no cron, no second card system. Outstanding receipt URLs
+invalidate on `RECEIPT_TOKEN_SECRET` rotation; rate-limit buckets reset
+on `RATE_LIMIT_SECRET` rotation — both deliberate, documented in
+`specs/specs-vitrin/PRODUCTION_CHECKLIST.md`.

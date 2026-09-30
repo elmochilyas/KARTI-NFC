@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CreditCard, UserPlus, Users, Zap } from "lucide-react";
+import { ArrowRight, CreditCard, Package, UserPlus, Users, Zap } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Section } from "@/components/dashboard/Section";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { getDashboardOverview, type OverviewClient } from "@/features/dashboard/overview";
 import { nfcBadgeStatus, type AttentionItem } from "@/features/dashboard/setupStatus";
+import { getOrdersSummary, getUrgentOrders } from "@/features/orders/service";
+import type { OrderListItem, OrdersSummary } from "@/features/orders/types";
+import { attentionLabel, deriveOrderAttention } from "@/domain/orders";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -107,6 +110,115 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   );
 }
 
+function UrgentOrderRow({ order }: { order: OrderListItem }) {
+  const attention = deriveOrderAttention({
+    status: order.status,
+    pricingStatus: order.pricingStatus,
+    fulfillmentStatus: order.fulfillmentStatus,
+  });
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3">
+      <span className="min-w-0">
+        <Link
+          href={`/dashboard/orders/${order.id}`}
+          className="block truncate font-medium text-text hover:underline"
+        >
+          {order.orderNumber}
+        </Link>
+        <span className="block truncate text-sm text-muted">
+          {[order.customerName, attentionLabel(attention)].filter(Boolean).join(" · ")}
+        </span>
+      </span>
+      <Link
+        href={`/dashboard/orders/${order.id}`}
+        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md bg-surface-muted px-3 text-sm font-medium text-text hover:bg-border"
+      >
+        Open order
+      </Link>
+    </li>
+  );
+}
+
+function OrdersSection({
+  summary,
+  urgent,
+}: {
+  summary: OrdersSummary | null;
+  urgent: OrderListItem[];
+}) {
+  if (!summary) {
+    return (
+      <Section
+        title="Orders"
+        description="Website orders at a glance."
+        actions={
+          <Link
+            href="/dashboard/orders"
+            className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-sm font-medium text-accent hover:underline"
+          >
+            View all
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </Link>
+        }
+      >
+        <p className="text-sm text-muted">We couldn&apos;t load order counts right now.</p>
+      </Section>
+    );
+  }
+  return (
+    <Section
+      title="Orders"
+      description="Website orders at a glance."
+      actions={
+        <Link
+          href="/dashboard/orders"
+          className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-sm font-medium text-accent hover:underline"
+        >
+          View all
+          <ArrowRight aria-hidden="true" className="h-4 w-4" />
+        </Link>
+      }
+    >
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SummaryTile
+          href="/dashboard/orders?view=new"
+          label="New Orders"
+          value={summary.newCount}
+          sub="Awaiting first contact"
+          icon={<Package aria-hidden="true" className="h-4 w-4" />}
+        />
+        <SummaryTile
+          href="/dashboard/orders?view=needs-action"
+          label="Orders Needing Action"
+          value={summary.needsActionCount}
+          sub={summary.needsActionCount === 0 ? "All clear" : "Needs operator action"}
+        />
+        <SummaryTile
+          href="/dashboard/orders?view=in-progress"
+          label="In Progress"
+          value={summary.inProgressCount}
+          sub="Active fulfillment"
+        />
+        <SummaryTile
+          href="/dashboard/orders?view=ready"
+          label="Ready for Delivery"
+          value={summary.readyCount}
+          sub="Ship or deliver"
+        />
+      </div>
+      {urgent.length > 0 ? (
+        <ul className="mt-2 flex flex-col divide-y divide-border">
+          {urgent.map((order) => (
+            <UrgentOrderRow key={order.id} order={order} />
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-muted">No orders need action right now.</p>
+      )}
+    </Section>
+  );
+}
+
 function RecentRow({ client }: { client: OverviewClient }) {
   return (
     <li>
@@ -151,7 +263,13 @@ export default async function DashboardPage() {
   }
 
   const supabase = await createClient();
-  const result = await getDashboardOverview(supabase);
+  const [result, ordersSummaryResult, urgentOrdersResult] = await Promise.all([
+    getDashboardOverview(supabase),
+    getOrdersSummary(supabase),
+    getUrgentOrders(5, supabase),
+  ]);
+  const ordersSummary = ordersSummaryResult.ok ? ordersSummaryResult.data : null;
+  const urgentOrders = urgentOrdersResult.ok ? urgentOrdersResult.data : [];
 
   if (!result.ok) {
     return (
@@ -187,6 +305,7 @@ export default async function DashboardPage() {
           subtitle="Client and card operations at a glance."
           actions={<HeaderActions />}
         />
+        <OrdersSection summary={ordersSummary} urgent={urgentOrders} />
         <EmptyState
           title="No clients yet"
           description="Create your first client to start building a Karti profile."
@@ -246,6 +365,8 @@ export default async function DashboardPage() {
           sub={counts.needsAttention === 0 ? "All clear" : "View list"}
         />
       </div>
+
+      <OrdersSection summary={ordersSummary} urgent={urgentOrders} />
 
       <Section
         title="Needs Attention"

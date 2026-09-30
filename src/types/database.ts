@@ -101,6 +101,367 @@ export type Database = {
         }
         Relationships: []
       }
+      inquiries: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string | null
+          email_normalized: string | null
+          id: string
+          inquiry_type: string | null
+          landing_path: string | null
+          locale: string | null
+          message: string
+          name: string
+          phone: string | null
+          phone_normalized: string | null
+          referrer: string | null
+          source: string | null
+          status: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          email_normalized?: string | null
+          id?: string
+          inquiry_type?: string | null
+          landing_path?: string | null
+          locale?: string | null
+          message: string
+          name: string
+          phone?: string | null
+          phone_normalized?: string | null
+          referrer?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          email_normalized?: string | null
+          id?: string
+          inquiry_type?: string | null
+          landing_path?: string | null
+          locale?: string | null
+          message?: string
+          name?: string
+          phone?: string | null
+          phone_normalized?: string | null
+          referrer?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
+      order_events: {
+        Row: {
+          actor_type: string
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          from_value: string | null
+          id: string
+          metadata: Json
+          order_id: string
+          to_value: string | null
+        }
+        Insert: {
+          actor_type: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          from_value?: string | null
+          id?: string
+          metadata?: Json
+          order_id: string
+          to_value?: string | null
+        }
+        Update: {
+          actor_type?: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          from_value?: string | null
+          id?: string
+          metadata?: Json
+          order_id?: string
+          to_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_item_cards: {
+        Row: {
+          card_id: string
+          created_at: string
+          order_item_id: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          order_item_id: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          order_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_item_cards_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_item_cards_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          configuration: Json
+          created_at: string
+          id: string
+          line_total_minor: number | null
+          order_id: string
+          product_type: string
+          profile_id: string | null
+          quantity: number
+          unit_price_minor: number | null
+          updated_at: string
+        }
+        Insert: {
+          configuration?: Json
+          created_at?: string
+          id?: string
+          line_total_minor?: number | null
+          order_id: string
+          product_type: string
+          profile_id?: string | null
+          quantity: number
+          unit_price_minor?: number | null
+          updated_at?: string
+        }
+        Update: {
+          configuration?: Json
+          created_at?: string
+          id?: string
+          line_total_minor?: number | null
+          order_id?: string
+          product_type?: string
+          profile_id?: string | null
+          quantity?: number
+          unit_price_minor?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          channel: string
+          city: string
+          client_id: string | null
+          conversion_path: string | null
+          created_at: string
+          currency: string
+          customer_name: string
+          customer_notes: string | null
+          delivery_address: string
+          delivery_fee_minor: number | null
+          delivery_notes: string | null
+          discount_minor: number
+          email: string | null
+          email_normalized: string | null
+          first_landing_path: string | null
+          first_referrer: string | null
+          first_touch_source: string | null
+          first_utm_campaign: string | null
+          first_utm_content: string | null
+          first_utm_medium: string | null
+          first_utm_source: string | null
+          first_utm_term: string | null
+          fulfillment_status: string
+          id: string
+          idempotency_key: string | null
+          internal_notes: string | null
+          last_referrer: string | null
+          last_touch_source: string | null
+          last_utm_campaign: string | null
+          last_utm_content: string | null
+          last_utm_medium: string | null
+          last_utm_source: string | null
+          last_utm_term: string | null
+          locale: string
+          order_number: string
+          payment_status: string
+          phone: string
+          phone_normalized: string
+          preferred_contact: string
+          pricing_status: string
+          receipt_token_hash: string | null
+          status: string
+          subtotal_minor: number | null
+          total_minor: number | null
+          updated_at: string
+          whatsapp: string | null
+          whatsapp_normalized: string | null
+        }
+        Insert: {
+          channel?: string
+          city: string
+          client_id?: string | null
+          conversion_path?: string | null
+          created_at?: string
+          currency?: string
+          customer_name: string
+          customer_notes?: string | null
+          delivery_address: string
+          delivery_fee_minor?: number | null
+          delivery_notes?: string | null
+          discount_minor?: number
+          email?: string | null
+          email_normalized?: string | null
+          first_landing_path?: string | null
+          first_referrer?: string | null
+          first_touch_source?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_medium?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
+          fulfillment_status?: string
+          id?: string
+          idempotency_key?: string | null
+          internal_notes?: string | null
+          last_referrer?: string | null
+          last_touch_source?: string | null
+          last_utm_campaign?: string | null
+          last_utm_content?: string | null
+          last_utm_medium?: string | null
+          last_utm_source?: string | null
+          last_utm_term?: string | null
+          locale: string
+          order_number?: string
+          payment_status?: string
+          phone: string
+          phone_normalized: string
+          preferred_contact: string
+          pricing_status: string
+          receipt_token_hash?: string | null
+          status?: string
+          subtotal_minor?: number | null
+          total_minor?: number | null
+          updated_at?: string
+          whatsapp?: string | null
+          whatsapp_normalized?: string | null
+        }
+        Update: {
+          channel?: string
+          city?: string
+          client_id?: string | null
+          conversion_path?: string | null
+          created_at?: string
+          currency?: string
+          customer_name?: string
+          customer_notes?: string | null
+          delivery_address?: string
+          delivery_fee_minor?: number | null
+          delivery_notes?: string | null
+          discount_minor?: number
+          email?: string | null
+          email_normalized?: string | null
+          first_landing_path?: string | null
+          first_referrer?: string | null
+          first_touch_source?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_medium?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
+          fulfillment_status?: string
+          id?: string
+          idempotency_key?: string | null
+          internal_notes?: string | null
+          last_referrer?: string | null
+          last_touch_source?: string | null
+          last_utm_campaign?: string | null
+          last_utm_content?: string | null
+          last_utm_medium?: string | null
+          last_utm_source?: string | null
+          last_utm_term?: string | null
+          locale?: string
+          order_number?: string
+          payment_status?: string
+          phone?: string
+          phone_normalized?: string
+          preferred_contact?: string
+          pricing_status?: string
+          receipt_token_hash?: string | null
+          status?: string
+          subtotal_minor?: number | null
+          total_minor?: number | null
+          updated_at?: string
+          whatsapp?: string | null
+          whatsapp_normalized?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_links: {
         Row: {
           created_at: string
@@ -148,10 +509,6 @@ export type Database = {
           },
         ]
       }
-      // MANUAL BACKPORT (Phase 25): public.profile_sections from migration
-      // 20260925_profile_sections. `pnpm db:types` could not run here
-      // (no SUPABASE_ACCESS_TOKEN); re-running it will emit this table and
-      // absorb the backport. See ADR-051.
       profile_sections: {
         Row: {
           created_at: string
@@ -210,25 +567,10 @@ export type Database = {
           maps_url: string | null
           phone: string | null
           profile_type: string
-          // MANUAL BACKPORT (2026-09-21): profiles.public_code from migration
-          // 20260923_wallet_public_code. `pnpm db:types` could not run here
-          // (no SUPABASE_ACCESS_TOKEN); re-running it will emit this exact
-          // line and absorb the backport. See ADR-046.
           public_code: string
           slug: string
           status: string
-          // MANUAL BACKPORT (Phase 30): profiles.template from migration
-          // 20260927_profile_template. `pnpm db:types` could not run here
-          // (no SUPABASE_ACCESS_TOKEN); re-running it will emit this exact
-          // line and absorb the backport. See ADR-056.
-          //
-          // Phase 33 incident: marked OPTIONAL (not just nullable) because
-          // application selects deliberately omit the column until migration
-          // 20260927 is verified applied on every database (template is
-          // served via getProfileTemplateColumn instead). Revert to the
-          // generated `template: string` if/when the column is selected
-          // again after the migration lands everywhere.
-          template?: string | null
+          template: string
           theme: string
           updated_at: string
           website: string | null
@@ -288,18 +630,218 @@ export type Database = {
           {
             foreignKeyName: "profiles_client_id_fkey"
             columns: ["client_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_limits: {
+        Row: {
+          action: string
+          bucket_start: string
+          count: number
+          expires_at: string
+          key_hash: string
+        }
+        Insert: {
+          action: string
+          bucket_start: string
+          count?: number
+          expires_at: string
+          key_hash: string
+        }
+        Update: {
+          action?: string
+          bucket_start?: string
+          count?: number
+          expires_at?: string
+          key_hash?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_cancel_order: {
+        Args: {
+          p_expected_status: string
+          p_note: string
+          p_order_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      admin_complete_order: {
+        Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_confirm_order: {
+        Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_convert_order: {
+        Args: {
+          p_client_company?: string
+          p_client_email?: string
+          p_client_id?: string
+          p_client_name?: string
+          p_client_phone?: string
+          p_expected_status: string
+          p_mode: string
+          p_order_id: string
+          p_profile_slug?: string
+        }
+        Returns: Json
+      }
+      admin_mark_order_contacted: {
+        Args: { p_expected_status: string; p_order_id: string }
+        Returns: Json
+      }
+      admin_provision_order_cards: {
+        Args: {
+          p_destination_url?: string
+          p_expected_fulfillment: string
+          p_order_id: string
+          p_order_item_id: string
+          p_profile_id?: string
+          p_short_codes?: string[]
+        }
+        Returns: Json
+      }
+      admin_resolve_order_destination: {
+        Args: {
+          p_expected_item_updated_at: string
+          p_order_item_id: string
+          p_review_url: string
+        }
+        Returns: Json
+      }
+      admin_set_order_price: {
+        Args: {
+          p_delivery_fee_minor: number
+          p_discount_minor: number
+          p_expected_updated_at: string
+          p_order_id: string
+          p_subtotal_minor: number
+        }
+        Returns: Json
+      }
+      admin_update_customer_note: {
+        Args: {
+          p_expected_updated_at: string
+          p_note: string
+          p_order_id: string
+        }
+        Returns: Json
+      }
+      admin_update_fulfillment_status: {
+        Args: {
+          p_expected_fulfillment: string
+          p_order_id: string
+          p_target_fulfillment: string
+        }
+        Returns: Json
+      }
+      admin_update_internal_note: {
+        Args: {
+          p_expected_updated_at: string
+          p_note: string
+          p_order_id: string
+        }
+        Returns: Json
+      }
+      admin_update_payment_status: {
+        Args: {
+          p_expected_payment: string
+          p_order_id: string
+          p_target_payment: string
+        }
+        Returns: Json
+      }
+      check_rate_limit: {
+        Args: {
+          p_action: string
+          p_key_hash: string
+          p_max: number
+          p_window_secs: number
+        }
+        Returns: Json
+      }
+      create_public_inquiry: {
+        Args: {
+          p_company: string;
+          p_email: string;
+          p_email_normalized: string;
+          p_inquiry_type: string;
+          p_landing_path: string;
+          p_locale: string;
+          p_message: string;
+          p_name: string;
+          p_phone: string;
+          p_phone_normalized: string;
+          p_referrer: string;
+          p_source: string;
+          p_utm_campaign: string;
+          p_utm_content: string;
+          p_utm_medium: string;
+          p_utm_source: string;
+          p_utm_term: string;
+        };
+        Returns: string;
+      };
+      create_public_order: {
+        Args: {
+          p_city: string;
+          p_configuration: Json;
+          p_conversion_path: string;
+          p_customer_name: string;
+          p_customer_notes: string;
+          p_delivery_address: string;
+          p_delivery_fee_minor: number;
+          p_delivery_notes: string;
+          p_discount_minor: number;
+          p_email: string;
+          p_email_normalized: string;
+          p_first_landing_path: string;
+          p_first_referrer: string;
+          p_first_touch_source: string;
+          p_first_utm_campaign: string;
+          p_first_utm_content: string;
+          p_first_utm_medium: string;
+          p_first_utm_source: string;
+          p_first_utm_term: string;
+          p_idempotency_key: string;
+          p_last_referrer: string;
+          p_last_touch_source: string;
+          p_last_utm_campaign: string;
+          p_last_utm_content: string;
+          p_last_utm_medium: string;
+          p_last_utm_source: string;
+          p_last_utm_term: string;
+          p_line_total_minor: number;
+          p_locale: string;
+          p_phone: string;
+          p_phone_normalized: string;
+          p_preferred_contact: string;
+          p_pricing_status: string;
+          p_product_type: string;
+          p_quantity: number;
+          p_receipt_token_hash: string;
+          p_subtotal_minor: number;
+          p_total_minor: number;
+          p_unit_price_minor: number;
+          p_whatsapp: string;
+          p_whatsapp_normalized: string;
+        };
+        Returns: {
+          created: boolean;
+          order_number: string;
+        }[];
+      };
+      generate_profile_public_code: { Args: never; Returns: string };
     }
     Enums: {
       [_ in never]: never

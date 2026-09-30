@@ -22,6 +22,9 @@ dist/
 
 # Testing / coverage
 coverage/
+test-results/
+playwright-report/
+playwright/.cache
 
 # Supabase CLI local state (link cache, etc.)
 supabase/.temp/

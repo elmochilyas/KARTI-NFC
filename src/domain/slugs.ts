@@ -19,6 +19,28 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // Wallet identity route /u/[code] (ADR-046): a profile claiming slug "u"
   // would render at /u instead of its own page.
   "u",
+  // Vitrine & Orders marketing/system routes (Phase 1): public profiles live
+  // at /{slug}, so these must never become profile slugs (case-insensitive
+  // via normalizeSlug()).
+  "fr",
+  "ar",
+  "en",
+  "products",
+  "solutions",
+  "pricing",
+  "examples",
+  "resources",
+  "guides",
+  "faq",
+  "contact",
+  "order",
+  "orders",
+  "about",
+  "delivery",
+  "returns",
+  "privacy",
+  "terms",
+  "how-it-works",
 ]);
 
 /**
