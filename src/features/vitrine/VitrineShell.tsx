@@ -9,6 +9,7 @@
 import type { ReactNode } from "react";
 import { AttributionTracker } from "./AttributionTracker";
 import { ConsentBanner } from "./ConsentBanner";
+import { ConsentInit } from "./ConsentInit";
 import { GtmBootstrap } from "./GtmBootstrap";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { SiteFooter } from "./marketing/Footer";
@@ -27,6 +28,8 @@ export function VitrineShell({
   return (
     <div lang={locale} dir={dict.dir} className="min-h-screen bg-background text-text">
       <AttributionTracker />
+      {/* Blocking consent default — must parse/execute before gtm.js. */}
+      <ConsentInit />
       <GtmBootstrap />
       <PageViewTracker locale={locale} />
       <a

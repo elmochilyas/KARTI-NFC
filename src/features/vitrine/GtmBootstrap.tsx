@@ -8,9 +8,14 @@
  * so a suppressed mount always means a clean document.)
  *
  * Execution order (consent ordering is critical):
- *   1. `dataLayer` exists (queue, so early-hydration events never throw)
- *   2. Consent Mode default = denied (before any Google tag executes)
- *   3. Stored consent preference is read + applied (analytics only; ads stay denied)
+ *   1. `dataLayer` exists — created by the blocking `ConsentInit` inline
+ *      script during document parsing (before hydration, before gtm.js)
+ *   2. Consent Mode default = denied via `gtag('consent', 'default', …)`
+ *      in that same inline script, before any Google tag executes
+ *   3. Stored consent preference is read + applied (`gtag('consent',
+ *      'update', …)` — analytics only; ads stay denied) by the inline
+ *      script; this effect re-applies it only as a fallback if the inline
+ *      script did not run (never downgrading an existing command)
  *   4. GTM container loads (`afterInteractive`, exactly once, only with a valid ID)
  *   5. Analytics events flow via the centralized adapter transport
  *
@@ -31,6 +36,7 @@ import {
   buildGtmScriptUrl,
   CONSENT_DEFAULTS,
   consentUpdateFor,
+  dataLayerHasConsent,
   ensureDataLayer,
   GTM_LOADED_FLAG,
   GTM_SCRIPT_ID,
@@ -56,12 +62,23 @@ export function GtmBootstrap() {
     }
     // 1. dataLayer exists before any event.
     ensureDataLayer();
-    // 2. Consent Mode default = denied, before Google tags execute.
-    pushGtagConsent("default", { ...CONSENT_DEFAULTS });
+    // 2. Consent Mode default = denied. The blocking ConsentInit script
+    // already pushed it during parsing (before gtm.js); re-push only when
+    // it is genuinely absent so a granted update is never downgraded.
+    if (!dataLayerHasConsent("default")) {
+      pushGtagConsent("default", { ...CONSENT_DEFAULTS });
+    }
     // 3. Stored preference (analytics only — advertising stays denied).
+    // ConsentInit already applied it pre-container; this is the fallback
+    // for documents where the inline script did not run.
     try {
       const stored = readConsentCookie(typeof document !== "undefined" ? document.cookie : null);
-      if (stored && isFreshConsent(stored, Math.floor(Date.now() / 1000)) && stored.analytics) {
+      if (
+        stored &&
+        isFreshConsent(stored, Math.floor(Date.now() / 1000)) &&
+        stored.analytics &&
+        !dataLayerHasConsent("update")
+      ) {
         pushGtagConsent("update", consentUpdateFor(true));
       }
     } catch {

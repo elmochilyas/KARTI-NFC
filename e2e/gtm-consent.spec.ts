@@ -28,9 +28,26 @@ function consentCommands(layer: unknown[]): Array<{ mode: string; params: unknow
   for (const entry of layer) {
     if (Array.isArray(entry) && entry[0] === "consent") {
       out.push({ mode: entry[1] as string, params: entry[2] });
+    } else if (entry !== null && typeof entry === "object" && !("event" in entry)) {
+      // Google's gtag shim queues the `arguments` object
+      // (`function gtag(){dataLayer.push(arguments);}`), which serializes
+      // across page.evaluate as {0, 1, 2} — same command, same semantics.
+      const rec = entry as Record<string, unknown>;
+      if (rec["0"] === "consent") {
+        out.push({ mode: rec["1"] as string, params: rec["2"] });
+      }
     }
   }
   return out;
+}
+
+function isConsentDefault(entry: unknown, mode: "default" | "update"): boolean {
+  if (Array.isArray(entry)) return entry[0] === "consent" && entry[1] === mode;
+  if (entry !== null && typeof entry === "object" && !("event" in entry)) {
+    const rec = entry as Record<string, unknown>;
+    return rec["0"] === "consent" && rec["1"] === mode;
+  }
+  return false;
 }
 
 function events(layer: unknown[]): Array<Record<string, unknown>> {
@@ -88,6 +105,12 @@ test("GTM loads on marketing/order routes but never on receipt routes", async ({
 
 test("consent default is denied before any analytics flows", async ({ page }) => {
   await page.goto("/fr");
+  // The blocking pre-GTM init script is in the document (not a
+  // hydration-time push): it must exist regardless of GTM load state.
+  await expect(page.locator("script#karti-consent-default")).toHaveCount(1);
+  expect(await page.evaluate(() => typeof (window as unknown as { gtag?: unknown }).gtag)).toBe(
+    "function",
+  );
   // Hydration race: the bootstrap effect runs right after load — poll briefly.
   await expect
     .poll(async () => consentCommands(await dataLayer(page)).length, { timeout: 10_000 })
@@ -101,6 +124,18 @@ test("consent default is denied before any analytics flows", async ({ page }) =>
   expect(params.ad_storage).toBe("denied");
   expect(params.ad_user_data).toBe("denied");
   expect(params.ad_personalization).toBe("denied");
+  // Ordering: the default-denied command precedes every business event.
+  const defaultIdx = layer.findIndex((entry) => isConsentDefault(entry, "default"));
+  expect(defaultIdx).toBeGreaterThanOrEqual(0);
+  const firstEventIdx = events(layer).length
+    ? layer.findIndex(
+        (entry) =>
+          typeof entry === "object" && entry !== null && !Array.isArray(entry) && "event" in entry,
+      )
+    : -1;
+  if (firstEventIdx >= 0) {
+    expect(defaultIdx).toBeLessThan(firstEventIdx);
+  }
 });
 
 test("accepting analytics grants measurement only; choice persists", async ({ page }) => {
