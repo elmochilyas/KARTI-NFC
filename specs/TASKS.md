@@ -3785,6 +3785,69 @@ User constraints for this phase: keep zero-stale dashboard edits, keep the
 
 ---
 
+# Phase 35 — Google Tag Manager integration (GTM-PCXTLTM7)
+
+Production-grade GTM behind the centralized analytics adapter + Consent
+Mode defaults (ADR-075). Public vitrine only; dashboard untouched.
+
+## 35.1 Configuration
+
+- [x] `NEXT_PUBLIC_GTM_ID` in `.env.example` (empty) + `getGtmId()` in
+      browser-safe `src/lib/env.ts` (validated, `undefined` when absent).
+- [x] No hardcoded container ID in components.
+
+## 35.2 GTM installation (App Router)
+
+- [x] `GtmBootstrap` island in `VitrineShell` only: dataLayer ensure →
+      consent default denied → stored choice → `afterInteractive` load
+      (once, `__kartiGtmLoaded`) → transport wiring; noscript fallback.
+- [x] Absent/blocked GTM: app works, no runtime error.
+
+## 35.3 Adapter + transport
+
+- [x] Components still call `track()`; ONE transport (`gtmTransport`).
+- [x] `page_view` added to the allowlist; forbidden keys extended
+      (receipt_token/hash, notes, delivery_instructions, whatsapp_number).
+- [x] `order_submitted` reaches dataLayer with safe categorical data.
+
+## 35.4 Consent Mode + banner (FR/EN/AR, RTL)
+
+- [x] Defaults denied; `karti_consent` first-party cookie (180d, no
+      identity); Accept grants analytics only; Reject keeps denied;
+      footer "Cookie preferences" reopens; no repeat banner.
+
+## 35.5 Privacy + page-view strategy
+
+- [x] `sanitizePagePath` (pathname-only) + `PageViewTracker` (one
+      `page_view` per path: page_path/locale/page_type); receipt
+      regression tests; GA4 automatic page_view must stay disabled
+      (DEPLOYMENT §3b).
+
+## 35.6 Security
+
+- [x] No CSP change (none exists); headers untouched; dashboard/root
+      layout GTM-free (isolation tests).
+
+## 35.7 Tests
+
+- [x] Unit: `gtm.test.ts`, `consent.test.ts`, `gtmTransport.test.ts`,
+      extended `analytics.test.ts`, isolation assertions (A–N).
+- [x] E2E: `e2e/gtm-consent.spec.ts` (ordering, banner, funnel flow,
+      receipt sanitization, private-route isolation).
+
+> 2026-09-30: implemented + verified per plan (typecheck/lint/test/
+> build green; E2E run — see report). GTM container configuration and
+> publish remain manual in Google Tag Manager.
+>
+> 2026-09-30 hardening: GTM fully excluded from `/fr|en|ar/order/success`
+> (no script/iframe/transport/page_view/banner — GA4 `page_location`
+> auto-collection). Order flow hard-navigates to the receipt
+> (`window.location.assign` after synchronous `order_submitted`); receipt
+> functionality unchanged. Verified both modes: build+E2E with
+> `NEXT_PUBLIC_GTM_ID=GTM-PCXTLTM7` and without (18/18 each).
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

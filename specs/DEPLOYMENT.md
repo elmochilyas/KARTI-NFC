@@ -54,11 +54,41 @@ NEXT_PUBLIC_SUPABASE_URL      (per environment)
 NEXT_PUBLIC_SUPABASE_ANON_KEY (per environment)
 SUPABASE_SERVICE_ROLE_KEY     (server-only, per environment)
 NEXT_PUBLIC_APP_URL           (preview URL on previews, https://karti.pro on prod)
+NEXT_PUBLIC_GTM_ID            (GTM-PCXTLTM7 on production; empty/missing = GTM disabled)
 ```
 
 Never copy production service-role secrets into client-exposed variables.
 Preview deployments must use the development Supabase project — never
 production data. Never encode preview URLs into physical cards.
+
+## 3b. GTM / GA4 setup (manual — application integration only)
+
+`NEXT_PUBLIC_GTM_ID` is public (not a secret). Production value:
+
+```text
+NEXT_PUBLIC_GTM_ID=GTM-PCXTLTM7
+```
+
+Rules (enforced in code, see ADR-075):
+
+- Consent Mode defaults to denied (`analytics_storage`, `ad_storage`,
+  `ad_user_data`, `ad_personalization`); analytics requires visitor
+  consent via the first-party banner. Advertising consent stays denied
+  (no Google Ads/remarketing through this integration).
+- GA4 is configured INSIDE GTM. Never install a direct `gtag.js`
+  (`G-XXXXXXXXXX`) script alongside GTM — that would double-count.
+- The GA4 base tag must have automatic `page_view` disabled: Karti sends
+  one centralized sanitized `page_view` plus explicit funnel events, so
+  automatic measurement would produce duplicates.
+
+Still required manually inside Google Tag Manager (container
+GTM-PCXTLTM7 is NOT published by this task):
+
+1. Add the Google tag → GA4 (measurement ID configured in GTM only).
+2. Map Karti dataLayer events (`product_page_view`, `order_started`,
+   `order_submitted`, `contact_inquiry_submitted`, …).
+3. Mark `order_submitted` as the GA4 conversion/key event.
+4. Verify with Preview / Tag Assistant; then publish the container.
 
 ## 4. Supabase production checks
 

@@ -10,6 +10,7 @@
 
 export const ANALYTICS_EVENTS = [
   "homepage_view",
+  "page_view",
   "goal_selected",
   "tap_demo_changed",
   "product_page_view",
@@ -42,16 +43,24 @@ const FORBIDDEN_PAYLOAD_KEYS: ReadonlySet<string> = new Set([
   "phone",
   "email",
   "whatsapp",
+  "whatsapp_number",
   "address",
   "fullName",
   "full_name",
   "customer_name",
+  "customerName",
   "name",
   "message",
+  "inquiry_message",
   "city",
   "delivery_address",
+  "delivery_instructions",
+  "customer_note",
+  "internal_note",
   "order_number",
   "receipt",
+  "receipt_token",
+  "receipt_hash",
   "token",
 ]);
 

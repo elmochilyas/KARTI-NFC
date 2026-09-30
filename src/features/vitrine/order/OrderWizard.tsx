@@ -7,7 +7,6 @@
  */
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { ProductType } from "@/domain/orders/productTypes";
@@ -63,7 +62,6 @@ export function OrderWizard({
   dict: VitrineDict;
   initialProduct: ProductType | null;
 }) {
-  const router = useRouter();
   const [step, setStep] = useState(0);
   const [product, setProduct] = useState<ProductType | null>(initialProduct);
   const [quantity, setQuantity] = useState(1);
@@ -225,7 +223,13 @@ export function OrderWizard({
           r: result.data.orderNumber,
           t: result.data.receiptToken,
         });
-        router.push(`/${locale}/order/success?${params.toString()}`);
+        // Full-page load (not SPA navigation): the receipt URL carries a
+        // private credential and GTM/GA4 must never observe it — not even
+        // as an automatic `page_location` on a history change. The success
+        // route boots a clean document with analytics fully suppressed.
+        // `order_submitted` is queued synchronously above, before leaving.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate hard navigation, see above
+        window.location.assign(`/${locale}/order/success?${params.toString()}`);
         return;
       }
       // Keep the same idempotency key so a retry reuses the receipt

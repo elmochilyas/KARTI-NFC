@@ -34,6 +34,14 @@ export const enDict: VitrineBaseDict = {
     orderLink: "Order",
     notice: "Prices and timelines are confirmed after reviewing your request.",
     rights: "Karti. All rights reserved.",
+    cookiePreferences: "Cookie preferences",
+  },
+  consent: {
+    title: "Cookies and analytics",
+    message:
+      "We use analytics cookies (via Google Tag Manager) only if you accept. Without consent, no analytics or advertising data is collected.",
+    accept: "Accept analytics",
+    reject: "Reject",
   },
   home: {
     heroTitle: "One card, one gesture. Your contact is shared.",

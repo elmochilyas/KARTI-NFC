@@ -15,6 +15,7 @@ describe("analytics adapter", () => {
   it("exposes the canonical funnel event set", () => {
     for (const name of [
       "homepage_view",
+      "page_view",
       "goal_selected",
       "tap_demo_changed",
       "product_page_view",
@@ -37,6 +38,22 @@ describe("analytics adapter", () => {
       "PII key: order_number",
     );
     expect(() => scrubAnalyticsPayload({ message: "hi" })).toThrow("PII key: message");
+    expect(() => scrubAnalyticsPayload({ receipt_token: "a".repeat(64) })).toThrow(
+      "PII key: receipt_token",
+    );
+    expect(() => scrubAnalyticsPayload({ receipt_hash: "b".repeat(64) })).toThrow(
+      "PII key: receipt_hash",
+    );
+    expect(() => scrubAnalyticsPayload({ customer_note: "hi" })).toThrow("PII key: customer_note");
+    expect(() => scrubAnalyticsPayload({ delivery_instructions: "ring" })).toThrow(
+      "PII key: delivery_instructions",
+    );
+    expect(() => scrubAnalyticsPayload({ inquiry_message: "x" })).toThrow(
+      "PII key: inquiry_message",
+    );
+    expect(() => scrubAnalyticsPayload({ whatsapp_number: "212" })).toThrow(
+      "PII key: whatsapp_number",
+    );
     expect(scrubAnalyticsPayload({ product: "PERSONAL_CARD", locale: "fr", step: 1 })).toEqual({
       product: "PERSONAL_CARD",
       locale: "fr",
