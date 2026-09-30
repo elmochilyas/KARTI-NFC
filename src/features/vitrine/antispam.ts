@@ -2,14 +2,11 @@
  * Anti-spam building blocks for public mutations (spec 07 §11).
  *
  * Layers: server validation (Zod/domain) + honeypot + submission-timing
- * gate + per-IP token bucket + idempotency. No CAPTCHA. Raw IPs are used
- * transiently for rate limiting only — never persisted on business rows.
- *
- * Deployment note: the bucket lives in process memory. On serverless
- * hosts each instance keeps its own counters, so a distributed flood can
- * partially bypass it. It still stops casual double-submits, naive bots,
- * and single-instance abuse; a durable (Redis/Upstash) limiter is the
- * documented Phase 6 upgrade path, not invented here.
+ * gate + durable Postgres rate limiting
+ * (src/features/vitrine/rateLimitServer.ts) + idempotency. No CAPTCHA.
+ * Raw IPs are transient only — hashed server-side into the rate-limit key
+ * and never persisted on business rows. `createRateLimiter` below remains
+ * as a pure, unit-tested helper but is no longer on the request path.
  */
 
 export const MIN_FILL_MS = 3000;
@@ -55,10 +52,6 @@ export function createRateLimiter(args: { windowMs: number; max: number }) {
 }
 
 export type RateLimiter = ReturnType<typeof createRateLimiter>;
-
-// 5 order submits / 10 min / IP; 10 inquiries / 10 min / IP.
-export const orderRateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 5 });
-export const inquiryRateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 10 });
 
 /** First X-Forwarded-For entry; transient rate-limit key only. */
 export function getClientIp(forwardedFor: string | null): string {

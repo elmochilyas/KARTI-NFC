@@ -24,13 +24,8 @@ import { priceOrder } from "@/domain/orders/pricing";
 import { PRODUCT_TYPES, isProductType } from "@/domain/orders/productTypes";
 import { orderProductConfigurationSchema } from "@/domain/orders/schemas";
 import { createOrderWriterClient } from "@/lib/supabase/orderWriter";
-import {
-  getClientIp,
-  inquiryRateLimiter,
-  isHoneypotFilled,
-  isTooFast,
-  orderRateLimiter,
-} from "../antispam";
+import { getClientIp, isHoneypotFilled, isTooFast } from "../antispam";
+import { checkPublicRateLimit } from "../rateLimitServer";
 import { ATTRIBUTION_COOKIE, parseAttributionCookie, type TouchContext } from "../attribution";
 import { deriveReceiptToken, hashReceiptToken } from "./receipt";
 
@@ -196,10 +191,11 @@ function deriveAttribution(
 export async function createPublicOrderAction(rawInput: unknown): Promise<CreatePublicOrderResult> {
   const nowMs = Date.now();
   try {
-    // Rate limit first (cheapest gate; IP transient only, never stored).
+    // Durable rate limit first (Postgres fixed-window bucket keyed by an
+    // HMAC of the IP; the raw IP is transient only, never stored).
     const headerStore = await headers();
     const ip = getClientIp(headerStore.get("x-forwarded-for"));
-    if (!orderRateLimiter.check(`order:${ip}`, nowMs).allowed) return limited();
+    if (!(await checkPublicRateLimit("order", ip)).allowed) return limited();
 
     const parsed = orderInputSchema.safeParse(rawInput);
     if (!parsed.success) return invalid();
@@ -334,7 +330,7 @@ export async function createPublicInquiryAction(
   try {
     const headerStore = await headers();
     const ip = getClientIp(headerStore.get("x-forwarded-for"));
-    if (!inquiryRateLimiter.check(`inquiry:${ip}`, nowMs).allowed) return fail("RATE_LIMITED");
+    if (!(await checkPublicRateLimit("inquiry", ip)).allowed) return fail("RATE_LIMITED");
 
     const parsed = inquiryInputSchema.safeParse(rawInput);
     if (!parsed.success) return fail("VALIDATION");

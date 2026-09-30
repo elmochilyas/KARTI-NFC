@@ -636,6 +636,30 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          action: string
+          bucket_start: string
+          count: number
+          expires_at: string
+          key_hash: string
+        }
+        Insert: {
+          action: string
+          bucket_start: string
+          count?: number
+          expires_at: string
+          key_hash: string
+        }
+        Update: {
+          action?: string
+          bucket_start?: string
+          count?: number
+          expires_at?: string
+          key_hash?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -734,6 +758,15 @@ export type Database = {
           p_expected_payment: string
           p_order_id: string
           p_target_payment: string
+        }
+        Returns: Json
+      }
+      check_rate_limit: {
+        Args: {
+          p_action: string
+          p_key_hash: string
+          p_max: number
+          p_window_secs: number
         }
         Returns: Json
       }

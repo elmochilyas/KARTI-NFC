@@ -2519,3 +2519,56 @@ Side-by-side audit of `configureCardForClient` (+ primitives) vs
 Conversion/provisioning are all-or-nothing with idempotent retries and
 race-safe concurrency (proven live); the client NFC flow keeps its
 unchanged orchestration; no second card system exists.
+
+## ADR-074 — Phase 6 production hardening (durable rate limiting, E2E, indexes)
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Context
+
+Phase 2 left a documented per-instance in-memory rate limiter, no browser
+E2E framework, and operator-lifecycle live proofs blocked on credentials.
+Phase 6 must close these without new vendors or redesign.
+
+### Decision
+
+- Durable rate limiting in Postgres, not Redis/Upstash: new
+  `public.rate_limits(key_hash, action, bucket_start, count, expires_at)`
+  + `check_rate_limit()` RPC (migration `20261005000000`). Atomic
+  single-statement upsert (`ON CONFLICT DO UPDATE`), fixed 10-minute
+  windows, same budgets (orders 5, inquiries 10), opportunistic bounded
+  cleanup (`LIMIT 100` expired rows per call — no cron). RLS enabled with
+  zero policies; execute owner + `service_role` only (standing REVOKE
+  rule honored). Abuse key is `HMAC(RATE_LIMIT_SECRET, ip:action)`
+  derived in `rateLimitServer.ts` (`server-only`); raw IPs never stored,
+  never logged, never analytics identity. Transport/RPC failure throws so
+  actions fail closed to `UNAVAILABLE` (never silent skip).
+- `clients_created_at_idx` (migration `20261006000000`): candidate search
+  pages newest-first in 500-row ranges; the btree makes that
+  index-ordered at scale. Threshold documented in-migration: normalized
+  lookup columns only if volume ever demands (~50k+ clients).
+- E2E is hermetic Playwright (`playwright.config.ts`, `e2e/`,
+  `pnpm test:e2e`, dedicated `:3100` prod server): entry/validation/SEO
+  only, zero DB writes. Operator journeys stay in integration tests +
+  live disposable proofs because browser tests must never hold
+  production credentials. Live proofs used a disposable `auth.users` +
+  `admin_users` pair (no triggers on `auth.users`, verified) with
+  single-statement `CASEWHEN(set_config(...))` auth scoping, fully
+  cleaned afterwards.
+- CSRF: no custom system. Mutations are Next Server Actions (same-origin,
+  framework-handled) with per-call `requireAdmin(getClaims)` +
+  server-side validation + `private.is_admin()` inside every `admin_*`
+  RPC; public writes additionally pass honeypot/timing/durable limits.
+- `http:` destinations stay accepted by `validateSafeExternalUrl`
+  (rejects only non-web schemes/userinfo/overlong/controls): narrowing
+  to https-only would break existing provisioned cards; production
+  posture (HSTS, canonical https URLs) is enforced at the app/edge
+  layer instead.
+
+### Consequences
+
+No new vendor, no cron, no second card system. Outstanding receipt URLs
+invalidate on `RECEIPT_TOKEN_SECRET` rotation; rate-limit buckets reset
+on `RATE_LIMIT_SECRET` rotation — both deliberate, documented in
+`specs/specs-vitrin/PRODUCTION_CHECKLIST.md`.

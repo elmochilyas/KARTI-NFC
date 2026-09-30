@@ -36,7 +36,7 @@ export function Field({ id, label, hint, error, required = false, children }: Fi
       <label htmlFor={id} className="text-sm font-medium text-text">
         {label}
         {required ? (
-          <span aria-hidden="true" className="ml-1 text-danger">
+          <span aria-hidden="true" className="ms-1 text-danger">
             *
           </span>
         ) : null}

@@ -31,7 +31,22 @@ import {
 } from "./validate";
 
 function focusField(field: string): void {
-  document.getElementById(`order-${field}`)?.focus();
+  const direct = document.getElementById(`order-${field}`);
+  if (
+    direct instanceof HTMLInputElement ||
+    direct instanceof HTMLTextAreaElement ||
+    direct instanceof HTMLSelectElement
+  ) {
+    direct.focus();
+    return;
+  }
+  // Radiogroup wrappers carry the `order-*` id on a plain div (not
+  // focusable): fall through to the first control inside, or to a named
+  // input (e.g. the hasCv radios, which have no `order-*` id).
+  const inner =
+    direct?.querySelector("input, textarea, select") ??
+    document.querySelector(`input[name="${field}"]`);
+  if (inner instanceof HTMLElement) inner.focus();
 }
 
 function focusFirstError(errors: FieldErrors): void {

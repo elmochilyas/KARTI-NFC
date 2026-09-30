@@ -11,10 +11,10 @@ vi.mock("@/lib/supabase/orderWriter", () => ({
   createOrderWriterClient: () => ({ rpc: rpcMock }),
 }));
 
-import { orderRateLimiter } from "../antispam";
 import { createPublicInquiryAction, createPublicOrderAction } from "./actions";
 
 process.env.RECEIPT_TOKEN_SECRET = "test-receipt-secret-32-chars-minimum";
+process.env.RATE_LIMIT_SECRET = "test-rate-limit-secret-32-chars-min";
 
 const BASE_ORDER = {
   locale: "fr",
@@ -34,25 +34,51 @@ const BASE_ORDER = {
   startedAt: Date.now() - 60_000,
 };
 
+const ALLOW_LIMIT = { allowed: true, count: 1, retry_after_secs: 0 };
+const DENY_LIMIT = { allowed: false, count: 6, retry_after_secs: 30 };
+
+/** Routes the durable rate-limit RPC vs the order/inquiry RPCs. */
+function mockRpc(orderImpl: () => { data: unknown; error: unknown }) {
+  rpcMock.mockImplementation((fn: string) => {
+    if (fn === "check_rate_limit") return Promise.resolve({ data: ALLOW_LIMIT, error: null });
+    return Promise.resolve(orderImpl());
+  });
+}
+
+function orderSuccess() {
+  mockRpc(() => ({ data: [{ order_number: "KARTI-000010", created: true }], error: null }));
+}
+
+function createCalls(fn: string): Record<string, unknown>[] {
+  return rpcMock.mock.calls
+    .filter((call) => (call as unknown[])[0] === fn)
+    .map((call) => (call as unknown[])[1] as Record<string, unknown>);
+}
+
 beforeEach(() => {
   rpcMock.mockReset();
-  orderRateLimiter.clear();
 });
 
 describe("createPublicOrderAction", () => {
   it("creates through the atomic RPC with server-derived pricing", async () => {
-    rpcMock.mockResolvedValue({
-      data: [{ order_number: "KARTI-000010", created: true }],
-      error: null,
-    });
+    orderSuccess();
     const result = await createPublicOrderAction(BASE_ORDER);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
     expect(result.data.orderNumber).toBe("KARTI-000010");
     expect(result.data.receiptToken).toMatch(/^[0-9a-f]{64}$/);
 
-    const args = rpcMock.mock.calls[0][1] as Record<string, unknown>;
-    expect(rpcMock.mock.calls[0][0]).toBe("create_public_order");
+    // Durable rate limit runs first with an HMAC key hash (no raw IP).
+    const limitCalls = createCalls("check_rate_limit");
+    expect(limitCalls).toHaveLength(1);
+    expect(limitCalls[0].p_action).toBe("order");
+    expect(limitCalls[0].p_max).toBe(5);
+    expect(limitCalls[0].p_window_secs).toBe(600);
+    expect(limitCalls[0].p_key_hash).toMatch(/^[0-9a-f]{64}$/);
+
+    const orderCalls = createCalls("create_public_order");
+    expect(orderCalls).toHaveLength(1);
+    const args = orderCalls[0];
     expect(args.p_pricing_status).toBe("QUOTE_REQUIRED");
     expect(args.p_total_minor).toBeNull();
     expect(args.p_configuration).toEqual({ fullName: "Younes Barrag" });
@@ -60,23 +86,26 @@ describe("createPublicOrderAction", () => {
     expect(args.p_receipt_token_hash).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("rejects malformed input without touching the database", async () => {
+  it("rejects malformed input without touching the order RPC", async () => {
+    orderSuccess();
     const result = await createPublicOrderAction({ ...BASE_ORDER, quantity: 0 });
     expect(result).toEqual({ ok: false, error: { code: "VALIDATION" } });
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(createCalls("create_public_order")).toHaveLength(0);
   });
 
   it("rejects mismatched product configuration", async () => {
+    orderSuccess();
     const result = await createPublicOrderAction({
       ...BASE_ORDER,
       productType: "WHATSAPP_CARD",
       configuration: { fullName: "Younes" },
     });
     expect(result).toEqual({ ok: false, error: { code: "VALIDATION" } });
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(createCalls("create_public_order")).toHaveLength(0);
   });
 
   it("treats honeypot fills and instant submits as spam", async () => {
+    orderSuccess();
     expect(await createPublicOrderAction({ ...BASE_ORDER, website: "bot" })).toEqual({
       ok: false,
       error: { code: "SPAM" },
@@ -85,45 +114,52 @@ describe("createPublicOrderAction", () => {
       ok: false,
       error: { code: "SPAM" },
     });
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(createCalls("create_public_order")).toHaveLength(0);
   });
 
-  it("rate-limits abusive callers", async () => {
-    rpcMock.mockResolvedValue({
-      data: [{ order_number: "KARTI-000011", created: true }],
-      error: null,
-    });
-    for (let i = 0; i < 5; i += 1) {
-      await createPublicOrderAction({
-        ...BASE_ORDER,
-        idempotencyKey: `123e4567-e89b-12d3-a456-42661417400${i}`,
+  it("rate-limits abusive callers through the durable limiter", async () => {
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === "check_rate_limit") return Promise.resolve({ data: DENY_LIMIT, error: null });
+      return Promise.resolve({
+        data: [{ order_number: "KARTI-000011", created: true }],
+        error: null,
       });
-    }
-    const limited = await createPublicOrderAction({
-      ...BASE_ORDER,
-      idempotencyKey: "123e4567-e89b-12d3-a456-426614174009",
     });
+    const limited = await createPublicOrderAction(BASE_ORDER);
     expect(limited).toEqual({ ok: false, error: { code: "RATE_LIMITED" } });
-    expect(rpcMock).toHaveBeenCalledTimes(5);
+    expect(createCalls("create_public_order")).toHaveLength(0);
+  });
+
+  it("fails closed when the rate limiter itself errors", async () => {
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === "check_rate_limit")
+        return Promise.resolve({ data: null, error: { message: "conn reset" } });
+      return Promise.resolve({
+        data: [{ order_number: "KARTI-000011", created: true }],
+        error: null,
+      });
+    });
+    const result = await createPublicOrderAction(BASE_ORDER);
+    expect(result).toEqual({ ok: false, error: { code: "UNAVAILABLE" } });
+    expect(createCalls("create_public_order")).toHaveLength(0);
   });
 
   it("maps RPC failures to unavailable without leaking internals", async () => {
-    rpcMock.mockResolvedValue({ data: null, error: { message: "23514 boom" } });
+    mockRpc(() => ({ data: null, error: { message: "23514 boom" } }));
     const result = await createPublicOrderAction(BASE_ORDER);
     expect(result).toEqual({ ok: false, error: { code: "UNAVAILABLE" } });
   });
 
   it("returns the SAME working receipt token on idempotent retry", async () => {
     // First call commits; second call hits the idempotency path.
-    rpcMock
-      .mockResolvedValueOnce({
-        data: [{ order_number: "KARTI-000010", created: true }],
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: [{ order_number: "KARTI-000010", created: false }],
+    rpcMock.mockImplementation((fn: string) => {
+      if (fn === "check_rate_limit") return Promise.resolve({ data: ALLOW_LIMIT, error: null });
+      const calls = createCalls("create_public_order").length;
+      return Promise.resolve({
+        data: [{ order_number: "KARTI-000010", created: calls === 0 }],
         error: null,
       });
+    });
     const first = await createPublicOrderAction(BASE_ORDER);
     const retry = await createPublicOrderAction(BASE_ORDER);
     expect(first.ok && retry.ok).toBe(true);
@@ -131,9 +167,9 @@ describe("createPublicOrderAction", () => {
     expect(retry.data.orderNumber).toBe("KARTI-000010");
     // Same derived credential: the retry receipt actually resolves.
     expect(retry.data.receiptToken).toBe(first.data.receiptToken);
-    const firstHash = (rpcMock.mock.calls[0][1] as Record<string, unknown>).p_receipt_token_hash;
-    const retryHash = (rpcMock.mock.calls[1][1] as Record<string, unknown>).p_receipt_token_hash;
-    expect(retryHash).toBe(firstHash);
+    const orderCalls = createCalls("create_public_order");
+    expect(orderCalls).toHaveLength(2);
+    expect(orderCalls[1].p_receipt_token_hash).toBe(orderCalls[0].p_receipt_token_hash);
   });
 });
 
@@ -151,16 +187,22 @@ describe("createPublicInquiryAction", () => {
   };
 
   it("creates inquiries only (never orders)", async () => {
-    rpcMock.mockResolvedValue({ data: "inquiry-uuid-1", error: null });
+    mockRpc(() => ({ data: "inquiry-uuid-1", error: null }));
     const result = await createPublicInquiryAction(BASE_INQUIRY);
     expect(result.ok).toBe(true);
-    expect(rpcMock.mock.calls[0][0]).toBe("create_public_inquiry");
-    const args = rpcMock.mock.calls[0][1] as Record<string, unknown>;
-    expect(args.p_message).toBe("Bonjour, une question.");
-    expect(args.p_inquiry_type).toBe("GENERAL");
+    const limitCalls = createCalls("check_rate_limit");
+    expect(limitCalls).toHaveLength(1);
+    expect(limitCalls[0].p_action).toBe("inquiry");
+    expect(limitCalls[0].p_max).toBe(10);
+    const inquiryCalls = createCalls("create_public_inquiry");
+    expect(inquiryCalls).toHaveLength(1);
+    expect(inquiryCalls[0].p_message).toBe("Bonjour, une question.");
+    expect(inquiryCalls[0].p_inquiry_type).toBe("GENERAL");
+    expect(createCalls("create_public_order")).toHaveLength(0);
   });
 
   it("validates name and message", async () => {
+    mockRpc(() => ({ data: "inquiry-uuid-1", error: null }));
     expect(await createPublicInquiryAction({ ...BASE_INQUIRY, name: "  " })).toEqual({
       ok: false,
       error: { code: "VALIDATION" },
@@ -169,6 +211,6 @@ describe("createPublicInquiryAction", () => {
       ok: false,
       error: { code: "VALIDATION" },
     });
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(createCalls("create_public_inquiry")).toHaveLength(0);
   });
 });

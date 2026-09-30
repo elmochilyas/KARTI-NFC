@@ -40,3 +40,19 @@ export function getReceiptTokenSecret(): string {
   }
   return secret;
 }
+
+/**
+ * Server secret for the durable rate limiter (Phase 6).
+ *
+ * Derives the non-reversible abuse key HMAC(secret, normalized-IP +
+ * action) server-side so no raw IP or PII ever reaches the rate-limit
+ * table. Fail-closed like the receipt secret: public submission cannot
+ * rate-limit safely without it. Never expose to the browser or logs.
+ */
+export function getRateLimitSecret(): string {
+  const secret = process.env.RATE_LIMIT_SECRET?.trim() ?? "";
+  if (secret.length < 16) {
+    throw new Error("RATE_LIMIT_SECRET is not set (min 16 chars, see .env.example).");
+  }
+  return secret;
+}

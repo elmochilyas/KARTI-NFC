@@ -18,10 +18,10 @@ vi.mock("@/lib/supabase/orderWriter", () => ({
 
 import { cookies } from "next/headers";
 import { ATTRIBUTION_COOKIE } from "../attribution";
-import { orderRateLimiter } from "../antispam";
 import { createPublicOrderAction } from "./actions";
 
 process.env.RECEIPT_TOKEN_SECRET = "test-receipt-secret-32-chars-minimum";
+process.env.RATE_LIMIT_SECRET = "test-rate-limit-secret-32-chars-min";
 
 const BASE_ORDER = {
   locale: "fr",
@@ -63,12 +63,21 @@ function snapshot(first: Record<string, string | null>, last: Record<string, str
 
 beforeEach(() => {
   rpcMock.mockReset();
-  orderRateLimiter.clear();
-  rpcMock.mockResolvedValue({ data: [{ order_number: "KARTI-000010", created: true }], error: null });
+  rpcMock.mockImplementation((fn: string) => {
+    if (fn === "check_rate_limit") {
+      return Promise.resolve({ data: { allowed: true, count: 1, retry_after_secs: 0 }, error: null });
+    }
+    return Promise.resolve({
+      data: [{ order_number: "KARTI-000010", created: true }],
+      error: null,
+    });
+  });
 });
 
 function rpcArgs(): Record<string, unknown> {
-  return rpcMock.mock.calls[0][1] as Record<string, unknown>;
+  const orderCall = rpcMock.mock.calls.find((call) => (call as unknown[])[0] === "create_public_order");
+  if (!orderCall) throw new Error("expected create_public_order call");
+  return (orderCall as unknown[])[1] as Record<string, unknown>;
 }
 
 describe("attribution survives into orders", () => {

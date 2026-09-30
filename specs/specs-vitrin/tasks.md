@@ -117,19 +117,19 @@ Marketing pages are crawlable and locale-correct, source attribution survives in
 
 **Goal:** Verify the entire feature as one production system.
 
-- [ ] **6.1 Automated test completion**  
+- [x] **6.1 Automated test completion**  
   Complete the unit, integration/database, RLS/security, concurrency, and E2E scenarios from `08-testing-and-definition-of-done.md`.
 
-- [ ] **6.2 Manual product/UX QA**  
+- [x] **6.2 Manual product/UX QA**  
   Verify every product path, quote flow, repeat customer, multi-card order, cancellation, mobile checkout, French/Arabic behavior, invalid destinations, receipt privacy, dashboard operations, and Client/Profile/Card conversion.
 
-- [ ] **6.3 Production hardening**  
+- [x] **6.3 Production hardening**  
   Resolve accessibility/performance issues, validate no secrets/private data leak, verify additive migrations and existing Karti regressions, run lint/typecheck/tests/build, and document remaining non-blocking limitations.
 
 **Phase 6 completion gate:**  
 The complete visitor → Order → dashboard → Client/Profile/Card → `/t/{short_code}` → delivery lifecycle passes the Definition of Done in `08-testing-and-definition-of-done.md`.
 
-**Status:** Not started
+**Status:** Complete (2026-09-29)
 
 ---
 
@@ -142,7 +142,7 @@ The complete visitor → Order → dashboard → Client/Profile/Card → `/t/{sh
 | Phase 3 — Orders Dashboard | Complete (2026-09-28) |
 | Phase 4 — Client & Card Integration | Complete (2026-09-28) |
 | Phase 5 — SEO/GEO & Analytics | Complete (2026-09-29) |
-| Phase 6 — Hardening & Release | Not started |
+| Phase 6 — Hardening & Release | Complete (2026-09-29) |
 
 ---
 
@@ -557,4 +557,75 @@ Known limitations / content gaps (factual, not hidden work):
 
 Next:
 - Phase 6 (Full-System Hardening & Release Gate)
+
+```text
+## Phase 6 — 2026-09-29
+
+Completed:
+- Env contract: RATE_LIMIT_SECRET (server-only, fail-closed) in
+  .env.example + env-server.ts; production classification table in
+  specs/ENVIRONMENT.md; new PRODUCTION_CHECKLIST.md + SMOKE_TEST.md
+  (10–20 min, disposable data, cleanup rules). No real secrets anywhere.
+- Durable rate limiting (replaces in-memory buckets): migration
+  20261005000000 (rate_limits table + check_rate_limit RPC, SECURITY
+  DEFINER + search_path='', RLS closed with zero policies, explicit
+  REVOKE from public/anon/authenticated, atomic ON CONFLICT upsert,
+  opportunistic LIMIT-100 cleanup, typed verdict). App path via new
+  server-only rateLimitServer.ts (HMAC(secret, ip:action), no raw IP
+  stored/logged; RPC failure fails closed to UNAVAILABLE). Same budgets
+  (orders 5/10min, inquiries 10/10min); honeypot + 3s timing kept.
+  database.ts regenerated (rate_limits table + check_rate_limit fn);
+  zero `as never`/`as any` in new app code.
+- Receipt hardening: receiptHardening.test.ts (hash-only storage,
+  order-number-alone retrieves nothing, malformed tokens fail with no
+  DB access, minimal projection, analytics blocklist rejects receipt
+  material). No code change needed — design already correct.
+- Migration 20261006000000: clients_created_at_idx for newest-first
+  candidate pagination (threshold documented in-file; no premature
+  search infra).
+- E2E: @playwright/test + playwright.config.ts (dedicated :3100 prod
+  server, fresh boot) + 11 hermetic specs (entry/preselection/fallback,
+  wizard validation incl. javascript:/EMAIL-no-email/empty delivery,
+  contact validation, canonical/hreflang/noindex/sitemap/robots).
+  Operator journeys stay in integration + live proofs (no prod creds
+  in browsers) — documented in config header.
+- a11y/RTL: radio-group focus fallback in OrderWizard focusField;
+  logical properties (skip-link start-2, Field ms-1). No visual redesign.
+- .gitignore: test-results/, playwright-report/.
+- ADR-074 (rate limit, index, E2E scope, CSRF reasoning, http: decision,
+  disposable-operator proof method).
+
+Verified:
+- pnpm typecheck: pass (0). pnpm lint: pass (0). pnpm test: 109 files /
+  1118 tests pass. pnpm build: pass (91 static pages, correct
+  static/dynamic split, no warnings). pnpm test:e2e: 11/11 pass.
+  pnpm audit --audit-level=high: no known vulnerabilities.
+- Live dev DB: ACL (public RPCs owner+service_role only; admin RPCs
+  +authenticated; check_rate_limit owner+service_role); RLS enabled on
+  all 10 tables, anon zero policies; CHECK/UNIQUE/FK/index inventory
+  matches app assumptions; rate-limit counting (5 allow → deny +
+  retry_after, action isolation); idempotent retry (KARTI-000031,
+  created true→false, 1/1/1, payload untouched); stale contact →
+  CONFLICT; convert retry (converted false, 1 client/1 profile);
+  DESTINATION_REQUIRED gate then 2-card EXTERNAL_URL provision with
+  canonical wa.me URL; provision retry → 0; slug rename keeps same
+  /t code resolving (P6SMP6SM → p6smoke-renamed); READY→DELIVERED
+  auto-completes; 13-event trail with ORDER_COMPLETED exactly once;
+  cancel preserves cards/profile; public inquiry created.
+  Full cleanup: commercial 0/0/0/0/0, clients 2, profiles 2, cards 1,
+  admins 1 — baseline intact.
+- Regression: Phases 1–5 suites green (no product/route/schema redesign).
+
+Known limitations / non-blocking:
+- True parallel-race proof limited by sequential verify channel;
+  atomicity rests on single-statement upsert + unique index (documented).
+- CTA `→` arrows not mirrored in RTL (decorative suffixes; text
+  carries meaning) — polish item, not functional.
+- http: destinations accepted (deliberate, ADR-074); production HTTPS
+  posture at app/edge layer.
+- E2E hermetic by design (no DB writes, no operator auth in browser).
+
+Next:
+- Production deployment per PRODUCTION_CHECKLIST.md + SMOKE_TEST.md
+  (external step, not performed here).
 ```

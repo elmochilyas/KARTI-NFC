@@ -13,10 +13,10 @@ if (typeof window !== "undefined") {
  *
  * Justification: anonymous visitors hold zero grants on commercial tables
  * and supabase-js cannot span a transaction. This client exists SOLELY to
- * execute the two `create_public_*` RPCs, which run the atomic writes
- * inside SECURITY DEFINER functions with no API-role grants. Raw table
- * inserts/updates/deletes through this client are forbidden — every call
- * site must use `.rpc()` only.
+ * execute the `create_public_*` RPCs plus the Phase 6 `check_rate_limit`
+ * RPC, which run the atomic writes inside SECURITY DEFINER functions with
+ * no API-role grants. Raw table inserts/updates/deletes through this
+ * client are forbidden — every call site must use `.rpc()` only.
  */
 export function createOrderWriterClient() {
   const { url } = getSupabasePublicConfig();
