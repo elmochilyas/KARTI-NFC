@@ -3838,6 +3838,13 @@ Mode defaults (ADR-075). Public vitrine only; dashboard untouched.
 > 2026-09-30: implemented + verified per plan (typecheck/lint/test/
 > build green; E2E run — see report). GTM container configuration and
 > publish remain manual in Google Tag Manager.
+>
+> 2026-09-30 hardening: GTM fully excluded from `/fr|en|ar/order/success`
+> (no script/iframe/transport/page_view/banner — GA4 `page_location`
+> auto-collection). Order flow hard-navigates to the receipt
+> (`window.location.assign` after synchronous `order_submitted`); receipt
+> functionality unchanged. Verified both modes: build+E2E with
+> `NEXT_PUBLIC_GTM_ID=GTM-PCXTLTM7` and without (18/18 each).
 
 ---
 

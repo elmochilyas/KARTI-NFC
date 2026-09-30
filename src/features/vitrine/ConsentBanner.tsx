@@ -1,6 +1,9 @@
 /**
  * Minimal first-party analytics consent banner (public vitrine only).
  *
+ * Suppressed on receipt routes (`/fr|en|ar/order/success`): no analytics
+ * runs there at all, so there is nothing to consent to on that page.
+ *
  * Not a giant CMP: Accept analytics / Reject non-essential, localized
  * FR/EN/AR (RTL via the inherited `dir`), persisted in the `karti_consent`
  * first-party cookie (no identity). Accept grants `analytics_storage`
@@ -9,9 +12,10 @@
  */
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { isFreshConsent, readConsentCookie, writeConsentCookie, CONSENT_OPEN_EVENT } from "./consent";
-import { consentUpdateFor, pushGtagConsent } from "./gtm";
+import { consentUpdateFor, isReceiptRoute, pushGtagConsent } from "./gtm";
 import type { VitrineDict } from "./i18n";
 
 function hasFreshChoice(): boolean {
@@ -25,8 +29,10 @@ function hasFreshChoice(): boolean {
 
 export function ConsentBanner({ dict }: { dict: VitrineDict }) {
   const [visible, setVisible] = useState(false);
+  const suppressed = isReceiptRoute(usePathname());
 
   useEffect(() => {
+    if (suppressed) return;
     // Do not repeatedly show the banner after a valid choice.
     if (hasFreshChoice()) return;
     // Small delay so first paint stays clean; returning visitors with a
@@ -35,7 +41,7 @@ export function ConsentBanner({ dict }: { dict: VitrineDict }) {
       if (!hasFreshChoice()) setVisible(true);
     }, 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [suppressed]);
 
   useEffect(() => {
     const reopen = () => setVisible(true);
@@ -52,7 +58,7 @@ export function ConsentBanner({ dict }: { dict: VitrineDict }) {
     }
   }, []);
 
-  if (!visible) return null;
+  if (suppressed || !visible) return null;
 
   const copy = dict.consent;
   return (

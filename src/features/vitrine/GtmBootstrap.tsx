@@ -1,6 +1,12 @@
 /**
  * GTM bootstrap island (public vitrine only — mounted in `VitrineShell`).
  *
+ * Receipt routes (`/fr|en|ar/order/success`) are fully excluded: the URL
+ * carries a private credential that GA4 could auto-collect as
+ * `page_location`, so no script, no iframe, no transport, and no consent
+ * bookkeeping run there. (The order flow hard-navigates to the receipt,
+ * so a suppressed mount always means a clean document.)
+ *
  * Execution order (consent ordering is critical):
  *   1. `dataLayer` exists (queue, so early-hydration events never throw)
  *   2. Consent Mode default = denied (before any Google tag executes)
@@ -15,6 +21,7 @@
 "use client";
 
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getGtmId } from "@/lib/env";
 import { setAnalyticsTransport } from "./analytics";
@@ -27,6 +34,7 @@ import {
   ensureDataLayer,
   GTM_LOADED_FLAG,
   GTM_SCRIPT_ID,
+  isReceiptRoute,
   isValidGtmId,
   pushGtagConsent,
 } from "./gtm";
@@ -35,8 +43,17 @@ import { gtmTransport } from "./gtmTransport";
 export function GtmBootstrap() {
   // Public container ID only; absent/invalid → GTM stays disabled, app works.
   const [gtmId] = useState<string | null>(() => getGtmId() ?? null);
+  const pathname = usePathname();
+  const suppressed = isReceiptRoute(pathname);
 
   useEffect(() => {
+    // Receipt route: never initialize any GA transport (clean document by
+    // construction — the order flow hard-navigates here). Unwire on SPA
+    // arrival so no further event can flow.
+    if (suppressed) {
+      setAnalyticsTransport(null);
+      return;
+    }
     // 1. dataLayer exists before any event.
     ensureDataLayer();
     // 2. Consent Mode default = denied, before Google tags execute.
@@ -64,9 +81,9 @@ export function GtmBootstrap() {
     return () => {
       setAnalyticsTransport(null);
     };
-  }, [gtmId]);
+  }, [gtmId, suppressed]);
 
-  if (!gtmId || !isValidGtmId(gtmId)) return null;
+  if (suppressed || !gtmId || !isValidGtmId(gtmId)) return null;
 
   return (
     <>

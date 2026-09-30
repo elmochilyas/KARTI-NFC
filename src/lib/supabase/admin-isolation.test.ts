@@ -161,6 +161,24 @@ describe("service-role isolation", () => {
     expect(shell).toContain("ConsentBanner");
   });
 
+  it("receipt routes exclude every GTM island (credential URLs stay Google-free)", () => {
+    // The success URL carries ?r=&t=, which GA4 could auto-collect as
+    // page_location — so the islands must self-suppress there, not just
+    // sanitize. Static pin; behavior is proven in e2e/gtm-consent.spec.ts.
+    for (const island of ["GtmBootstrap.tsx", "PageViewTracker.tsx", "ConsentBanner.tsx"]) {
+      const content = fs.readFileSync(
+        path.join(SRC_ROOT, "features", "vitrine", island),
+        "utf8",
+      );
+      expect(content).toContain("isReceiptRoute");
+    }
+    const bootstrap = fs.readFileSync(
+      path.join(SRC_ROOT, "features", "vitrine", "GtmBootstrap.tsx"),
+      "utf8",
+    );
+    expect(bootstrap).toContain("setAnalyticsTransport(null)");
+  });
+
   it("exactly one module wires the analytics transport (no scattered vendor calls)", () => {
     const wirers: string[] = [];
     for (const file of sourceFiles(SRC_ROOT)) {

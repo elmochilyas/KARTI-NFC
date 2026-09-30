@@ -7,6 +7,7 @@ import {
   ensureDataLayer,
   GTM_LOADED_FLAG,
   GTM_SCRIPT_ID,
+  isReceiptRoute,
   isValidGtmId,
   pageTypeForPath,
   pushGtagConsent,
@@ -129,6 +130,28 @@ describe("receipt URL sanitization", () => {
     expect(sanitizePagePath("/fr/order/success?")).toBe("/fr/order/success");
     const long = `/${"a".repeat(500)}`;
     expect(sanitizePagePath(long).length).toBeLessThanOrEqual(200);
+  });
+});
+
+describe("receipt-route exclusion (GTM never loads on success URLs)", () => {
+  it("matches localized receipt routes, query/hash ignored", () => {
+    expect(isReceiptRoute("/fr/order/success")).toBe(true);
+    expect(isReceiptRoute("/en/order/success")).toBe(true);
+    expect(isReceiptRoute("/ar/order/success")).toBe(true);
+    expect(isReceiptRoute("/fr/order/success?r=KARTI-1&t=abc")).toBe(true);
+    expect(isReceiptRoute("/fr/order/success#top")).toBe(true);
+    expect(isReceiptRoute("/fr/order/success/")).toBe(true);
+  });
+
+  it("does not match marketing, order, or lookalike routes", () => {
+    expect(isReceiptRoute(null)).toBe(false);
+    expect(isReceiptRoute(undefined)).toBe(false);
+    expect(isReceiptRoute("")).toBe(false);
+    expect(isReceiptRoute("/fr")).toBe(false);
+    expect(isReceiptRoute("/fr/order")).toBe(false);
+    expect(isReceiptRoute("/fr/order/successx")).toBe(false);
+    expect(isReceiptRoute("/fr/products/personal-card")).toBe(false);
+    expect(isReceiptRoute("/dashboard")).toBe(false);
   });
 });
 

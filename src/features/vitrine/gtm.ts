@@ -14,6 +14,8 @@
  * explicitly guarded helpers). Browser effects live in `GtmBootstrap`.
  */
 
+import { VITRINE_LOCALES } from "./i18n/dict";
+
 /** Container IDs look like `GTM-XXXXXXX` (uppercase alphanumerics). */
 export const GTM_ID_PATTERN = /^GTM-[A-Z0-9]+$/;
 
@@ -111,6 +113,27 @@ export function pushGtagConsent(mode: "default" | "update", params: Record<strin
     window.gtag("consent", mode, params);
   } catch {
     // Consent/bookkeeping must never break application functionality.
+  }
+}
+
+/**
+ * Localized order-success receipt routes carry a private credential
+ * (`?r=&t=`). GA4 can auto-collect `page_location` from the browser URL,
+ * so sanitizing our own events is not enough: GTM must not load there at
+ * all — no script, no iframe, no transport, no page_view.
+ */
+const RECEIPT_ROUTE_PATTERN = new RegExp(
+  `^/(${VITRINE_LOCALES.join("|")})/order/success(?=/|$)`,
+);
+
+/** True for `/fr|en|ar/order/success` (query/hash ignored). */
+export function isReceiptRoute(pathname: string | null | undefined): boolean {
+  try {
+    if (!pathname) return false;
+    const clean = pathname.split("#", 1)[0]?.split("?", 1)[0] ?? "";
+    return RECEIPT_ROUTE_PATTERN.test(clean);
+  } catch {
+    return false;
   }
 }
 

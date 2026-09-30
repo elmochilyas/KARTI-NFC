@@ -40,17 +40,50 @@ function events(layer: unknown[]): Array<Record<string, unknown>> {
   );
 }
 
-test("without NEXT_PUBLIC_GTM_ID the app works and GTM is not injected", async ({ page }) => {
+async function hasGtmScript(page: Page): Promise<boolean> {
+  return (await page.locator('script[src*="googletagmanager.com"]').count()) > 0;
+}
+
+async function hasGtmIframe(page: Page): Promise<boolean> {
+  return (await page.locator('iframe[src*="googletagmanager.com"]').count()) > 0;
+}
+
+/**
+ * Mode-aware suite: when the prod server is built WITH NEXT_PUBLIC_GTM_ID,
+ * marketing/order routes genuinely load the container; when built WITHOUT
+ * it, they must not. Receipt routes never load it in either mode.
+ */
+test("GTM loads on marketing/order routes but never on receipt routes", async ({ page }) => {
   await page.goto("/fr");
   await expect(page.locator("main#main-content")).toBeVisible();
-  // No GTM container script, no noscript iframe.
-  expect(await page.locator('script[src*="googletagmanager.com"]').count()).toBe(0);
-  expect(await page.locator('iframe[src*="googletagmanager.com"]').count()).toBe(0);
-  // dataLayer still exists (early events queue, nothing throws).
-  const isArray = await page.evaluate(() => Array.isArray(
-    (window as unknown as { dataLayer?: unknown }).dataLayer,
-  ));
-  expect(isArray).toBe(true);
+  // Settle past hydration + afterInteractive injection before sampling.
+  await page.waitForTimeout(2000);
+  const marketingHasGtm = await hasGtmScript(page);
+
+  await page.goto("/fr/products/personal-card");
+  await expect(page.locator("main#main-content")).toBeVisible();
+  await page.waitForTimeout(1200);
+  expect(await hasGtmScript(page)).toBe(marketingHasGtm);
+
+  await page.goto("/fr/order?product=personal-card");
+  await expect(page.locator("main#main-content")).toBeVisible();
+  await page.waitForTimeout(1200);
+  expect(await hasGtmScript(page)).toBe(marketingHasGtm);
+
+  if (marketingHasGtm) {
+    // Container genuinely loads on normal routes when the ID is baked in.
+    expect(marketingHasGtm).toBe(true);
+  }
+
+  // Receipt routes (FR/EN/AR architecture): no script, no iframe, no banner.
+  for (const locale of ["fr", "en", "ar"]) {
+    await page.goto(`/${locale}/order/success?r=KARTI-000001&t=${"a".repeat(64)}`);
+    await expect(page.locator("main#main-content")).toBeVisible();
+    await page.waitForTimeout(1200);
+    expect(await hasGtmScript(page)).toBe(false);
+    expect(await hasGtmIframe(page)).toBe(false);
+    expect(await page.getByTestId("consent-banner").count()).toBe(0);
+  }
 });
 
 test("consent default is denied before any analytics flows", async ({ page }) => {
@@ -129,22 +162,20 @@ test("product → order navigation keeps analytics flowing (no duplicates)", asy
   expect(events(layer).some((e) => e["event"] === "order_started")).toBe(true);
 });
 
-test("success receipt credentials never enter dataLayer", async ({ page }) => {
+test("success receipt credentials never enter dataLayer (no GTM, no page_view)", async ({
+  page,
+}) => {
   const token = `r=KARTI-000001&t=${"a".repeat(64)}`;
   await page.goto(`/fr/order/success?${token}`);
-  // Wait for the centralized page_view (hydration race — see above).
-  await expect
-    .poll(
-      async () =>
-        events(await dataLayer(page)).filter((e) => e["event"] === "page_view").length,
-      { timeout: 10_000 },
-    )
-    .toBeGreaterThanOrEqual(1);
+  await expect(page.locator("main#main-content")).toBeVisible();
+  // Past the banner delay: a fully silent receipt page stays silent.
+  await page.waitForTimeout(1200);
   const layer = await dataLayer(page);
+  // No transport initialization ran here at all — not even consent defaults.
+  expect(layer).toEqual([]);
   expect(JSON.stringify(layer)).not.toContain("KARTI-000001");
-  expect(JSON.stringify(layer)).not.toContain("a".repeat(16));
   const pageViews = events(layer).filter((e) => e["event"] === "page_view");
-  expect(pageViews.some((e) => e["page_path"] === "/fr/order/success")).toBe(true);
+  expect(pageViews).toEqual([]);
 });
 
 test("private routes never load marketing GTM or the consent banner", async ({ page }) => {

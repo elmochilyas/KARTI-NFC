@@ -2,6 +2,8 @@
  * GTM transport regressions: safe events reach dataLayer, PII never does,
  * receipt credentials never leak, and a blocked GTM never breaks the app.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setAnalyticsTransport, trackEvent } from "./analytics";
 import { gtmTransport } from "./gtmTransport";
@@ -132,5 +134,31 @@ describe("GTM dataLayer transport", () => {
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-PCXTLTM7");
     const { getGtmId } = await import("@/lib/env");
     expect(getGtmId()).toBe("GTM-PCXTLTM7");
+  });
+
+  it("order_submitted fires once, before a full-page receipt navigation", () => {
+    // The success URL carries a private credential: the wizard must emit
+    // the conversion event first, then leave via a full document load
+    // (never SPA router.push — GA4 would auto-collect page_location).
+    const source = fs.readFileSync(
+      path.join(__dirname, "order", "OrderWizard.tsx"),
+      "utf8",
+    );
+    const submittedAt = source.indexOf('trackEvent("order_submitted"');
+    expect(submittedAt).toBeGreaterThan(-1);
+    const assignAt = source.indexOf("window.location.assign");
+    expect(assignAt).toBeGreaterThan(submittedAt);
+    expect(source).toContain("/order/success");
+    expect(source).not.toContain("router.push");
+    // Runtime half: the emission itself is synchronous and exactly-once.
+    const win = stubWindow();
+    const seen: unknown[] = [];
+    setAnalyticsTransport((event, payload) => {
+      seen.push({ event, payload });
+      gtmTransport(event, payload);
+    });
+    trackEvent("order_submitted", { product: "PERSONAL_CARD", quantity: 1, locale: "fr" });
+    expect(seen).toHaveLength(1);
+    expect(dataLayerOf(win)).toHaveLength(1);
   });
 });
