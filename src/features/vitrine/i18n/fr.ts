@@ -38,6 +38,14 @@ export const frDict: VitrineBaseDict = {
     orderLink: "Commander",
     notice: "Les prix et délais sont confirmés après étude de votre demande.",
     rights: "Karti. Tous droits réservés.",
+    cookiePreferences: "Préférences cookies",
+  },
+  consent: {
+    title: "Cookies et mesure d'audience",
+    message:
+      "Nous utilisons des cookies de mesure d'audience (via Google Tag Manager) uniquement si vous acceptez. Sans consentement, aucune donnée analytique ou publicitaire n'est collectée.",
+    accept: "Accepter les statistiques",
+    reject: "Refuser",
   },
   home: {
     heroTitle: "Une carte, un geste. Votre contact est partagé.",

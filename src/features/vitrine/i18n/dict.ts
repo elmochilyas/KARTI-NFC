@@ -82,6 +82,13 @@ export type VitrineDict = {
     orderLink: string;
     notice: string;
     rights: string;
+    cookiePreferences: string;
+  };
+  consent: {
+    title: string;
+    message: string;
+    accept: string;
+    reject: string;
   };
   home: {
     heroTitle: string;

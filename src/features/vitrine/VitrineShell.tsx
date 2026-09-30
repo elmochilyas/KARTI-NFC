@@ -8,9 +8,12 @@
 
 import type { ReactNode } from "react";
 import { AttributionTracker } from "./AttributionTracker";
+import { ConsentBanner } from "./ConsentBanner";
+import { GtmBootstrap } from "./GtmBootstrap";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { SiteFooter } from "./marketing/Footer";
 import { SiteHeader } from "./marketing/Header";
+import { PageViewTracker } from "./PageViewTracker";
 
 export function VitrineShell({
   locale,
@@ -24,6 +27,8 @@ export function VitrineShell({
   return (
     <div lang={locale} dir={dict.dir} className="min-h-screen bg-background text-text">
       <AttributionTracker />
+      <GtmBootstrap />
+      <PageViewTracker locale={locale} />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:start-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-contrast"
@@ -33,6 +38,7 @@ export function VitrineShell({
       <SiteHeader locale={locale} dict={dict} />
       <main id="main-content">{children}</main>
       <SiteFooter locale={locale} dict={dict} />
+      <ConsentBanner dict={dict} />
     </div>
   );
 }

@@ -2572,3 +2572,47 @@ No new vendor, no cron, no second card system. Outstanding receipt URLs
 invalidate on `RECEIPT_TOKEN_SECRET` rotation; rate-limit buckets reset
 on `RATE_LIMIT_SECRET` rotation â€” both deliberate, documented in
 `specs/specs-vitrin/PRODUCTION_CHECKLIST.md`.
+
+---
+
+## ADR-075 — Google Tag Manager via centralized adapter + Consent Mode defaults
+
+**Status:** Accepted
+**Date:** 2026-09-30
+
+### Context
+
+Marketing needs GA4 measurement through GTM-PCXTLTM7 without breaking the
+existing privacy-safe analytics adapter, attribution source-of-truth, or
+dashboard isolation — and without firing analytics before consent.
+
+### Decision
+
+- `NEXT_PUBLIC_GTM_ID` (public, validated `^GTM-[A-Z0-9]+$`, `getGtmId()`
+  in browser-safe `src/lib/env.ts`): absent/invalid ? GTM silently
+  skipped, app keeps working.
+- GTM mounts ONLY in `VitrineShell` (`GtmBootstrap` island,
+  `next/script afterInteractive` + noscript iframe): root layout and
+  `/dashboard/**` stay GTM-free (pinned by `admin-isolation.test.ts`).
+- Ordering: dataLayer ensure ? Consent Mode default denied ?
+  stored `karti_consent` cookie applied (analytics only, ads stay
+  denied) ? container loads once (`__kartiGtmLoaded`) ? events flow.
+- ONE transport (`gtmTransport`): components keep calling `track()`;
+  the allowlist stays authoritative (`page_view` added); forbidden keys
+  extended (`receipt_token/hash`, `customer/inquiry/internal notes`,
+  `delivery_instructions`, `whatsapp_number`); nested values dropped;
+  `page_path` re-sanitized pathname-only.
+- Minimal `ConsentBanner` (FR/EN/AR, RTL-safe) + footer "Cookie
+  preferences" reopen event; 180-day first-party cookie, no identity.
+- ONE centralized sanitized `page_view` (`PageViewTracker`, pathname +
+  locale + page_type); explicit funnel events untouched; GA4 automatic
+  `page_view` must stay disabled (documented in DEPLOYMENT §3b).
+- Attribution untouched: GTM is a transport, never the Order source of
+  truth. No CSP change (none exists; GTM origins documented for the
+  Phase-14 nonce-CSP work).
+
+### Consequences
+
+No direct GA4 script; `order_submitted` (safe categorical payload) is
+the future GA4 conversion event. GTM container configuration/publish
+remains a manual step in Google Tag Manager.

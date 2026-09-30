@@ -4,6 +4,7 @@
  * column exists because baseline policy pages ship in this phase.
  */
 import Link from "next/link";
+import { ConsentPreferencesButton } from "../ConsentPreferencesButton";
 import { VITRINE_LOCALES, type VitrineDict, type VitrineLocale } from "../i18n/dict";
 import { allProducts, productSlugFromType } from "../products";
 import { LEGAL_SLUGS, localePath, orderPath, SOLUTION_SLUGS, type LegalSlug } from "../site";
@@ -135,6 +136,7 @@ export function SiteFooter({ locale, dict }: { locale: VitrineLocale; dict: Vitr
               {code === "fr" ? "Français" : code === "ar" ? "العربية" : "English"}
             </a>
           ))}
+          <ConsentPreferencesButton label={dict.footer.cookiePreferences} />
         </nav>
       </div>
     </footer>

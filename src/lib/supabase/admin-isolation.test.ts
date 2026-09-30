@@ -114,4 +114,61 @@ describe("service-role isolation", () => {
     }
     expect(offenders).toEqual([]);
   });
+
+  it("marketing GTM loads only in the public vitrine shell, never in dashboard/admin", () => {
+    const gtmMarkers = [
+      "googletagmanager.com",
+      "GtmBootstrap",
+      "gtmTransport",
+      "ConsentBanner",
+      "PageViewTracker",
+      "window.dataLayer",
+    ];
+    const dashboardOffenders: string[] = [];
+    const queue: string[] = [path.join(SRC_ROOT, "app", "dashboard")];
+    while (queue.length > 0) {
+      const dir = queue.pop() as string;
+      if (!fs.existsSync(dir)) continue;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          queue.push(full);
+        } else if (
+          /\.(ts|tsx)$/.test(entry.name) &&
+          !entry.name.endsWith(".test.ts") &&
+          !entry.name.endsWith(".test.tsx")
+        ) {
+          const content = fs.readFileSync(full, "utf8");
+          if (gtmMarkers.some((marker) => content.includes(marker))) {
+            dashboardOffenders.push(path.relative(SRC_ROOT, full));
+          }
+        }
+      }
+    }
+    expect(dashboardOffenders).toEqual([]);
+    // Root layout stays GTM-free too (GTM mounts in VitrineShell only).
+    const rootLayout = fs.readFileSync(path.join(SRC_ROOT, "app", "layout.tsx"), "utf8");
+    for (const marker of gtmMarkers) {
+      expect(rootLayout).not.toContain(marker);
+    }
+    // Public shell owns the integration exactly once.
+    const shell = fs.readFileSync(
+      path.join(SRC_ROOT, "features", "vitrine", "VitrineShell.tsx"),
+      "utf8",
+    );
+    expect(shell).toContain("GtmBootstrap");
+    expect(shell).toContain("PageViewTracker");
+    expect(shell).toContain("ConsentBanner");
+  });
+
+  it("exactly one module wires the analytics transport (no scattered vendor calls)", () => {
+    const wirers: string[] = [];
+    for (const file of sourceFiles(SRC_ROOT)) {
+      const content = fs.readFileSync(file, "utf8");
+      if (content.includes("setAnalyticsTransport(gtmTransport)")) {
+        wirers.push(path.relative(SRC_ROOT, file));
+      }
+    }
+    expect(wirers).toEqual([path.join("features", "vitrine", "GtmBootstrap.tsx")]);
+  });
 });

@@ -24,6 +24,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 KARTI_SALES_WHATSAPP=
 RECEIPT_TOKEN_SECRET=
 RATE_LIMIT_SECRET=
+NEXT_PUBLIC_GTM_ID=
 ```
 
 Exact names may vary if the existing project already has conventions.
@@ -39,6 +40,7 @@ Exact names may vary if the existing project already has conventions.
 | `RECEIPT_TOKEN_SECRET` | Yes (min 16 chars) | Server-only | Binds receipt tokens to idempotency keys; public order creation fails closed without it. |
 | `RATE_LIMIT_SECRET` | Yes (min 16 chars) | Server-only | Derives non-reversible rate-limit abuse keys; public submission fails closed without it. |
 | `KARTI_SALES_WHATSAPP` | Optional | Server-only | Sales CTA number; when unset the success-page CTA hides and ordering still works. |
+| `NEXT_PUBLIC_GTM_ID` | Optional | Public | GTM container (`GTM-PCXTLTM7` in production). GA4 is configured INSIDE GTM — never add a direct `gtag.js` script. When unset, GTM does not load and the app keeps working. |
 
 Rules: service-role, receipt, and rate-limit secrets are server-only
 (`src/lib/env-server.ts`, `server-only` guarded); never `NEXT_PUBLIC_`
@@ -53,6 +55,7 @@ May be browser-visible:
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_APP_URL
+NEXT_PUBLIC_GTM_ID
 ```
 
 Must remain server-only:

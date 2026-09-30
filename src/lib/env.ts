@@ -40,6 +40,21 @@ export function getSupabasePublicConfig(): SupabasePublicConfig {
 }
 
 /**
+ * Google Tag Manager container ID (browser-visible, public — not a secret).
+ *
+ * Returns the trimmed container ID when `NEXT_PUBLIC_GTM_ID` is set to a
+ * valid `GTM-XXXXXXX` value, otherwise `undefined`. Callers must treat
+ * `undefined` as "marketing analytics disabled": the app keeps working,
+ * GTM simply does not load, and the analytics adapter stays a safe no-op.
+ */
+export function getGtmId(): string | undefined {
+  const raw = process.env.NEXT_PUBLIC_GTM_ID?.trim();
+  if (!raw) return undefined;
+  if (!/^GTM-[A-Z0-9]+$/.test(raw)) return undefined;
+  return raw;
+}
+
+/**
  * Server-only secret access lives in `./env-server` (guarded by the
  * `server-only` package, which fails the build if pulled into client code).
  * This module stays browser-safe: only NEXT_PUBLIC_* values here.
