@@ -13,10 +13,7 @@ const PRESETS = [
   },
 ];
 
-function render(props?: {
-  currentSettings?: Record<string, unknown>;
-  activeId?: string | null;
-}) {
+function render(props?: { currentSettings?: Record<string, unknown>; activeId?: string | null }) {
   return renderToStaticMarkup(
     createElement(SectionPresetBar, {
       typeLabel: "Quick actions",
@@ -35,9 +32,7 @@ describe("isPresetActive", () => {
   });
 
   it("partial-matches when current settings carry extra keys", () => {
-    expect(
-      isPresetActive({ display: "tiles" }, { display: "tiles", showAbout: true }),
-    ).toBe(true);
+    expect(isPresetActive({ display: "tiles" }, { display: "tiles", showAbout: true })).toBe(true);
   });
 
   it("rejects mismatched values", () => {

@@ -71,9 +71,7 @@ export function SectionPresetBar({
               title={preset.description}
               aria-pressed={active}
               aria-label={
-                active
-                  ? `Apply ${preset.label} preset (active)`
-                  : `Apply ${preset.label} preset`
+                active ? `Apply ${preset.label} preset (active)` : `Apply ${preset.label} preset`
               }
             >
               {active ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
