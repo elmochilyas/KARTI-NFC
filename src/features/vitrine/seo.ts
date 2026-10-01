@@ -51,6 +51,12 @@ export function pageMetadata(input: PageMetadataInput): Metadata {
       url: canonical,
       type: "website",
       locale: input.locale,
+      siteName: "Karti",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: input.title,
+      description: input.description,
     },
   };
 }

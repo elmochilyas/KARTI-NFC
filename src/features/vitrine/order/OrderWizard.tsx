@@ -250,24 +250,30 @@ export function OrderWizard({
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-16">
-      <div className="rounded-2xl border border-border bg-surface p-5 md:p-6">
+      <div className="rounded-3xl border border-border bg-surface p-5 shadow-card md:p-6">
         <OrderProgress dict={dict} step={step} />
       </div>
 
       <div aria-live="polite">
         {stepMessage ? (
-          <p role="alert" className="mt-4 rounded-xl bg-danger-muted p-4 text-sm text-danger">
+          <p
+            role="alert"
+            className="mt-4 rounded-2xl border border-danger/25 bg-danger-muted p-4 text-sm font-medium text-danger"
+          >
             {stepMessage}
           </p>
         ) : null}
         {submitError ? (
-          <p role="alert" className="mt-4 rounded-xl bg-danger-muted p-4 text-sm text-danger">
+          <p
+            role="alert"
+            className="mt-4 rounded-2xl border border-danger/25 bg-danger-muted p-4 text-sm font-medium text-danger"
+          >
             {submitError}
           </p>
         ) : null}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 rounded-3xl border border-border bg-surface p-5 shadow-card md:p-7">
         {step === 0 ? (
           <ProductStep
             dict={dict}

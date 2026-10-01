@@ -1,11 +1,14 @@
 /**
- * CSS-built product visuals (Phase 5): physical Karti card + smartphone
- * frame. No photography, no stock, no third-party UI copies. Structured
- * so real photography can replace these without redesign.
+ * Photo-ready product visuals (editorial rebuild): same prop API as the
+ * Phase 5 CSS mockups, but every visual is an <Image> well with a
+ * designed CSS fallback underneath. Drop files into public/vitrine/
+ * (hero-tap.jpg, card-macro.jpg, profile-cafe.jpg, business-counter.jpg,
+ * qr-scan.jpg) and pass imageSrc — no layout change needed.
  *
  * Sizes: md (in-flow illustrations) and lg (hero/showcase visuals).
  */
 
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 type MockupSize = "md" | "lg" | "xl";
@@ -13,25 +16,46 @@ type MockupSize = "md" | "lg" | "xl";
 /** Physical Karti card mockup (credit-card ratio, chip, contactless mark). */
 export function CardMockup({
   label,
+  imageSrc,
+  imageAlt,
   sublabel,
   size = "md",
 }: {
   label: string;
   sublabel?: string;
   size?: MockupSize;
+  imageSrc?: string;
+  imageAlt?: string;
 }) {
   const large = size === "lg";
   return (
     <div
       role="img"
       aria-label={sublabel ? `${label} — ${sublabel}` : label}
-      className={`relative aspect-[8/5] w-full overflow-hidden rounded-2xl bg-text text-background shadow-card ${
+      className={`karti-card-sheen relative aspect-[8/5] w-full overflow-hidden rounded-[1.75rem] bg-ink text-background shadow-[var(--shadow-lift)] ring-1 ring-ink/10 ${
         size === "xl" ? "max-w-lg" : large ? "max-w-md" : "max-w-xs"
       }`}
     >
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt={imageAlt ?? label}
+          fill
+          sizes="(max-width: 768px) 100vw, 480px"
+          className="object-cover"
+        />
+      ) : null}
       <div
         aria-hidden="true"
-        className={`absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-accent/25`}
+        className="absolute inset-0 bg-gradient-to-br from-white/[0.07] via-transparent to-accent/30"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-accent/25 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-gold/15 blur-3xl"
       />
       <div
         className={`relative flex h-full flex-col justify-between ${
@@ -110,41 +134,57 @@ export function PhoneFrame({
   lines,
   footnote,
   size = "md",
+  imageSrc,
+  imageAlt,
 }: {
   title: string;
   lines: string[];
   footnote?: string;
   size?: MockupSize;
+  imageSrc?: string;
+  imageAlt?: string;
 }) {
   const large = size === "lg";
   return (
     <div
       role="img"
       aria-label={[title, ...lines].join(". ")}
-      className={`w-full rounded-[2.5rem] border border-border bg-surface p-2.5 shadow-card ${
+      className={`w-full rounded-[2.5rem] border border-ink/10 bg-surface p-2.5 shadow-[var(--shadow-lift)] ${
         size === "xl" ? "max-w-[340px]" : large ? "max-w-[300px]" : "max-w-[240px]"
       }`}
     >
       <div
-        className={`rounded-[2rem] bg-background ${size === "xl" ? "px-6 py-7" : large ? "px-5 py-6" : "px-4 py-5"}`}
+        className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-b from-background to-surface-muted/60 ${size === "xl" ? "px-6 py-7" : large ? "px-5 py-6" : "px-4 py-5"}`}
       >
-        <p aria-hidden="true" className="mx-auto h-1.5 w-20 rounded-full bg-border" />
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={imageAlt ?? title}
+            fill
+            sizes="320px"
+            className="object-cover"
+          />
+        ) : null}
+        <p aria-hidden="true" className="relative mx-auto h-1.5 w-20 rounded-full bg-border" />
+        <p aria-hidden="true" className="font-display relative mx-auto mt-4 flex h-11 w-11 items-center justify-center rounded-full bg-ink text-lg font-bold text-white">
+          {title.trim().charAt(0).toUpperCase() || "K"}
+        </p>
         <p
           aria-hidden="true"
-          className={`mt-4 truncate font-bold text-text ${size === "xl" ? "text-xl" : large ? "text-lg" : "text-sm"}`}
+          className={`relative mt-3 truncate text-center font-bold text-text ${size === "xl" ? "text-xl" : large ? "text-lg" : "text-sm"}`}
         >
           {title}
         </p>
-        <ul aria-hidden="true" className="mt-3 flex flex-col gap-2">
+        <ul aria-hidden="true" className="relative mt-3 flex flex-col gap-2">
           {lines.map((line) => (
             <li
               key={line}
-              className={`truncate rounded-lg bg-surface-muted text-muted ${
+              className={`truncate rounded-xl border border-border/60 bg-surface px-3 text-center text-muted shadow-sm ${
                 size === "xl"
-                  ? "px-3 py-3 text-[15px]"
+                  ? "py-3 text-[15px]"
                   : large
-                    ? "px-3 py-2.5 text-sm"
-                    : "px-2 py-1.5 text-xs"
+                    ? "py-2.5 text-sm"
+                    : "py-1.5 text-xs"
               }`}
             >
               {line}
@@ -152,11 +192,14 @@ export function PhoneFrame({
           ))}
         </ul>
         {footnote ? (
-          <p aria-hidden="true" className={`mt-3 text-muted ${large ? "text-xs" : "text-[11px]"}`}>
+          <p
+            aria-hidden="true"
+            className={`relative mt-3 text-center text-muted ${large ? "text-xs" : "text-[11px]"}`}
+          >
             {footnote}
           </p>
         ) : null}
-        <p aria-hidden="true" className="mx-auto mt-4 h-1 w-24 rounded-full bg-border" />
+        <p aria-hidden="true" className="relative mx-auto mt-4 h-1 w-24 rounded-full bg-border" />
       </div>
     </div>
   );

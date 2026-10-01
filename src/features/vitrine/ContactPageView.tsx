@@ -20,44 +20,66 @@ export function ContactPageView({ locale, dict }: { locale: VitrineLocale; dict:
           { label: dict.contact.title, url: localePath(locale, "contact") },
         ]}
       />
-      <div className="mx-auto max-w-2xl py-8 md:py-10">
-        <h1 className="text-4xl font-bold tracking-tight text-text">{dict.contact.title}</h1>
-        <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">{dict.contact.subtitle}</p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="karti-hero-grid mx-auto max-w-2xl py-6 md:py-8">
+        <p className="font-display text-[13px] font-bold tracking-[0.22em] text-accent-strong uppercase">
+          {dict.nav.contact} <span aria-hidden="true">—</span>
+        </p>
+        <h1 className="font-display mt-3 text-4xl font-bold tracking-[-0.03em] text-balance text-text sm:text-5xl">
+          {dict.contact.title}
+        </h1>
+        <p className="mt-3 max-w-xl text-lg leading-relaxed text-pretty text-muted">
+          {dict.contact.subtitle}
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <Link
             href={orderPath(locale)}
-            className="flex flex-col rounded-2xl border-2 border-accent/50 bg-surface p-5 transition-colors hover:border-accent"
+            className="flex flex-col rounded-[1.75rem] border border-ink/10 bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5"
           >
-            <span className="text-base font-bold text-text">{dict.common.orderNow}</span>
-            <span className="mt-1 flex-1 text-sm text-muted">{dict.productPage.orderCta}</span>
-            <span aria-hidden="true" className="mt-3 font-bold text-accent rtl:-scale-x-100">
+            <span className="font-display text-[15px] font-bold text-text">{dict.common.orderNow}</span>
+            <span className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">
+              {dict.productPage.orderCta}
+            </span>
+            <span
+              aria-hidden="true"
+              className="karti-flip-rtl mt-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink text-sm font-bold text-white"
+            >
               →
             </span>
           </Link>
           <Link
             href={localePath(locale, "pricing")}
-            className="flex flex-col rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-muted"
+            className="flex flex-col rounded-[1.75rem] border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5"
           >
-            <span className="text-base font-bold text-text">{dict.nav.pricing}</span>
-            <span className="mt-1 flex-1 text-sm text-muted">{dict.home.pricingDesc}</span>
-            <span aria-hidden="true" className="mt-3 font-bold text-accent rtl:-scale-x-100">
+            <span className="font-display text-[15px] font-bold text-text">{dict.nav.pricing}</span>
+            <span className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">
+              {dict.home.pricingDesc}
+            </span>
+            <span
+              aria-hidden="true"
+              className="karti-flip-rtl mt-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-surface-muted text-sm font-bold text-text"
+            >
               →
             </span>
           </Link>
           <a
             href="#contact-form"
-            className="flex flex-col rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-muted"
+            className="flex flex-col rounded-[1.75rem] border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5"
           >
-            <span className="text-base font-bold text-text">{dict.contact.title}</span>
-            <span className="mt-1 flex-1 text-sm text-muted">{dict.contact.message}</span>
-            <span aria-hidden="true" className="mt-3 font-bold text-accent">
+            <span className="font-display text-[15px] font-bold text-text">{dict.contact.title}</span>
+            <span className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">
+              {dict.contact.message}
+            </span>
+            <span
+              aria-hidden="true"
+              className="mt-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-surface-muted text-sm font-bold text-text"
+            >
               ↓
             </span>
           </a>
         </div>
         <div
           id="contact-form"
-          className="mt-6 scroll-mt-20 rounded-2xl border border-border bg-surface p-5 md:p-8"
+          className="mt-5 scroll-mt-24 rounded-[1.75rem] border border-border bg-surface p-4 shadow-card md:p-6"
         >
           <ContactForm locale={locale} dict={dict} />
         </div>

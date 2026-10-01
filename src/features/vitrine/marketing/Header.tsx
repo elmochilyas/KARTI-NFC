@@ -1,7 +1,7 @@
 /**
- * Marketing header (Phase 5). Desktop dropdowns are CSS-only
- * (focus-within/hover, keyboard reachable); the mobile menu is a small
- * client island. Language switcher uses crawlable links.
+ * Marketing header (editorial rebuild): floating pill nav, Space Grotesk
+ * wordmark, CSS-only desktop dropdowns, bottom-sheet mobile panel.
+ * Language switcher uses crawlable links preserving the deep path.
  */
 "use client";
 
@@ -27,34 +27,38 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
   const suffix = pathname.replace(/^\/[a-z]{2}(?=\/|$)/, "") || "/";
   const base = `/${locale}`;
   const linkCls =
-    "inline-flex min-h-11 items-center rounded-md px-3 text-[15px] text-muted hover:text-text";
+    "inline-flex min-h-11 items-center rounded-full px-3.5 text-[15px] font-medium text-muted transition-colors hover:bg-surface-muted hover:text-text";
 
   return (
-    <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex h-16 max-w-6xl md:h-20 items-center justify-between gap-3 px-4">
+    <header className="sticky top-3 z-40 px-3 sm:px-4">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 rounded-full border border-border/70 bg-surface/90 py-2 ps-3 pe-2 shadow-[var(--shadow-lift)] backdrop-blur-md md:h-[4.5rem] md:ps-5 md:pe-3">
         <Link
           href={base}
-          className="flex min-h-11 items-center gap-2 text-lg font-bold tracking-tight"
+          className="font-display flex min-h-11 items-center gap-2.5 text-xl font-bold tracking-[-0.02em]"
           aria-label="Karti"
         >
           <span
             aria-hidden="true"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-lg font-bold text-accent-contrast"
+            className="font-display flex h-9 w-9 items-center justify-center rounded-full bg-ink text-lg font-bold text-white"
           >
             K
           </span>
           Karti
         </Link>
-        <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Primary" className="hidden items-center gap-0.5 lg:flex">
           <div className="group relative">
             <button
               type="button"
               aria-haspopup="true"
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-md px-3 text-[15px] text-muted group-hover:text-text"
+              aria-expanded="false"
+              className="inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-lg px-3 text-[15px] font-medium text-muted group-hover:text-text"
             >
               {dict.nav.products}
+              <span aria-hidden="true" className="text-xs text-muted">
+                ▾
+              </span>
             </button>
-            <div className="invisible absolute top-full z-20 w-64 rounded-xl border border-border bg-surface p-3 opacity-0 shadow-card group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+            <div className="invisible absolute top-full z-20 w-72 rounded-2xl border border-border bg-surface p-3 opacity-0 shadow-[var(--shadow-lift)] transition-all group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
               <p className="px-2 pt-1 text-xs font-semibold tracking-wide text-muted uppercase">
                 {dict.nav.profileGroup}
               </p>
@@ -85,11 +89,15 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
             <button
               type="button"
               aria-haspopup="true"
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-md px-3 text-[15px] text-muted group-hover:text-text"
+              aria-expanded="false"
+              className="inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-lg px-3 text-[15px] font-medium text-muted group-hover:text-text"
             >
               {dict.nav.solutions}
+              <span aria-hidden="true" className="text-xs text-muted">
+                ▾
+              </span>
             </button>
-            <div className="invisible absolute top-full z-20 w-60 rounded-xl border border-border bg-surface p-3 opacity-0 shadow-card group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+            <div className="invisible absolute top-full z-20 w-60 rounded-2xl border border-border bg-surface p-3 opacity-0 shadow-[var(--shadow-lift)] transition-all group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
               {SOLUTION_SLUGS.map((slug) => {
                 const key = solutionSlugToKey(slug);
                 if (!key) return null;
@@ -125,7 +133,7 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
                 key={code}
                 href={`/${code}${suffix === "/" ? "" : suffix}`}
                 hrefLang={code}
-                className="inline-flex min-h-11 items-center rounded-md px-2 text-xs font-semibold text-muted uppercase hover:text-text"
+                className="inline-flex min-h-11 items-center rounded-full px-2.5 text-xs font-bold text-muted uppercase transition-colors hover:bg-surface-muted hover:text-text"
               >
                 {code}
               </a>
@@ -133,18 +141,19 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
           </nav>
           <Link
             href={orderPath(locale)}
-            className="inline-flex min-h-11 items-center rounded-md bg-accent px-5 text-[15px] font-medium text-accent-contrast hover:bg-accent-strong"
+            className="font-display inline-flex min-h-12 items-center rounded-full bg-ink px-6 text-[15px] font-bold text-white transition-all hover:-translate-y-px hover:bg-accent-strong"
           >
             {dict.nav.orderCta}
           </Link>
           <button
             type="button"
-            className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border border-border px-3 text-sm font-medium lg:hidden"
+            className="inline-flex min-h-12 min-w-12 cursor-pointer items-center justify-center rounded-full bg-ink px-3 text-lg font-bold text-white transition-transform active:scale-95 lg:hidden"
             aria-expanded={open}
             aria-controls="mobile-nav"
+            aria-label={open ? dict.nav.closeMenu : dict.nav.menu}
             onClick={() => setOpen((value) => !value)}
           >
-            {open ? dict.nav.closeMenu : dict.nav.menu}
+            <span aria-hidden="true">{open ? "✕" : "☰"}</span>
           </button>
         </div>
       </div>
@@ -152,9 +161,9 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
         <nav
           id="mobile-nav"
           aria-label="Primary"
-          className="border-t border-border px-4 py-3 lg:hidden"
+          className="mx-auto mt-2 max-w-6xl rounded-[1.75rem] border border-border/70 bg-surface/95 px-5 pt-4 pb-6 shadow-[var(--shadow-hero)] backdrop-blur-md lg:hidden"
         >
-          <p className="pt-1 text-xs font-semibold tracking-wide text-muted uppercase">
+          <p className="font-display pt-1 text-xs font-bold tracking-[0.18em] text-muted uppercase">
             {dict.nav.profileGroup}
           </p>
           <ul className="mt-1 flex flex-col">
@@ -162,7 +171,7 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
               <li key={product}>
                 <Link
                   href={localePath(locale, "products", productSlugFromType(product))}
-                  className="flex min-h-11 items-center rounded-md text-sm hover:bg-surface-muted"
+                  className="flex min-h-12 items-center rounded-2xl px-2 text-[15px] font-medium hover:bg-surface-muted"
                   onClick={() => setOpen(false)}
                 >
                   {dict.products[product].name}
@@ -170,7 +179,7 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
               </li>
             ))}
           </ul>
-          <p className="pt-3 text-xs font-semibold tracking-wide text-muted uppercase">
+          <p className="font-display pt-4 text-xs font-bold tracking-[0.18em] text-muted uppercase">
             {dict.nav.solutions}
           </p>
           <ul className="mt-1 flex flex-col">
@@ -202,7 +211,7 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="flex min-h-11 items-center rounded-md text-sm hover:bg-surface-muted"
+                  className="flex min-h-12 items-center rounded-xl px-2 text-[15px] font-medium hover:bg-surface-muted"
                   onClick={() => setOpen(false)}
                 >
                   {item.label}
@@ -210,7 +219,18 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
               </li>
             ))}
           </ul>
-          <LanguageLinks locale={locale} dict={dict} suffix={suffix} />
+          <div className="mt-4">
+            <Link
+              href={orderPath(locale)}
+              className="flex min-h-13 items-center justify-center rounded-xl bg-accent px-6 text-base font-semibold text-accent-contrast"
+              onClick={() => setOpen(false)}
+            >
+              {dict.nav.orderCta}
+            </Link>
+          </div>
+          <div className="mt-3 border-t border-border pt-3">
+            <LanguageLinks locale={locale} dict={dict} suffix={suffix} />
+          </div>
         </nav>
       ) : null}
     </header>
