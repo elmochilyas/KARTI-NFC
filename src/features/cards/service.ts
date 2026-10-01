@@ -65,6 +65,8 @@ function toSummary(row: CardRow & { clients: AssignedClient }): CardSummary {
     short_code: row.short_code,
     status: row.status,
     destination_type: row.destination_type,
+    destination_profile_id: row.destination_profile_id,
+    destination_url: row.destination_url,
     created_at: row.created_at,
     clients: row.clients,
   };

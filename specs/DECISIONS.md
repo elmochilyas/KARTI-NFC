@@ -2575,7 +2575,7 @@ on `RATE_LIMIT_SECRET` rotation â€” both deliberate, documented in
 
 ---
 
-## ADR-075 — Google Tag Manager via centralized adapter + Consent Mode defaults
+## ADR-075 ï¿½ Google Tag Manager via centralized adapter + Consent Mode defaults
 
 **Status:** Accepted
 **Date:** 2026-09-30
@@ -2584,7 +2584,7 @@ on `RATE_LIMIT_SECRET` rotation â€” both deliberate, documented in
 
 Marketing needs GA4 measurement through GTM-PCXTLTM7 without breaking the
 existing privacy-safe analytics adapter, attribution source-of-truth, or
-dashboard isolation — and without firing analytics before consent.
+dashboard isolation ï¿½ and without firing analytics before consent.
 
 ### Decision
 
@@ -2606,7 +2606,7 @@ dashboard isolation — and without firing analytics before consent.
   preferences" reopen event; 180-day first-party cookie, no identity.
 - ONE centralized sanitized `page_view` (`PageViewTracker`, pathname +
   locale + page_type); explicit funnel events untouched; GA4 automatic
-  `page_view` must stay disabled (documented in DEPLOYMENT §3b).
+  `page_view` must stay disabled (documented in DEPLOYMENT ï¿½3b).
 - Attribution untouched: GTM is a transport, never the Order source of
   truth. No CSP change (none exists; GTM origins documented for the
   Phase-14 nonce-CSP work).
@@ -2616,3 +2616,45 @@ dashboard isolation — and without firing analytics before consent.
 No direct GA4 script; `order_submitted` (safe categorical payload) is
 the future GA4 conversion event. GTM container configuration/publish
 remains a manual step in Google Tag Manager.
+
+---
+
+## ADR-076 â€” Multi-card first-class on the client page
+
+**Status:** Accepted
+**Date:** 2026-10-01
+
+### Context
+
+The data model always allowed one client â†’ many cards, but the dashboard
+was single-primary biased: the client NFC section showed only
+`pickPrimaryCard()`, the configure action always reused it, and the full
+list hid under "All cards (advanced)". Operators could not see each
+card's link or add a second card without inventory hunting.
+
+### Decision
+
+- Client detail shows one unified `NfcCardSection`: every owned card with
+  its own `KARTI-XXXXXX`, status, destination (`Opens` + external URL when
+  present), permanent `https://karti.app/t/{shortCode}` with Copy + Test,
+  per-card `Change destination` (`/nfc?card={id}`) and `Card details`,
+  Primary badge (existing `pickPrimaryCard` rule, unchanged for counts),
+  QR/NFC expander on the primary, `Add another card` (`/nfc?new=1`), and
+  the unassigned-inventory attach picker. `ClientCardsSection` removed.
+- `CARD_LIST_COLUMNS` / `CardSummary` now carry `destination_url` +
+  `destination_profile_id` so the list needs no N+1 detail fetches.
+- `configureCardForClient(clientId, input, db, { cardId?, forceNew? })`:
+  explicit `cardId` must belong to the client (else NOT_FOUND, nothing
+  created); `LOST`/`REPLACED` rejected with guidance; `forceNew` always
+  creates an additional card; default stays primary-reuse. Activation,
+  destination, and permanent-URL rules unchanged.
+- NFC configure page honors `?card=` (validates ownership, 404 otherwise)
+  and `?new=1` with distinct titles, context banners, hidden form fields,
+  and success copy. LOST/REPLACED cards hide the change action.
+
+### Consequences
+
+No schema migration (FK already one-to-many); resolver, RLS, QR/NFC
+payload parity, and dashboard `Configured Cards` counts unchanged. Other
+cards are never touched by a single-card configure.
+

@@ -14,6 +14,8 @@ function summary(overrides: Partial<Row> & { id: string }): CardSummary {
     short_code: "ABCDEFGH",
     status: "ASSIGNED",
     destination_type: null,
+    destination_profile_id: null,
+    destination_url: null,
     created_at: "2026-01-01T00:00:00.000Z",
     clients: { id: CLIENT_ID, name: "Client" },
     ...overrides,
@@ -275,5 +277,68 @@ describe("configureCardForClient", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("NOT_FOUND");
+  });
+
+  it("forceNew creates an additional card without touching the existing one", async () => {
+    const store = storeWithProfile();
+    const db = fakeDb(store);
+    const first = await configureCardForClient(CLIENT_ID, { kind: "PROFILE" }, db);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const firstId = first.data.card.id;
+
+    const second = await configureCardForClient(
+      CLIENT_ID,
+      { kind: "EXTERNAL_URL", url: "https://example.com/second" },
+      db,
+      { forceNew: true },
+    );
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.data.card.id).not.toBe(firstId);
+    expect(second.data.card.destination_type).toBe("EXTERNAL_URL");
+    expect(second.data.card.status).toBe("ACTIVE");
+    expect(store.cards).toHaveLength(2);
+  });
+
+  it("cardId configures one specific card and leaves others untouched", async () => {
+    const store = storeWithProfile();
+    const db = fakeDb(store);
+    const first = await configureCardForClient(CLIENT_ID, { kind: "PROFILE" }, db);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = await configureCardForClient(
+      CLIENT_ID,
+      { kind: "EXTERNAL_URL", url: "https://example.com/b" },
+      db,
+      { forceNew: true },
+    );
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+
+    const target = await configureCardForClient(
+      CLIENT_ID,
+      { kind: "EXTERNAL_URL", url: "https://example.com/updated" },
+      db,
+      { cardId: first.data.card.id },
+    );
+    expect(target.ok).toBe(true);
+    if (!target.ok) return;
+    expect(target.data.card.id).toBe(first.data.card.id);
+    expect(target.data.card.destination_url).toBe("https://example.com/updated");
+    expect(store.cards).toHaveLength(2);
+  });
+
+  it("rejects a cardId that does not belong to the client", async () => {
+    const store = storeWithProfile();
+    const result = await configureCardForClient(
+      CLIENT_ID,
+      { kind: "PROFILE" },
+      fakeDb(store),
+      { cardId: "123e4567-e89b-12d3-a456-426614174099" },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("NOT_FOUND");
+    expect(store.cards).toHaveLength(0);
   });
 });

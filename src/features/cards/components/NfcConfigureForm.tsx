@@ -63,6 +63,9 @@ export function NfcConfigureForm({
   profileActive,
   website,
   suggestions,
+  targetCardId = null,
+  forceNew = false,
+  targetCardNumber = null,
 }: {
   clientId: string;
   clientName: string;
@@ -70,6 +73,9 @@ export function NfcConfigureForm({
   profileActive: boolean;
   website: string | null;
   suggestions: DestinationSuggestion[];
+  targetCardId?: string | null;
+  forceNew?: boolean;
+  targetCardNumber?: string | null;
 }) {
   const [state, formAction, pending] = useActionState(
     configureNfcAction.bind(null, clientId),
@@ -97,9 +103,7 @@ export function NfcConfigureForm({
         className="rounded-xl border border-border bg-surface p-5 shadow-[var(--shadow-card)]"
       >
         <h2 className="text-base font-semibold text-text">Card ready ✓</h2>
-        <p className="mt-1 text-sm text-muted">
-          {state.message} Same card, same URL — reconfiguring never changes the physical tag.
-        </p>
+        <p className="mt-1 text-sm text-muted">{state.message}</p>
         <div className="mt-4">
           {state.shortCode && state.cardNumber ? (
             <PhysicalCardPanel
@@ -124,8 +128,20 @@ export function NfcConfigureForm({
   const needsUrl = preset !== "profile";
   const profileBlocked = !profileAvailable || !profileActive;
 
+  const heading = forceNew
+    ? "You are adding an additional card. Existing cards stay active."
+    : targetCardNumber
+      ? `You are updating ${targetCardNumber} only.`
+      : null;
+  const submitLabel = forceNew ? "Create & activate additional card" : "Confirm & activate card";
+
   return (
     <form action={formAction} className="flex flex-col gap-6" noValidate>
+      {heading ? (
+        <p className="rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+          {heading}
+        </p>
+      ) : null}
       {state.message ? (
         <p
           role="alert"
@@ -134,6 +150,8 @@ export function NfcConfigureForm({
           {state.message}
         </p>
       ) : null}
+      {targetCardId && !forceNew ? <input type="hidden" name="card_id" value={targetCardId} /> : null}
+      {forceNew ? <input type="hidden" name="new_card" value="1" /> : null}
 
       <section
         aria-label="Destination"
@@ -265,7 +283,7 @@ export function NfcConfigureForm({
       ) : null}
 
       <Button type="submit" loading={pending}>
-        {pending ? "Configuring…" : "Confirm & activate card"}
+        {pending ? "Configuring…" : submitLabel}
       </Button>
     </form>
   );

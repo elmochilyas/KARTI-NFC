@@ -3987,6 +3987,51 @@ pricing-model changes. Quote-only pricing kept.
 
 ---
 
+# Phase 38 — Multi-Card First-Class on Client Page (easy & clear)
+
+Client can have multiple cards, each with its own permanent link and
+destination, all visible and manageable from the client workspace. No
+schema change (FK already one-to-many). See ADR-076.
+
+## 38.1 Orchestration
+
+- [x] `configureCardForClient(..., { cardId?, forceNew? })` — explicit card
+      must belong to client (else NOT_FOUND, creates nothing);
+      LOST/REPLACED rejected with guidance; `forceNew` always creates an
+      additional card; default stays primary-reuse.
+- [x] `CARD_LIST_COLUMNS` / `CardSummary` carry `destination_url` +
+      `destination_profile_id` (no N+1 detail fetches for the list).
+- [x] Unit tests: forceNew creates 2nd card; cardId updates only that card;
+      foreign cardId rejected; existing 11 orchestration cases untouched.
+
+## 38.2 Dashboard UX
+
+- [x] Unified `NfcCardSection`: `NFC Cards (N)` — each card shows number +
+      Primary badge + status, `Opens` + external URL, permanent `/t/` URL
+      with Copy + Test, per-card `Change destination` (`/nfc?card=`) and
+      `Card details`, QR/NFC expander on primary, `Add another card`
+      (`/nfc?new=1`), unassigned-inventory attach picker.
+- [x] NFC configure page honors `?card=` (ownership-checked, 404 otherwise)
+      and `?new=1` with distinct titles/banners/hidden fields/success copy.
+- [x] Client detail uses the single unified section; `ClientCardsSection`
+      ("All cards (advanced)") removed.
+- [x] LOST/REPLACED cards show "Retired — add another card instead."
+
+### Phase 38 gate
+
+- [x] Each card has its own visible permanent link and destination.
+- [x] Add-another-card and change-one-card flows work from the client page.
+- [x] Other cards never touched by a single-card configure.
+- [x] Typecheck/lint/test/build pass.
+
+> 2026-10-01: implemented per plan (no migration; resolver/RLS/QR/NFC
+> parity/dashboard counts unchanged). `typecheck`, `lint`, `test` (112
+> files / 1159 tests), `build` green. Human confirmations: browser
+> click-through (add 2nd card, change one destination, verify other
+> unchanged + Test Links) + 390px eyeball.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.
