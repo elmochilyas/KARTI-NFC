@@ -1,6 +1,10 @@
 import { normalizeSlug } from "@/domain/slugs";
 import { readPrimaryRefs, sanitizePrimaryRefs } from "@/components/public-profile/brandIcons";
-import { defaultSectionSettings, sanitizePublicSettings } from "./sectionSettings";
+import {
+  defaultSectionSettings,
+  sanitizePublicSettings,
+  stripBlankGalleryImages,
+} from "./sectionSettings";
 import type { ProfileLinkRow, ProfileRow, ProfileSectionRow } from "./types";
 import type { PublicLink, PublicProfile, PublicSection } from "./public";
 import type { ProfileTheme, ProfileType } from "./schema";
@@ -160,17 +164,24 @@ function linksFromRows(rows: ProfileLinkRow[]): DraftLink[] {
 function sectionsFromRows(rows: ProfileSectionRow[]): DraftSection[] {
   return [...rows]
     .sort((a, b) => a.position - b.position)
-    .map((s, index) => ({
-      id: s.id,
-      type: s.type,
-      position: index + 1,
-      enabled: s.enabled,
-      settings:
+    .map((s, index) => {
+      const raw =
         s.settings !== null && typeof s.settings === "object"
           ? { ...(s.settings as Record<string, unknown>) }
-          : {},
-      isNew: false,
-    }));
+          : {};
+      // Empty gallery slots are UI-transient: normalize them away on load
+      // so a previously persisted blank self-heals on the next save instead
+      // of lingering in the draft forever.
+      const settings = s.type === "gallery" ? stripBlankGalleryImages(raw) : raw;
+      return {
+        id: s.id,
+        type: s.type,
+        position: index + 1,
+        enabled: s.enabled,
+        settings,
+        isNew: false,
+      };
+    });
 }
 
 export function initDraft(input: {
@@ -506,6 +517,7 @@ function cleanSectionSettings(
   settings: Record<string, unknown>,
   draft: EditorDraft,
 ): Record<string, unknown> {
+  if (type === "gallery") return stripBlankGalleryImages(settings);
   if (type !== "actions" || !("primaryActions" in settings)) return settings;
   // Draft-temp refs (links added but not yet saved) survive hygiene — the
   // unified save remaps them to real ids instead of dropping them.

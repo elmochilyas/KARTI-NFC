@@ -68,4 +68,26 @@ describe("gallery empty state", () => {
     expect(html).toContain("upload immediately");
     expect(html).toContain("Press Save to keep them.");
   });
+
+  it("caps the gallery at 24 photos with a hint instead of a save-time surprise", () => {
+    const image = "123e4567-e89b-12d3-a456-426614174001/sections/gallery/abcdef0123456789.webp";
+    const html = renderToStaticMarkup(
+      createElement(SectionSettingsRenderer, {
+        type: "gallery",
+        settings: {
+          title: "Gallery",
+          layout: "grid",
+          images: Array.from({ length: 24 }, (_, i) => ({
+            id: `g${i}`,
+            image,
+            alt: "",
+          })),
+        },
+        pending: false,
+        onSave: () => {},
+      }),
+    );
+    expect(html).toContain("up to 24 photos");
+    expect(html).toContain("disabled");
+  });
 });
