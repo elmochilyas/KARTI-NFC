@@ -113,6 +113,7 @@ export function AppearanceStep() {
                 typeLabel="Gallery"
                 presets={galleryPresets}
                 pending={false}
+                currentSettings={galleryRow.settings}
                 onApply={(_presetId, presetSettings) =>
                   dispatch({
                     type: "setSectionSettings",
@@ -129,6 +130,7 @@ export function AppearanceStep() {
                 typeLabel="Menu"
                 presets={menuPresets}
                 pending={false}
+                currentSettings={menuRow.settings}
                 onApply={(_presetId, presetSettings) =>
                   dispatch({
                     type: "setSectionSettings",

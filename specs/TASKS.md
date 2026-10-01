@@ -4122,6 +4122,27 @@ QUOTE/NULL; the operator enters real values through the dashboard.
 
 ---
 
+# Fix 2026-10-01 — Preset buttons selected state (profile editor)
+
+> Operator report: dashboard profile-config preset buttons had no UI/UX
+> response when selected — click applied silently, button never looked
+> active. Root cause: `SectionPresetBar` never received current settings,
+> so it could not mark anything active (always `variant="secondary"`,
+> no `aria-pressed`).
+
+- [x] `SectionPresetBar` accepts `currentSettings` (+ `activeId` override)
+      with pure `isPresetActive` partial-match helper; active preset renders
+      `variant="primary"` + `Check` icon + `aria-pressed="true"` and
+      `(active)` label (never color alone).
+- [x] Wired `currentSettings` in `AppearanceStep` (Gallery/Menu),
+      `ContactStep` (Quick actions), `SectionsStep` (per-section Configure).
+- [x] `SectionPresetBar.test.ts` (9 cases: exact/partial/mismatch/missing/
+      empty, pressed markup, no-match, no-settings, activeId override,
+      empty-list null).
+- [x] `typecheck`, `lint`, `test` (122 files / 1228 tests), `build` green.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.
