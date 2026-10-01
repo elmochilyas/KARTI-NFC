@@ -81,6 +81,7 @@ export function ReviewStep({
   customerWhatsapp,
   delivery,
   onEdit,
+  priceLine = null,
 }: {
   dict: VitrineDict;
   product: ProductType;
@@ -91,6 +92,8 @@ export function ReviewStep({
   customerWhatsapp: string;
   delivery: DeliveryForm;
   onEdit: (step: number) => void;
+  /** Visible catalog unit snapshot (null = QUOTE, request-price wording). */
+  priceLine?: string | null;
 }) {
   const r = dict.order.review;
   const contactLabel =
@@ -187,8 +190,17 @@ export function ReviewStep({
 
       <section aria-label={r.pricing} className="rounded-2xl bg-neutral-muted p-5 md:p-6">
         <p className="text-sm text-muted">{r.pricing}</p>
-        <p className="mt-1 text-lg font-bold">{r.quotePending}</p>
-        <p className="mt-1 text-sm text-muted">{dict.order.quoteNote}</p>
+        {priceLine ? (
+          <>
+            <p className="mt-1 text-lg font-bold">{priceLine}</p>
+            <p className="mt-1 text-sm text-muted">{dict.order.quoteNote}</p>
+          </>
+        ) : (
+          <>
+            <p className="mt-1 text-lg font-bold">{r.quotePending}</p>
+            <p className="mt-1 text-sm text-muted">{dict.order.quoteNote}</p>
+          </>
+        )}
       </section>
     </div>
   );

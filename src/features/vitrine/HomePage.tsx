@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { LuLink2, LuPhone } from "react-icons/lu";
 import { SiGoogle, SiInstagram, SiWhatsapp } from "react-icons/si";
+import type { ProductType } from "@/domain/orders/productTypes";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { allProducts, productSlugFromType } from "./products";
 import { localePath, orderPath, solutionKeyToSlug, solutionPath } from "./site";
@@ -27,8 +28,32 @@ const DIRECT_ICONS = {
   CUSTOM_LINK_CARD: LuLink2,
 } as const;
 
-export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }) {
+export function HomePage({
+  locale,
+  dict,
+  publishedFlags = null,
+  priceLines = null,
+}: {
+  locale: VitrineLocale;
+  dict: VitrineDict;
+  /** Unpublished products are excluded from marketing listings (null = all listed). */
+  publishedFlags?: Record<ProductType, boolean> | null;
+  /** Visible catalog price per product (absent = QUOTE/unpublished, no price shown). */
+  priceLines?: Partial<Record<ProductType, string>> | null;
+}) {
   const m = dict.marketingHome;
+  const visibleProfileProducts = PROFILE_PRODUCTS.filter(
+    (product) => publishedFlags?.[product] !== false,
+  );
+  const visibleDirectProducts = (
+    [
+      "GOOGLE_REVIEW_CARD",
+      "WHATSAPP_CARD",
+      "INSTAGRAM_CARD",
+      "CONTACT_CARD",
+      "CUSTOM_LINK_CARD",
+    ] as const
+  ).filter((product) => publishedFlags?.[product] !== false);
   const firstDemoTab = m.demoTabs[0];
   const differentiator = m.whyItems[m.whyItems.length - 1];
   const supporting = m.whyItems.slice(0, -1);
@@ -131,7 +156,10 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
         <Section id="how" title={dict.home.howTitle} eyebrow={m.heroSecondary}>
           <ol className="divide-y divide-border/70 border-y border-border/70">
             {dict.home.howSteps.map((step, index) => (
-              <li key={step.title} className="grid gap-1.5 py-5 sm:grid-cols-[auto_1fr] sm:gap-6 md:py-6">
+              <li
+                key={step.title}
+                className="grid gap-1.5 py-5 sm:grid-cols-[auto_1fr] sm:gap-6 md:py-6"
+              >
                 <p
                   aria-hidden="true"
                   className="font-display text-4xl font-bold tracking-[-0.03em] text-ink/15 tabular-nums md:text-5xl"
@@ -142,7 +170,9 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
                   <p className="font-display text-xl font-bold tracking-[-0.01em] text-text">
                     {step.title}
                   </p>
-                  <p className="mt-1.5 max-w-2xl text-base leading-relaxed text-muted">{step.desc}</p>
+                  <p className="mt-1.5 max-w-2xl text-base leading-relaxed text-muted">
+                    {step.desc}
+                  </p>
                 </div>
               </li>
             ))}
@@ -170,9 +200,10 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
           eyebrow={dict.nav.products}
         >
           <div className="grid gap-4 md:grid-cols-2">
-            {PROFILE_PRODUCTS.map((product, index) => {
+            {visibleProfileProducts.map((product, index) => {
               const copy = dict.products[product];
               const slug = productSlugFromType(product);
+              const priceLine = priceLines?.[product] ?? null;
               const featured = index === 0;
               return (
                 <article
@@ -192,6 +223,9 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
                     <p className="mt-2.5 text-base leading-relaxed text-pretty text-muted">
                       {copy.outcome}
                     </p>
+                    {priceLine ? (
+                      <p className="mt-2 text-lg font-bold text-text">{priceLine}</p>
+                    ) : null}
                     <div className="mt-5 flex flex-wrap items-center gap-3">
                       <TrackLink
                         href={orderPath(locale, slug)}
@@ -231,17 +265,10 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
       <PageContainer>
         <Section title={dict.nav.directGroup} eyebrow={dict.nav.directGroup}>
           <ul className="divide-y divide-border/70 border-y border-border/70">
-            {(
-              [
-                "GOOGLE_REVIEW_CARD",
-                "WHATSAPP_CARD",
-                "INSTAGRAM_CARD",
-                "CONTACT_CARD",
-                "CUSTOM_LINK_CARD",
-              ] as const
-            ).map((product, index) => {
+            {visibleDirectProducts.map((product, index) => {
               const copy = dict.products[product];
               const slug = productSlugFromType(product);
+              const priceLine = priceLines?.[product] ?? null;
               const Icon = DIRECT_ICONS[product];
               return (
                 <li key={product}>
@@ -269,6 +296,11 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
                         <span className="mt-0.5 block truncate text-sm text-muted">
                           {copy.tapEffect}
                         </span>
+                        {priceLine ? (
+                          <span className="mt-0.5 block text-sm font-bold text-text">
+                            {priceLine}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                     <span
@@ -417,7 +449,9 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
                 <p className="text-[11px] font-bold tracking-wider text-muted uppercase">
                   {dict.common.demoExample}
                 </p>
-                <p className="font-display mt-1.5 text-lg font-bold tracking-[-0.01em] text-text">{item.name}</p>
+                <p className="font-display mt-1.5 text-lg font-bold tracking-[-0.01em] text-text">
+                  {item.name}
+                </p>
                 <p className="mt-1 text-sm text-muted">{item.useCase}</p>
                 <div className="mt-3 flex justify-center rounded-2xl bg-gradient-to-b from-surface-muted/80 to-surface-muted/30 p-4">
                   <PhoneFrame title={item.tapResult} lines={[item.useCase]} size="md" />
@@ -577,20 +611,22 @@ export function HomePage({ locale, dict }: { locale: VitrineLocale; dict: Vitrin
         </div>
       </PageContainer>
 
-      {/* Full product index for crawlers + scanners */}
+      {/* Full product index for crawlers + scanners (unpublished excluded) */}
       <PageContainer>
         <nav aria-label={dict.common.products} className="border-t border-border py-10">
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {allProducts().map((product) => (
-              <li key={product}>
-                <Link
-                  href={localePath(locale, "products", productSlugFromType(product))}
-                  className="inline-flex min-h-11 items-center text-[15px] text-muted underline hover:text-text"
-                >
-                  {dict.products[product].name}
-                </Link>
-              </li>
-            ))}
+            {allProducts()
+              .filter((product) => publishedFlags?.[product] !== false)
+              .map((product) => (
+                <li key={product}>
+                  <Link
+                    href={localePath(locale, "products", productSlugFromType(product))}
+                    className="inline-flex min-h-11 items-center text-[15px] text-muted underline hover:text-text"
+                  >
+                    {dict.products[product].name}
+                  </Link>
+                </li>
+              ))}
           </ul>
         </nav>
       </PageContainer>

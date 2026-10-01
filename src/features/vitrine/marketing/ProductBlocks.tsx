@@ -259,7 +259,9 @@ export function ScenarioCards({
             <p className="text-[11px] font-bold tracking-wider text-muted uppercase">
               {dict.common.demoExample}
             </p>
-            <p className="font-display mt-1.5 text-lg font-bold tracking-[-0.01em] text-text">{item.name}</p>
+            <p className="font-display mt-1.5 text-lg font-bold tracking-[-0.01em] text-text">
+              {item.name}
+            </p>
             <p className="mt-1 text-sm text-muted">{item.useCase}</p>
             <div className="mt-3 flex justify-center rounded-2xl bg-gradient-to-b from-surface-muted/80 to-surface-muted/30 p-4">
               <PhoneFrame title={item.tapResult} lines={[item.useCase]} size="md" />
@@ -325,6 +327,84 @@ export function IncludedBlock({
           </li>
         ))}
       </ul>
+    </Section>
+  );
+}
+
+/**
+ * Catalog-aware pricing section: same card language as QuoteBlock.
+ * FIXED/FROM with a real price shows the exact visible price (+ "From"
+ * prefix for floor prices, CMS image thumb, pricing note); QUOTE renders
+ * the honest request-price fallback. Visible price and JSON-LD Offer price
+ * derive from the same minor units, so they always match.
+ */
+export function PriceBlock({
+  locale,
+  dict,
+  pricing,
+  priceLine,
+  pricingNote,
+  imageUrl,
+  imageAlt,
+}: {
+  locale: VitrineLocale;
+  dict: VitrineDict;
+  pricing: string;
+  priceLine: string | null;
+  pricingNote?: string | null;
+  imageUrl?: string | null;
+  imageAlt?: string;
+}) {
+  const note = pricingNote?.trim() !== "" ? pricingNote : pricing;
+  return (
+    <Section title={dict.productPage.pricingTitle}>
+      <div className="rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card md:p-6">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt={imageAlt ?? ""}
+            className="mb-4 h-40 w-full rounded-2xl border border-border object-cover"
+            loading="lazy"
+          />
+        ) : null}
+        {priceLine ? (
+          <>
+            <p className="font-display text-3xl font-bold tracking-[-0.02em] text-text">
+              {priceLine}
+            </p>
+            <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
+              {note}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
+              {dict.common.requestPrice} —
+            </p>
+            <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
+              {note}
+            </p>
+          </>
+        )}
+        <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+          <Link
+            href={orderPath(locale)}
+            className="font-display inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-bold text-white hover:bg-accent-strong"
+          >
+            {priceLine ? dict.common.orderNow : dict.common.requestPrice}
+          </Link>
+          <Link
+            href={localePath(locale, "pricing")}
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full px-6 text-[15px] font-semibold text-ink underline-offset-4 hover:underline"
+          >
+            {dict.common.learnMore}
+            <span aria-hidden="true" className="karti-flip-rtl">
+              →
+            </span>
+          </Link>
+        </div>
+      </div>
     </Section>
   );
 }

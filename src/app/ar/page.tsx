@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getHomeCatalogData } from "@/features/catalog/route";
 import { HomePage } from "@/features/vitrine/HomePage";
 import { getDict } from "@/features/vitrine/i18n";
 import { getAppUrl } from "@/lib/env";
@@ -14,15 +15,16 @@ export function generateMetadata(): Metadata {
   });
 }
 
-export default function ArHomePage() {
+export default async function ArHomePage() {
   const dict = getDict("ar");
+  const { flags, priceLines } = await getHomeCatalogData("ar");
   return (
     <>
       <JsonLd
         id="karti-jsonld-organization"
         data={organizationJsonLd(getAppUrl(), "Karti", dict.meta.home.description)}
       />
-      <HomePage locale="ar" dict={dict} />
+      <HomePage locale="ar" dict={dict} publishedFlags={flags} priceLines={priceLines} />
     </>
   );
 }

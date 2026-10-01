@@ -24,6 +24,8 @@ export function ProductStep({
   onProductChange,
   onQuantityChange,
   onConfigChange,
+  publishedFlags = null,
+  priceLines = null,
 }: {
   dict: VitrineDict;
   product: ProductType | null;
@@ -35,7 +37,13 @@ export function ProductStep({
   onProductChange: (product: ProductType) => void;
   onQuantityChange: (quantity: number) => void;
   onConfigChange: (patch: Record<string, unknown>) => void;
+  /** Unpublished products are excluded from the selector (null = all listed). */
+  publishedFlags?: Record<ProductType, boolean> | null;
+  /** Visible catalog price per product (absent = QUOTE, request-price note). */
+  priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
+  const selectable = allProducts().filter((id) => publishedFlags?.[id] !== false);
+  const selectedPriceLine = product ? (priceLines?.[product] ?? null) : null;
   return (
     <div className="space-y-6">
       {!lockedProduct ? (
@@ -49,7 +57,7 @@ export function ProductStep({
             role="radiogroup"
             aria-label={dict.order.selectProductTitle}
           >
-            {allProducts().map((id) => (
+            {selectable.map((id) => (
               <label
                 key={id}
                 className={`flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border p-4 ${
@@ -66,6 +74,11 @@ export function ProductStep({
                 <span>
                   <span className="block font-medium">{dict.products[id].name}</span>
                   <span className="block text-sm text-muted">{dict.products[id].tagline}</span>
+                  {priceLines?.[id] ? (
+                    <span className="mt-0.5 block text-sm font-bold text-text">
+                      {priceLines[id]}
+                    </span>
+                  ) : null}
                 </span>
               </label>
             ))}
@@ -133,7 +146,16 @@ export function ProductStep({
           </div>
 
           <p className="rounded-xl bg-neutral-muted p-4 text-sm text-muted">
-            {dict.order.quoteNote} {dict.products[product].pricing}
+            {selectedPriceLine ? (
+              <>
+                <span className="block text-base font-bold text-text">{selectedPriceLine}</span>
+                {dict.products[product].pricing}
+              </>
+            ) : (
+              <>
+                {dict.order.quoteNote} {dict.products[product].pricing}
+              </>
+            )}
           </p>
         </>
       ) : null}

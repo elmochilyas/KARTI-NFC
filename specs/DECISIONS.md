@@ -2658,3 +2658,65 @@ No schema migration (FK already one-to-many); resolver, RLS, QR/NFC
 payload parity, and dashboard `Configured Cards` counts unchanged. Other
 cards are never touched by a single-card configure.
 
+---
+
+## ADR-077 — Catalog CMS commercial overlay (static technical truth + DB presentation)
+
+**Status:** Accepted
+**Date:** 2026-10-01
+
+### Context
+
+The 8 canonical products lived in `src/domain/orders/catalog.ts` as
+QUOTE-only static definitions. Commercial reality (prices, images,
+localized copy, visibility, SEO) needs operator editing without touching
+technical behavior (ProductType, requiresProfile, profileType,
+PROFILE-vs-EXTERNAL_URL, provisioning, normalization, order config
+schemas), and the public vitrine, checkout pricing, and Product
+structured data must share one source of truth.
+
+### Decision
+
+- New tables `catalog_products` (TEXT PRIMARY KEY + pricing/published/
+  image-pointer columns), `catalog_product_localizations`
+  (product_type × fr/en/ar: scalar copy + JSONB string arrays + FAQs as
+  `[{q,a}]`), `catalog_product_media` (storage path + role + sort +
+  localized alts). TEXT + CHECK throughout (ADR-010); FIXED/FROM
+  require `price_minor > 0`, QUOTE forbids it; currency pinned `'MAD'`.
+  No technical-behavior column exists, so it cannot be edited by
+  construction.
+- New public `catalog-assets` bucket (JPEG/PNG/WebP, 5 MB, no SVG),
+  public read + `(select private.is_admin())` writes; server-generated
+  `catalog/{TYPE}/{role}/{hex}.{ext}` paths with magic-byte + MIME-match
+  gates. RLS admin-only on all three tables, anon default-deny; public
+  rendering reads published rows through the server-only service-role
+  client with explicit projections (ADR-018/032 pattern, no anon
+  policies).
+- `priceOrder()` accepts a server-loaded `catalogPrice` override; with
+  unresolved delivery (the public-order case) a FIXED/FROM price
+  snapshots `unit/subtotal` while `pricing_status` stays
+  `QUOTE_REQUIRED` with `total_minor NULL` — no schema change needed
+  (`orders_priced_totals_present` already allows it), finalized later
+  via `admin_set_order_price`. `createPublicOrderAction` blocks
+  unpublished products and never reads browser prices.
+- Public catalog uses purge-only `unstable_cache` + one global
+  `catalog-products` tag (`updateTag` on every admin write, ADR-045
+  pattern); order submission always reads the live row. `sitemap.ts` is
+  async and excludes unpublished products; unpublished detail routes stay
+  stable but render `noindex, nofollow` with no Offer markup.
+- Product JSON-LD emits `Product + Offer` (name/description/real image/
+  brand=Karti, offer url/decimal-price/MAD, real availability only) iff
+  a published FIXED/FROM price exists — visible and schema prices derive
+  from the same minor units. QUOTE stays a bare Product: no fake price,
+  review, rating, or availability (Search Console fix path).
+- `src/types/database.ts` carries a marked manual backport of the three
+  tables until `pnpm db:types` can re-run with a token (ADR-046
+  precedent).
+
+### Consequences
+
+Static definitions stay authoritative for behavior; the DB is
+authoritative for commercial presentation. Price changes affect only new
+order snapshots; historical orders are immutable. Seeded QUOTE/NULL for
+all 8 — no invented prices; the operator enters real values through
+`/dashboard/catalog`.

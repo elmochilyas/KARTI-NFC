@@ -1,17 +1,14 @@
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import {
+  getProductRoute,
+  productRouteJsonLd,
+  productRouteMetadata,
+} from "@/features/catalog/route";
 import { ProductPage } from "@/features/vitrine/ProductPage";
 import { getDict } from "@/features/vitrine/i18n";
-import { PRODUCT_PUBLIC_SLUGS, productTypeFromSlug } from "@/features/vitrine/products";
-import { getAppUrl } from "@/lib/env";
-import {
-  breadcrumbJsonLd,
-  faqJsonLd,
-  JsonLd,
-  pageMetadata,
-  productJsonLd,
-} from "@/features/vitrine/seo";
-import { localePath } from "@/features/vitrine/site";
+import { PRODUCT_PUBLIC_SLUGS } from "@/features/vitrine/products";
+import { JsonLd } from "@/features/vitrine/seo";
+import { getCachedPublishedFlags } from "@/features/catalog/cache";
 
 export function generateStaticParams(): { productSlug: string }[] {
   return PRODUCT_PUBLIC_SLUGS.map((productSlug) => ({ productSlug }));
@@ -21,25 +18,8 @@ export function generateMetadata({
   params,
 }: {
   params: Promise<{ productSlug: string }>;
-}): Promise<Metadata> {
-  return buildMetadata(params, "en");
-}
-
-async function buildMetadata(
-  params: Promise<{ productSlug: string }>,
-  locale: "en",
-): Promise<Metadata> {
-  const { productSlug } = await params;
-  const product = productTypeFromSlug(productSlug);
-  if (!product) return { title: "Karti", robots: { index: false, follow: false } };
-  const dict = getDict(locale);
-  const copy = dict.products[product];
-  return pageMetadata({
-    locale,
-    title: `${copy.name} — Karti`,
-    description: copy.outcome,
-    segments: ["products", productSlug],
-  });
+}): Promise<import("next").Metadata> {
+  return params.then(({ productSlug }) => productRouteMetadata(productSlug, "en", getDict("en")));
 }
 
 export default async function EnProductPage({
@@ -48,28 +28,23 @@ export default async function EnProductPage({
   params: Promise<{ productSlug: string }>;
 }) {
   const { productSlug } = await params;
-  const product = productTypeFromSlug(productSlug);
-  if (!product) notFound();
+  const route = await getProductRoute(productSlug, "en");
+  if (!route) notFound();
   const dict = getDict("en");
-  const copy = dict.products[product];
-  const appUrl = getAppUrl();
-  const url = `${appUrl}${localePath("en", "products", productSlug)}`;
+  const jsonLd = productRouteJsonLd(route, dict, productSlug, "en");
+  const flags = await getCachedPublishedFlags();
   return (
     <>
-      <JsonLd
-        id="karti-jsonld-product"
-        data={productJsonLd({ name: copy.name, description: copy.outcome, url })}
+      <JsonLd id="karti-jsonld-product" data={jsonLd.product} />
+      <JsonLd id="karti-jsonld-breadcrumb" data={jsonLd.breadcrumb} />
+      <JsonLd id="karti-jsonld-faq" data={jsonLd.faq} />
+      <ProductPage
+        locale="en"
+        dict={dict}
+        slug={productSlug}
+        catalog={route.catalog}
+        publishedFlags={flags}
       />
-      <JsonLd
-        id="karti-jsonld-breadcrumb"
-        data={breadcrumbJsonLd([
-          { label: dict.common.home, url: `${appUrl}/en` },
-          { label: dict.common.products, url: `${appUrl}/en#products` },
-          { label: copy.name, url },
-        ])}
-      />
-      <JsonLd id="karti-jsonld-faq" data={faqJsonLd(copy.faq)} />
-      <ProductPage locale="en" dict={dict} slug={productSlug} />
     </>
   );
 }

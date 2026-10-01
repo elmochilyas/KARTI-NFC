@@ -23,6 +23,8 @@ import {
 import { priceOrder } from "@/domain/orders/pricing";
 import { PRODUCT_TYPES, isProductType } from "@/domain/orders/productTypes";
 import { orderProductConfigurationSchema } from "@/domain/orders/schemas";
+import { getOrderCatalogPrice } from "@/features/catalog/public";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createOrderWriterClient } from "@/lib/supabase/orderWriter";
 import { getClientIp, isHoneypotFilled, isTooFast } from "../antispam";
 import { checkPublicRateLimit } from "../rateLimitServer";
@@ -247,9 +249,33 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
     if (address === "" || address.length > MAX_ADDRESS) return invalid();
     if (instructions.length > MAX_NOTES) return invalid();
 
-    // Server-authoritative pricing from the catalog (browser amounts
-    // cannot reach this function — no price input exists).
-    const pricing = priceOrder({ productType: input.productType, quantity: input.quantity });
+    // Server-authoritative pricing from the live catalog (browser amounts
+    // cannot reach this function — no price input exists). Unpublished
+    // products refuse new orders; an unreachable catalog falls back to
+    // static QUOTE pricing (fail-safe, never a wrong price). Delivery is
+    // operator-quoted, so the snapshot keeps unit/subtotal truth while the
+    // final total stays unknown until `admin_set_order_price`.
+    let catalogPrice: {
+      pricingMode: "FIXED" | "FROM" | "QUOTE";
+      priceMinor: number | null;
+    } | null = null;
+    try {
+      const catalogState = await getOrderCatalogPrice(input.productType, createAdminClient());
+      if (catalogState && catalogState.published === false) return invalid();
+      if (catalogState && catalogState.priceMinor !== null) {
+        catalogPrice = {
+          pricingMode: catalogState.pricingMode,
+          priceMinor: catalogState.priceMinor,
+        };
+      }
+    } catch {
+      catalogPrice = null;
+    }
+    const pricing = priceOrder({
+      productType: input.productType,
+      quantity: input.quantity,
+      catalogPrice,
+    });
 
     // Server-derived attribution from the first-party cookie.
     const cookieStore = await cookies();

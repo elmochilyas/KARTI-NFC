@@ -4032,6 +4032,96 @@ schema change (FK already one-to-many). See ADR-076.
 
 ---
 
+# Phase 39 — Catalog CMS (commercial overlay for the 8 canonical products)
+
+Operator-editable prices, images, localized content, visibility, and SEO
+for exactly the 8 canonical products. Static domain code stays
+authoritative for technical behavior; the DB is authoritative for
+commercial presentation. See ADR-077. No invented prices — seeded
+QUOTE/NULL; the operator enters real values through the dashboard.
+
+## 39.1 Database + storage
+
+- [x] Migration `20261007000000_catalog_cms.sql`: `catalog_products`
+      (TEXT PK + CHECK, published/pricing_mode/price_minor/currency/
+      availability/image pointers, FIXED-FROM-require-price /
+      QUOTE-forbids-price CHECK, `updated_at` trigger), 
+      `catalog_product_localizations` (product × fr/en/ar, scalar copy +
+      JSONB arrays + FAQs, object-array CHECKs), `catalog_product_media`
+      (path/role/sort/localized alts), RLS admin-only
+      (`(select private.is_admin())`), anon default-deny.
+- [x] `catalog-assets` bucket (public read, admin writes, JPEG/PNG/WebP,
+      5 MB, no SVG) + managed-path conventions.
+- [x] Seed: 8 QUOTE/NULL rows + 24 empty localization skeletons.
+- [x] Applied live + verified (constraints reject bad ProductType,
+      FIXED-without-price, QUOTE-with-price; RLS policies present).
+
+## 39.2 Domain + services
+
+- [x] `src/features/catalog/`: `types`, Zod `schema` (bounded, no HTML),
+      `storagePaths` (client-safe), `service` (admin CRUD + uploads with
+      magic-byte/MIME-match gates, exact-set reorder, managed-path
+      deletes), `public` (published-only service-role projection),
+      `cache` (purge-only `unstable_cache` + `catalog-products` tag),
+      `price`/`copy` pure helpers, `route` locale-route builders.
+- [x] `priceOrder()` catalog override + partial-total model (FIXED/FROM
+      snapshot unit/subtotal, total stays unknown until delivery priced).
+- [x] `createPublicOrderAction` loads the live catalog price, blocks
+      unpublished, never trusts browser prices.
+
+## 39.3 Dashboard
+
+- [x] `/dashboard/catalog` list (name, type, published, mode, price,
+      image status, updated) + Catalog nav; no create/delete.
+- [x] `/dashboard/catalog/[productType]` editor: General+Pricing
+      (published, FIXED/FROM/QUOTE, MAD decimal → minor units, no float),
+      Media (upload/replace/remove, primary + OG select, order, alt
+      fr/en/ar), Content fr/en/ar (names, hero, sections, FAQs, SEO),
+      public preview link. All writes purge the catalog cache.
+
+## 39.4 Public + SEO + structured data
+
+- [x] Product pages use CMS copy/price/image/SEO with static fallback;
+      approved design untouched (`PriceBlock` shares `QuoteBlock` card
+      language). Unpublished: delisted from home/related/index/sitemap,
+      detail route stays `noindex` with no Offer.
+- [x] Homepage showcases + direct rows + order wizard show real FIXED/
+      FROM lines; QUOTE keeps request-price wording; unpublished blocked
+      from new orders. PricingPage tiers are generic (no per-product
+      amounts) and unchanged.
+- [x] `Product + Offer` (name/description/real image/brand=Karti, url +
+      decimal price + MAD, real availability only) iff a published
+      FIXED/FROM price exists; visible and schema prices share the same
+      minor units. No fake review/rating/availability/price-0.
+
+## 39.5 Tests + live proof + gates
+
+- [x] 60 new catalog tests (price/copy/schema/paths/service-auth/
+      pricing-override/SEO-offer/cache/route/pages/sitemap) + updated
+      route/page suites; full suite 121 files / 1219 tests green.
+- [x] Live disposable proof: PERSONAL_CARD → FIXED 19900 → order A
+      snapshots 19900 → catalog 24900 → order A unchanged, order B
+      24900×2=49800 → media pointer round-trip → full restore
+      (8 QUOTE/NULL, 0 orders, 0 media, operator data intact).
+- [x] `typecheck`, `lint` (0 warnings), `test`, `build`, `test:e2e`
+      (18 passed) green. `database.ts` manual backport marked;
+      `pnpm db:types` re-run left to the operator (needs token).
+- [ ] Operator follow-ups: enter real prices/images via dashboard; Rich
+      Results Test on 4 cards; only then Search Console Validate Fix;
+      browser upload + 390px eyeball of editor/public pages.
+
+### Phase 39 gate
+
+- [x] Exactly 8 products, type immutable, no second domain system.
+- [x] Price-change invariant holds (old orders immutable, new use new).
+- [x] No stale hardcoded prices; no fabricated structured data.
+- [x] Checks pass.
+
+> 2026-10-01: implemented per plan. Not committed — left ready for review
+> alongside the working-tree Phase 38 changes (untouched).
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

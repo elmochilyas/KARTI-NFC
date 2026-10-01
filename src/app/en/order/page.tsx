@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getHomeCatalogData } from "@/features/catalog/route";
 import { getDict } from "@/features/vitrine/i18n";
 import { OrderPageView } from "@/features/vitrine/order/OrderPageView";
 import { productTypeFromSlug } from "@/features/vitrine/products";
@@ -23,5 +24,14 @@ export default async function EnOrderPage({
 }) {
   const { product } = await searchParams;
   const dict = getDict("en");
-  return <OrderPageView locale="en" dict={dict} initialProduct={productTypeFromSlug(product)} />;
+  const { flags, priceLines } = await getHomeCatalogData("en");
+  return (
+    <OrderPageView
+      locale="en"
+      dict={dict}
+      initialProduct={productTypeFromSlug(product)}
+      publishedFlags={flags}
+      priceLines={priceLines}
+    />
+  );
 }

@@ -9,6 +9,8 @@ import { notFound } from "next/navigation";
 import { LuGlobe, LuNavigation, LuPhone } from "react-icons/lu";
 import { SiGoogle, SiInstagram, SiWhatsapp } from "react-icons/si";
 import type { ProductType } from "@/domain/orders/productTypes";
+import { catalogPriceLine, resolveProductCopy } from "@/features/catalog/copy";
+import type { PublicCatalogProduct } from "@/features/catalog/public";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { productSlugFromType, productTypeFromSlug } from "./products";
 import { localePath, orderPath } from "./site";
@@ -19,9 +21,9 @@ import {
   AudienceList,
   BenefitsGrid,
   IncludedBlock,
+  PriceBlock,
   ProblemSplit,
   ProductHero,
-  QuoteBlock,
   RelatedGrid,
   ScenarioCards,
   StepsFlow,
@@ -344,18 +346,31 @@ function FinalCta({
 
 export function ProductPage({
   locale,
-  dict,
+  dict: baseDict,
   slug,
+  catalog = null,
+  publishedFlags = null,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
   slug: string;
+  /** Published CMS overlay, or null (unpublished/QUOTE-missing/unreachable → static fallback). */
+  catalog?: PublicCatalogProduct | null;
+  publishedFlags?: Record<ProductType, boolean> | null;
 }) {
   const product: ProductType | null = productTypeFromSlug(slug);
   if (!product) notFound();
-  const copy = dict.products[product];
+  // CMS overrides only the words (never structure): heroes and blocks keep
+  // reading `dict.products`, so a shallow-merged dict carries the override
+  // through the whole page without touching the approved design.
+  const copy = resolveProductCopy(baseDict.products[product], catalog);
+  const dict: VitrineDict = {
+    ...baseDict,
+    products: { ...baseDict.products, [product]: copy },
+  };
+  const priceLine = catalogPriceLine(catalog);
   const template = dict.productPage;
-  const related = RELATED[product];
+  const related = RELATED[product].filter((item) => publishedFlags?.[item] !== false);
   const scenarios = dict.examplesPage.items.filter((item) => item.product === product);
 
   const hero =
@@ -467,9 +482,19 @@ export function ProductPage({
           included={copy.included}
         />
       )}
-      <QuoteBlock locale={locale} dict={dict} pricing={copy.pricing} />
+      <PriceBlock
+        locale={locale}
+        dict={dict}
+        pricing={copy.pricing}
+        priceLine={priceLine}
+        pricingNote={catalog?.pricingNote ?? null}
+        imageUrl={catalog?.primaryImageUrl ?? null}
+        imageAlt={copy.name}
+      />
       <FaqSection dict={dict} slug={slug} items={copy.faq} />
-      <RelatedGrid locale={locale} dict={dict} products={[...related]} />
+      {related.length > 0 ? (
+        <RelatedGrid locale={locale} dict={dict} products={[...related]} />
+      ) : null}
       <FinalCta locale={locale} dict={dict} product={product} />
     </PageContainer>
   );

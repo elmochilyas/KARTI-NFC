@@ -57,10 +57,16 @@ export function OrderWizard({
   locale,
   dict,
   initialProduct,
+  publishedFlags = null,
+  priceLines = null,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
   initialProduct: ProductType | null;
+  /** Unpublished products are excluded from the selector (null = all listed). */
+  publishedFlags?: Record<ProductType, boolean> | null;
+  /** Visible catalog price per product (absent = QUOTE, request-price note). */
+  priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
   const [step, setStep] = useState(0);
   const [product, setProduct] = useState<ProductType | null>(initialProduct);
@@ -285,6 +291,8 @@ export function OrderWizard({
             onProductChange={handleProductChange}
             onQuantityChange={setQuantity}
             onConfigChange={(patch) => setConfig((prev) => ({ ...prev, ...patch }))}
+            publishedFlags={publishedFlags}
+            priceLines={priceLines}
           />
         ) : null}
         {step === 1 ? (
@@ -314,6 +322,7 @@ export function OrderWizard({
             customerWhatsapp={resolveWhatsapp(customer)}
             delivery={delivery}
             onEdit={setStep}
+            priceLine={priceLines?.[product] ?? null}
           />
         ) : null}
       </div>
