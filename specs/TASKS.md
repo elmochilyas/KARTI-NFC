@@ -4143,6 +4143,27 @@ QUOTE/NULL; the operator enters real values through the dashboard.
 
 ---
 
+# Fix 2026-10-01 — Gallery upload silently drops the file (Sections step)
+
+> Operator report: gallery "Add photos" opens the picker, file chosen,
+> nothing happens — no error, no uploading state; Save keeps nothing.
+> Root cause: `GalleryPhoto` passed the live `FileList` to `upload()` AFTER
+> `e.target.value = ""` reset the input, which empties that same list in
+> some browsers (Chrome) → silent early return before `setUploading`.
+> Sibling uploaders (CV, collection items) capture a single `File` and
+> never had this bug.
+
+- [x] Snapshot the pick (`snapshotGalleryFiles`, `Array.from`) BEFORE the
+      input reset; `upload()` takes `File[]` and reports an empty pick
+      ("No file was selected…") instead of failing silently.
+- [x] Empty-gallery guidance: add a slot, pick inside it, uploads show in
+      the preview immediately, Save keeps them.
+- [x] `GalleryUpload.test.ts` (3 cases: null/empty, reset-proof snapshot,
+      empty-state guidance markup).
+- [x] `typecheck`, `lint`, `test` (123 files / 1231 tests), `build` green.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.
