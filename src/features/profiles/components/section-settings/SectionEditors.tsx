@@ -15,7 +15,11 @@ import {
   shouldClearOnResolveFailure,
   type MapPoint,
 } from "@/features/profiles/mapPin";
-import { osmEmbedUrl, WEEKDAY_LABELS } from "@/features/profiles/sectionSettings";
+import {
+  MAX_GALLERY_IMAGES,
+  osmEmbedUrl,
+  WEEKDAY_LABELS,
+} from "@/features/profiles/sectionSettings";
 import { MapPinPicker } from "@/features/profiles/components/MapPinPicker";
 import type { SectionSettingsProps } from "@/features/profiles/sectionCatalog";
 
@@ -1244,10 +1248,20 @@ export function GallerySettingsEditor({
       {images.length === 0 ? (
         <p className="text-sm text-muted">
           No photos yet. Add a slot, choose photos inside it — they upload immediately and show in
-          the preview. Press Save to keep them.
+          the preview. Press Save to keep them. Titles and alt text are optional.
         </p>
       ) : null}
-      <Button type="button" variant="secondary" onClick={addBlank}>
+      {images.length >= MAX_GALLERY_IMAGES ? (
+        <p className="text-sm text-muted" role="note">
+          Gallery holds up to {MAX_GALLERY_IMAGES} photos. Remove one to add another.
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={addBlank}
+        disabled={images.length >= MAX_GALLERY_IMAGES}
+      >
         <Plus aria-hidden="true" className="h-4 w-4" />
         Add photo slot
       </Button>

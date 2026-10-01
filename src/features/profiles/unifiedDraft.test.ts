@@ -270,6 +270,75 @@ describe("save payload", () => {
   });
 });
 
+describe("gallery blank hygiene", () => {
+  const GALLERY_ID = "623e4567-e89b-12d3-a456-426614174006";
+  const IMG = "123e4567-e89b-12d3-a456-426614174001/sections/gallery/abcdef0123456789.webp";
+
+  function galleryRow(settings: Record<string, unknown>) {
+    return {
+      id: GALLERY_ID,
+      profile_id: PROFILE.id,
+      type: "gallery",
+      position: 4,
+      enabled: true,
+      settings,
+    } as unknown as ProfileSectionRow;
+  }
+
+  it("normalizes persisted blanks away on load (self-heal)", () => {
+    const draft = initDraft({
+      profile: PROFILE,
+      clientName: "Ilyas",
+      links: [],
+      sections: [
+        galleryRow({
+          title: "Gallery",
+          layout: "grid",
+          images: [
+            { id: "g1", image: IMG, alt: "" },
+            { id: "g2", image: "", alt: "" },
+          ],
+        }),
+      ],
+      template: "personal",
+    });
+    expect(draft.sections[0].settings).toEqual({
+      title: "Gallery",
+      layout: "grid",
+      images: [{ id: "g1", image: IMG, alt: "" }],
+    });
+  });
+
+  it("strips unfilled slots from the save payload", () => {
+    let draft = initDraft({
+      profile: PROFILE,
+      clientName: "Ilyas",
+      links: [],
+      sections: [galleryRow({ title: "Gallery", layout: "grid", images: [] })],
+      template: "personal",
+    });
+    draft = draftReducer(draft, {
+      type: "setSectionSettings",
+      id: GALLERY_ID,
+      settings: {
+        title: "Gallery",
+        layout: "grid",
+        images: [
+          { id: "g1", image: IMG, alt: "" },
+          { id: "g2", image: "", alt: "" },
+        ],
+      },
+    });
+    const payload = buildSavePayload(draft, { avatarPath: "", coverPath: "" }, null);
+    expect(payload.sections).toHaveLength(1);
+    expect(payload.sections[0].settings).toEqual({
+      title: "Gallery",
+      layout: "grid",
+      images: [{ id: "g1", image: IMG, alt: "" }],
+    });
+  });
+});
+
 describe("preview adapter", () => {
   it("maps unsaved keystrokes into public shapes with sanitized settings", () => {
     let draft = seed();

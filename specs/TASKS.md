@@ -4164,6 +4164,36 @@ QUOTE/NULL; the operator enters real values through the dashboard.
 
 ---
 
+# Fix 2026-10-01 — "Gallery settings invalid" on save (titles NOT required)
+
+> Operator report: saving after uploading gallery pictures fails with a
+> gallery-settings error; suspected per-picture titles were mandatory.
+> Finding: titles/alt were never required (schema defaults `""`, inputs
+> `maxLength`-guarded — proven by test). Two real defects found instead:
+> (1) empty photo slots (`image: ""`) persist to the DB — the live AZNAG
+> row already holds one — because `addBlank` commits raw and the save
+> payload never stripped them; (2) the save error was generic
+> ("Some settings values are invalid"), so the actual field could never
+> be identified; plus the UI allowed adding more than the schema's 24
+> photos, which only exploded at save time.
+
+- [x] `stripBlankGalleryImages` (`sectionSettings.ts`): empty slots never
+      persist — applied in `buildSavePayload` (`cleanSectionSettings`)
+      and on draft init (`sectionsFromRows`), so the live blank row
+      self-heals on the next save (no data migration needed).
+- [x] `sanitizeAdminSettings` names the first offending field
+      (e.g. `images: Array must contain at most 24 element(s)`), threaded
+      through the existing section-annotated save error.
+- [x] Gallery editor caps at `MAX_GALLERY_IMAGES` (24): "Add photo slot"
+      disables with a hint instead of failing at save.
+- [x] Confirmed optional: gallery title, per-photo alt — no input required
+      before upload/save.
+- [x] Tests: strip helper, detailed message, init/payload hygiene,
+      24-cap markup.
+- [x] `typecheck`, `lint`, `test` (123 files / 1237 tests), `build` green.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

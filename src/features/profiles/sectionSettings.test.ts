@@ -12,6 +12,7 @@ import {
   sanitizeAdminSettings,
   sanitizeMapsLink,
   sanitizePublicSettings,
+  stripBlankGalleryImages,
 } from "./sectionSettings";
 
 describe("section settings engine", () => {
@@ -523,5 +524,40 @@ describe("gallery settings (Phase 32)", () => {
       layout: "grid",
       images: [],
     });
+  });
+
+  it("names the offending field in admin errors (no more guessing)", () => {
+    const tooMany = sanitizeAdminSettings("gallery", {
+      images: Array.from({ length: 25 }, (_, i) => img(`g${i}`)),
+    });
+    expect(tooMany.ok).toBe(false);
+    if (!tooMany.ok) {
+      expect(tooMany.message).toContain("images");
+      expect(tooMany.message).toContain("24");
+    }
+    const badLayout = sanitizeAdminSettings("gallery", { layout: "carousel" });
+    expect(badLayout.ok).toBe(false);
+    if (!badLayout.ok) expect(badLayout.message).toContain("layout");
+  });
+
+  it("strips blank gallery rows (empty slots never persist)", () => {
+    const filled = img("g1");
+    const settings = {
+      title: "Gallery",
+      layout: "grid",
+      images: [filled, { id: "g2", image: "", alt: "" }, { id: "g3", image: "  ", alt: "x" }],
+    };
+    expect(stripBlankGalleryImages(settings)).toEqual({
+      title: "Gallery",
+      layout: "grid",
+      images: [filled],
+    });
+  });
+
+  it("leaves non-gallery shapes and clean galleries untouched", () => {
+    const clean = { title: "Gallery", layout: "grid", images: [img("g1")] };
+    expect(stripBlankGalleryImages(clean)).toBe(clean);
+    const noImages = { title: "Gallery", layout: "grid" };
+    expect(stripBlankGalleryImages(noImages)).toBe(noImages);
   });
 });

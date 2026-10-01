@@ -319,6 +319,29 @@ export const gallerySettingsSchema = z.object({
 export type GalleryImage = z.infer<typeof galleryImageSchema>;
 export type GallerySettings = z.infer<typeof gallerySettingsSchema>;
 
+/** Gallery rows are capped at 24 photos (mirrors the schema). */
+export const MAX_GALLERY_IMAGES = 24;
+
+/**
+ * Drop gallery rows with no image. Empty slots are UI-transient upload
+ * targets (see `addBlank`): they must never persist — a saved blank looks
+ * like a lost photo and can never render. Pure; returns the input object
+ * untouched when there is nothing to strip.
+ */
+export function stripBlankGalleryImages(
+  settings: Record<string, unknown>,
+): Record<string, unknown> {
+  const images = settings.images;
+  if (!Array.isArray(images)) return settings;
+  const kept = images.filter((g) => {
+    if (typeof g !== "object" || g === null) return false;
+    const image = (g as { image?: unknown }).image;
+    return typeof image === "string" && image.trim() !== "";
+  });
+  if (kept.length === images.length) return settings;
+  return { ...settings, images: kept };
+}
+
 /** Display price (`40 MAD`) or null when the item has no price. */
 export function formatPrice(price: number | null, currency: string): string | null {
   if (price === null) return null;
@@ -427,9 +450,16 @@ export function sanitizeAdminSettings(type: string, raw: unknown): SanitizeResul
   }
   const parsed = schema.safeParse(raw ?? {});
   if (!parsed.success) {
+    // Name the first offending field so the operator (and the save-error
+    // banner) can tell *what* is invalid instead of guessing.
+    const first = parsed.error.issues[0];
+    const where =
+      first && first.path.length > 0
+        ? ` (${first.path.map(String).join(".")}: ${first.message})`
+        : "";
     return {
       ok: false,
-      message: "Some settings values are invalid. Check the highlighted fields.",
+      message: `Some settings values are invalid${where}. Check the highlighted fields.`,
     };
   }
   return { ok: true, settings: { ...(parsed.data as Record<string, unknown>) } as Json };
