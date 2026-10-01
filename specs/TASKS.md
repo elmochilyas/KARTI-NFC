@@ -4194,6 +4194,26 @@ QUOTE/NULL; the operator enters real values through the dashboard.
 
 ---
 
+# Fix 2026-10-02 — Gallery display: uncropped thumbs + show-4 collapse
+
+> Operator report: 24 landscape photos look cut from the sides in grid
+> tiles (`aspect-square` + `object-cover`), and the full 24-photo grid
+> takes too much vertical space on the public profile.
+
+- [x] Grid tiles show the WHOLE photo (`object-contain` on a subtle
+      tile fill, `bg-black/5` light / `bg-white/10` dark); masonry
+      (already natural-aspect) untouched.
+- [x] `GalleryViewer` tiny client island (same pattern as Share/Keep
+      buttons — public page stays server-rendered): first 4 photos +
+      `Show all N photos` (`aria-expanded`), expands inline to all +
+      `Show less`, both layouts. No schema/DB change (constant, not a
+      setting); empty gallery still collapses publicly.
+- [x] Renderer tests: 4-of-6 collapsed + toggle markup (grid + masonry),
+      ≤4 renders whole with no toggle, uncropped classes asserted.
+- [x] `typecheck`, `lint`, `test` (123 files / 1240 tests), `build` green.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

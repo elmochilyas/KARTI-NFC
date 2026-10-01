@@ -10,6 +10,7 @@ import {
   type QuickAction,
 } from "./brandIcons";
 import { mailHref, telHref } from "./ProfilePreview";
+import { GalleryViewer } from "./GalleryViewer";
 import {
   DEFAULT_PUBLIC_SECTIONS,
   type PublicLink,
@@ -1285,11 +1286,13 @@ export function GallerySection({
   settings,
   mutedClass,
   cardClass,
+  dark,
   previewPlaceholders,
 }: {
   settings?: GallerySettings;
   mutedClass: string;
   cardClass: string;
+  dark: boolean;
   previewPlaceholders?: boolean;
 }) {
   const title =
@@ -1312,6 +1315,20 @@ export function GallerySection({
       />
     ) : null;
   }
+  const viewerPhotos = photos.flatMap((photo) => {
+    const url = publicAssetPathUrl(photo.image);
+    return url ? [{ id: photo.id, url, alt: photo.alt }] : [];
+  });
+  if (viewerPhotos.length === 0) {
+    return previewPlaceholders ? (
+      <SectionPlaceholder
+        title={title}
+        hint="Add your first photo"
+        mutedClass={mutedClass}
+        cardClass={cardClass}
+      />
+    ) : null;
+  }
 
   return (
     <section
@@ -1322,50 +1339,7 @@ export function GallerySection({
       <h2 className={`px-1 text-xs font-bold tracking-[0.18em] uppercase ${mutedClass}`}>
         {title}
       </h2>
-      {masonry ? (
-        <div className="mt-2.5 columns-2 gap-2 [&>figure]:mb-2">
-          {photos.map((photo) => {
-            const url = publicAssetPathUrl(photo.image);
-            if (!url) return null;
-            return (
-              <figure key={photo.id} className="break-inside-avoid overflow-hidden rounded-2xl">
-                {/* Masonry keeps natural aspect (unknown at render time), so a
-                    plain img preserves it exactly; sizes + async decoding keep
-                    the download off the LCP path. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt={photo.alt}
-                  loading="lazy"
-                  decoding="async"
-                  sizes="(max-width: 480px) 50vw, 240px"
-                  className="w-full object-cover"
-                />
-              </figure>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {photos.map((photo) => {
-            const url = publicAssetPathUrl(photo.image);
-            if (!url) return null;
-            return (
-              <figure key={photo.id} className="aspect-square overflow-hidden rounded-2xl">
-                <Image
-                  src={url}
-                  alt={photo.alt}
-                  width={480}
-                  height={480}
-                  sizes="(max-width: 480px) 50vw, 240px"
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              </figure>
-            );
-          })}
-        </div>
-      )}
+      <GalleryViewer photos={viewerPhotos} masonry={masonry} dark={dark} />
     </section>
   );
 }
@@ -1544,6 +1518,7 @@ function GallerySectionAdapter(props: SectionRenderProps) {
       settings={props.settings as GallerySettings}
       mutedClass={props.mutedClass}
       cardClass={props.cardClass}
+      dark={props.dark}
       previewPlaceholders={props.previewPlaceholders}
     />
   );

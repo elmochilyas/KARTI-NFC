@@ -702,4 +702,43 @@ describe("ProfileSectionRenderer gallery", () => {
     expect(html).not.toContain("Photos");
     expect(html).not.toContain("<img");
   });
+
+  function manyPhotos(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      id: `g${i}`,
+      image: "123e4567-e89b-12d3-a456-426614174001/sections/gallery/aaaaaaaaaaaaaaaa.webp",
+      alt: `Photo ${i + 1}`,
+    }));
+  }
+
+  it("shows the first four photos uncropped with a show-all toggle", () => {
+    const html = renderGallery({ ...GALLERY.settings, images: manyPhotos(6) });
+    // Whole photos, never cropped: uniform tiles with contain (no cover crop).
+    expect(html).toContain("object-contain");
+    expect(html).not.toContain("object-cover");
+    // Only the first four render until the visitor expands.
+    expect(html.match(/<figure/g)?.length).toBe(4);
+    expect(html).toContain("Show all 6 photos");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("Show less");
+  });
+
+  it("collapses masonry galleries the same way", () => {
+    const html = renderGallery({
+      ...GALLERY.settings,
+      layout: "masonry",
+      images: manyPhotos(6),
+    });
+    expect(html).toContain("columns-");
+    expect(html.match(/<figure/g)?.length).toBe(4);
+    expect(html).toContain("Show all 6 photos");
+    expect(html).toContain('aria-expanded="false"');
+  });
+
+  it("renders small galleries whole with no toggle", () => {
+    const html = renderGallery({ ...GALLERY.settings, images: manyPhotos(4) });
+    expect(html.match(/<figure/g)?.length).toBe(4);
+    expect(html).not.toContain("Show all");
+    expect(html).not.toContain("aria-expanded");
+  });
 });
