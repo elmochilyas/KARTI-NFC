@@ -150,7 +150,9 @@ export function NfcConfigureForm({
           {state.message}
         </p>
       ) : null}
-      {targetCardId && !forceNew ? <input type="hidden" name="card_id" value={targetCardId} /> : null}
+      {targetCardId && !forceNew ? (
+        <input type="hidden" name="card_id" value={targetCardId} />
+      ) : null}
       {forceNew ? <input type="hidden" name="new_card" value="1" /> : null}
 
       <section

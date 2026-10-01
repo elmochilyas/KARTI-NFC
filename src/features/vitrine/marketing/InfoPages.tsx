@@ -158,7 +158,9 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
       <Section title={copy.compareTitle}>
         <ul className="grid gap-3 md:grid-cols-2">
           <li className="flex flex-col rounded-[1.75rem] border border-border bg-surface p-5 shadow-card md:p-6">
-            <p className="font-display text-xs font-bold tracking-[0.18em] text-accent-strong uppercase">{dict.productPage.profileNote}</p>
+            <p className="font-display text-xs font-bold tracking-[0.18em] text-accent-strong uppercase">
+              {dict.productPage.profileNote}
+            </p>
             <p className="font-display mt-2 text-xl font-bold tracking-[-0.01em] text-text">
               {copy.compare[0]?.title ?? dict.products.PERSONAL_CARD.name}
             </p>
@@ -176,7 +178,9 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
             </Link>
           </li>
           <li className="flex flex-col rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card md:p-6">
-            <p className="font-display text-xs font-bold tracking-[0.18em] text-accent-strong uppercase">{dict.productPage.directNote}</p>
+            <p className="font-display text-xs font-bold tracking-[0.18em] text-accent-strong uppercase">
+              {dict.productPage.directNote}
+            </p>
             <p className="font-display mt-2 text-xl font-bold tracking-[-0.01em] text-text">
               {copy.compare[1]?.title ?? dict.products.GOOGLE_REVIEW_CARD.name}
             </p>
@@ -203,17 +207,19 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
         ))}
         <div className="mt-6 grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
           <div className="flex flex-col items-center gap-2.5 rounded-[1.75rem] border border-ink/10 bg-background p-5 text-center">
-            <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">{m.todayLabel}</p>
-            <CardMockup label="Karti" size="md" />
-            <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm font-semibold">
-              Instagram
+            <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
+              {m.todayLabel}
             </p>
+            <CardMockup label="Karti" size="md" />
+            <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm font-semibold">Instagram</p>
           </div>
           <p className="font-display mx-auto flex h-20 w-20 rotate-[-8deg] items-center justify-center rounded-full bg-ink p-3 text-center text-xs leading-tight font-bold text-white uppercase">
             {m.sameCardLabel}
           </p>
           <div className="flex flex-col items-center gap-2.5 rounded-[1.75rem] border border-ink/10 bg-background p-5 text-center">
-            <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">{m.laterLabel}</p>
+            <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
+              {m.laterLabel}
+            </p>
             <CardMockup label="Karti" size="md" />
             <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm font-semibold">
               {dict.products.CUSTOM_LINK_CARD.name}
@@ -233,10 +239,14 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
         </p>
       </Section>
       <Section title={copy.recipientTitle}>
-        <p className="max-w-2xl text-base leading-relaxed text-muted md:text-lg">{copy.recipientBody}</p>
+        <p className="max-w-2xl text-base leading-relaxed text-muted md:text-lg">
+          {copy.recipientBody}
+        </p>
       </Section>
       <Section title={copy.operatorTitle}>
-        <p className="max-w-2xl text-base leading-relaxed text-muted md:text-lg">{copy.operatorBody}</p>
+        <p className="max-w-2xl text-base leading-relaxed text-muted md:text-lg">
+          {copy.operatorBody}
+        </p>
       </Section>
       <Section id="how-faq" title={copy.faqTitle}>
         <FaqList items={copy.faq} idPrefix="how-faq" />
@@ -456,7 +466,10 @@ export function ResourcesPage({ locale, dict }: { locale: VitrineLocale; dict: V
                 href={localePath(locale, topic.href)}
                 className="group grid grid-cols-[auto_1fr_auto] items-center gap-4 py-4"
               >
-                <span aria-hidden="true" className="font-display text-[13px] font-bold text-ink/30 tabular-nums">
+                <span
+                  aria-hidden="true"
+                  className="font-display text-[13px] font-bold text-ink/30 tabular-nums"
+                >
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -515,7 +528,9 @@ export function ResourcesPage({ locale, dict }: { locale: VitrineLocale; dict: V
         </ul>
       </Section>
       <Section title={copy.comingTitle}>
-        <p className="max-w-2xl border-s-4 border-gold ps-5 text-[15px] leading-relaxed text-muted">{copy.comingDesc}</p>
+        <p className="max-w-2xl border-s-4 border-gold ps-5 text-[15px] leading-relaxed text-muted">
+          {copy.comingDesc}
+        </p>
       </Section>
     </PageContainer>
   );
@@ -541,9 +556,15 @@ export function ArticlePage({
         ]}
       />
       <PageHero title={article.title} subtitle={article.description} />
-      <p className="font-display max-w-2xl py-5 text-xl leading-relaxed font-medium text-pretty text-text md:text-2xl">{article.intro}</p>
+      <p className="font-display max-w-2xl py-5 text-xl leading-relaxed font-medium text-pretty text-text md:text-2xl">
+        {article.intro}
+      </p>
       {article.sections.map((section, index) => (
-        <section key={section.heading} aria-label={section.heading} className="border-t border-border/70 py-5 first:border-t-0 first:pt-0">
+        <section
+          key={section.heading}
+          aria-label={section.heading}
+          className="border-t border-border/70 py-5 first:border-t-0 first:pt-0"
+        >
           <p
             aria-hidden="true"
             className="font-display text-[13px] font-bold tracking-[0.2em] text-ink/30 tabular-nums"
@@ -606,19 +627,21 @@ export function LegalPage({
       />
       <PageHero title={titles[slug]} subtitle={`${dict.legal.updatedLabel}: 2026}`} />
       <div className="divide-y divide-border/70 border-y border-border/70">
-      {bodies[slug].map((section) => (
-        <section key={section.heading} aria-label={section.heading} className="py-4">
-          <h2 className="font-display text-lg font-bold tracking-[-0.01em] text-text">{section.heading}</h2>
-          {section.paragraphs.map((paragraph) => (
-            <p
-              key={paragraph.slice(0, 32)}
-              className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-muted"
-            >
-              {paragraph}
-            </p>
-          ))}
-        </section>
-      ))}
+        {bodies[slug].map((section) => (
+          <section key={section.heading} aria-label={section.heading} className="py-4">
+            <h2 className="font-display text-lg font-bold tracking-[-0.01em] text-text">
+              {section.heading}
+            </h2>
+            {section.paragraphs.map((paragraph) => (
+              <p
+                key={paragraph.slice(0, 32)}
+                className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-muted"
+              >
+                {paragraph}
+              </p>
+            ))}
+          </section>
+        ))}
       </div>
     </PageContainer>
   );

@@ -35,7 +35,9 @@ export function ContactPageView({ locale, dict }: { locale: VitrineLocale; dict:
             href={orderPath(locale)}
             className="flex flex-col rounded-[1.75rem] border border-ink/10 bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5"
           >
-            <span className="font-display text-[15px] font-bold text-text">{dict.common.orderNow}</span>
+            <span className="font-display text-[15px] font-bold text-text">
+              {dict.common.orderNow}
+            </span>
             <span className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">
               {dict.productPage.orderCta}
             </span>
@@ -65,7 +67,9 @@ export function ContactPageView({ locale, dict }: { locale: VitrineLocale; dict:
             href="#contact-form"
             className="flex flex-col rounded-[1.75rem] border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5"
           >
-            <span className="font-display text-[15px] font-bold text-text">{dict.contact.title}</span>
+            <span className="font-display text-[15px] font-bold text-text">
+              {dict.contact.title}
+            </span>
             <span className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">
               {dict.contact.message}
             </span>

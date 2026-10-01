@@ -331,12 +331,9 @@ describe("configureCardForClient", () => {
 
   it("rejects a cardId that does not belong to the client", async () => {
     const store = storeWithProfile();
-    const result = await configureCardForClient(
-      CLIENT_ID,
-      { kind: "PROFILE" },
-      fakeDb(store),
-      { cardId: "123e4567-e89b-12d3-a456-426614174099" },
-    );
+    const result = await configureCardForClient(CLIENT_ID, { kind: "PROFILE" }, fakeDb(store), {
+      cardId: "123e4567-e89b-12d3-a456-426614174099",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("NOT_FOUND");
     expect(store.cards).toHaveLength(0);

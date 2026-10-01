@@ -75,9 +75,7 @@ export default async function NfcConfigurePage({ params, searchParams }: NfcPage
   let targetCardNumber: string | null = null;
   if (targetCardId && !forceNew) {
     const cardsResult = await getCardsByClientId(clientId, supabase);
-    const target = cardsResult.ok
-      ? cardsResult.data.find((c) => c.id === targetCardId)
-      : undefined;
+    const target = cardsResult.ok ? cardsResult.data.find((c) => c.id === targetCardId) : undefined;
     if (!target) notFound();
     targetCardNumber = target.card_number;
   }

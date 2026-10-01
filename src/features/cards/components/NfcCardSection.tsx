@@ -75,8 +75,7 @@ export async function NfcCardSection({
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted">
-            No cards yet. Configure the first one, then add more any time — each keeps its own
-            link.
+            No cards yet. Configure the first one, then add more any time — each keeps its own link.
           </p>
           <div>
             <Link
@@ -89,9 +88,7 @@ export async function NfcCardSection({
           </div>
           {stock.length > 0 ? (
             <div className="mt-2 border-t border-border pt-4">
-              <p className="mb-2 text-sm text-muted">
-                Or attach an existing unassigned card:
-              </p>
+              <p className="mb-2 text-sm text-muted">Or attach an existing unassigned card:</p>
               <AssignExistingCardForm
                 clientId={clientId}
                 cards={stock.map((c) => ({
@@ -129,10 +126,7 @@ export async function NfcCardSection({
           const isPrimary = primary?.id === card.id;
           const retired = card.status === "LOST" || card.status === "REPLACED";
           return (
-            <li
-              key={card.id}
-              className="rounded-lg border border-border bg-surface-muted/40 p-4"
-            >
+            <li key={card.id} className="rounded-lg border border-border bg-surface-muted/40 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-sm font-semibold text-text">

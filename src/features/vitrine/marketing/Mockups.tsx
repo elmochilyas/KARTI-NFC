@@ -166,7 +166,10 @@ export function PhoneFrame({
           />
         ) : null}
         <p aria-hidden="true" className="relative mx-auto h-1.5 w-20 rounded-full bg-border" />
-        <p aria-hidden="true" className="font-display relative mx-auto mt-4 flex h-11 w-11 items-center justify-center rounded-full bg-ink text-lg font-bold text-white">
+        <p
+          aria-hidden="true"
+          className="font-display relative mx-auto mt-4 flex h-11 w-11 items-center justify-center rounded-full bg-ink text-lg font-bold text-white"
+        >
           {title.trim().charAt(0).toUpperCase() || "K"}
         </p>
         <p
@@ -180,11 +183,7 @@ export function PhoneFrame({
             <li
               key={line}
               className={`truncate rounded-xl border border-border/60 bg-surface px-3 text-center text-muted shadow-sm ${
-                size === "xl"
-                  ? "py-3 text-[15px]"
-                  : large
-                    ? "py-2.5 text-sm"
-                    : "py-1.5 text-xs"
+                size === "xl" ? "py-3 text-[15px]" : large ? "py-2.5 text-sm" : "py-1.5 text-xs"
               }`}
             >
               {line}
