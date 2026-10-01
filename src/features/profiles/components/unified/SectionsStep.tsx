@@ -436,6 +436,11 @@ export function SectionsStep() {
                           typeLabel={sectionLabel(section.type)}
                           presets={entry.presets}
                           pending={false}
+                          currentSettings={
+                            section.settings !== null && typeof section.settings === "object"
+                              ? (section.settings as Record<string, unknown>)
+                              : {}
+                          }
                           onApply={(_presetId, presetSettings) => {
                             saveSettings(section, {
                               ...(section.settings !== null && typeof section.settings === "object"

@@ -358,6 +358,7 @@ export function ContactStep() {
               typeLabel="Quick actions"
               presets={actionsPresets}
               pending={false}
+              currentSettings={actionsSettings}
               onApply={(_presetId, presetSettings) =>
                 saveActionsSettings({ ...actionsSettings, ...presetSettings })
               }
