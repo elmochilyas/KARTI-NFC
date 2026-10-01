@@ -22,6 +22,8 @@ type PageMetadataInput = {
   segments: string[];
   index?: boolean;
   follow?: boolean;
+  /** Absolute OG/Twitter image URLs (CMS-managed catalog images). */
+  images?: string[];
 };
 
 /**
@@ -51,6 +53,14 @@ export function pageMetadata(input: PageMetadataInput): Metadata {
       url: canonical,
       type: "website",
       locale: input.locale,
+      siteName: "Karti",
+      ...(input.images && input.images.length > 0 ? { images: input.images } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: input.title,
+      description: input.description,
+      ...(input.images && input.images.length > 0 ? { images: input.images } : {}),
     },
   };
 }
@@ -75,17 +85,64 @@ export function organizationJsonLd(appUrl: string, name: string, description: st
 }
 
 /**
- * Product markup WITHOUT price/Offer: catalog is QUOTE_REQUIRED, so any
- * Offer price would fabricate. Only what the page visibly states.
+ * Product markup. QUOTE products emit a bare Product (any Offer price would
+ * fabricate). FIXED/FROM products with a real configured price emit
+ * Product + Offer with the exact visible price (decimal string, MAD) and
+ * the real canonical image URLs — visible page price and schema price are
+ * derived from the same `priceMinor`, so they always match. Never emits
+ * review/aggregateRating/availability unless a real configured state exists.
  */
-export function productJsonLd(input: { name: string; description: string; url: string }) {
-  return {
+export function productJsonLd(input: {
+  name: string;
+  description: string;
+  url: string;
+  image?: string[];
+  brand?: string;
+  offer?: {
+    url: string;
+    /** Visible decimal price, e.g. "199.00" — must equal the page price. */
+    price: string;
+    priceCurrency?: string;
+    availability?:
+      | "https://schema.org/InStock"
+      | "https://schema.org/OutOfStock"
+      | "https://schema.org/PreOrder";
+  } | null;
+}) {
+  const image = (input.image ?? []).filter((src) => typeof src === "string" && src !== "");
+  const payload: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: input.name,
     description: input.description,
     url: input.url,
   };
+  if (image.length > 0) payload.image = image;
+  if (input.brand) payload.brand = { "@type": "Brand", name: input.brand };
+  if (input.offer) {
+    payload.offers = {
+      "@type": "Offer",
+      url: input.offer.url,
+      priceCurrency: input.offer.priceCurrency ?? "MAD",
+      price: input.offer.price,
+      ...(input.offer.availability ? { availability: input.offer.availability } : {}),
+    };
+  }
+  return payload;
+}
+
+/** Map a configured catalog availability to its schema.org URL. */
+export function catalogAvailabilityToSchema(
+  availability: "IN_STOCK" | "OUT_OF_STOCK" | "PREORDER" | null,
+):
+  | "https://schema.org/InStock"
+  | "https://schema.org/OutOfStock"
+  | "https://schema.org/PreOrder"
+  | undefined {
+  if (availability === "IN_STOCK") return "https://schema.org/InStock";
+  if (availability === "OUT_OF_STOCK") return "https://schema.org/OutOfStock";
+  if (availability === "PREORDER") return "https://schema.org/PreOrder";
+  return undefined;
 }
 
 export function breadcrumbJsonLd(items: BreadcrumbItem[]) {

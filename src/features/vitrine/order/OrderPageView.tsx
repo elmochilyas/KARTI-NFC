@@ -17,11 +17,21 @@ export function OrderPageView({
   locale,
   dict,
   initialProduct,
+  publishedFlags = null,
+  priceLines = null,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
   initialProduct: ProductType | null;
+  /** Unpublished products cannot start an order (null = all orderable). */
+  publishedFlags?: Record<ProductType, boolean> | null;
+  /** Visible catalog price per product (absent = QUOTE, request-price note). */
+  priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
+  // An unpublished preselection behaves as no preselection; the server
+  // action refuses unpublished submissions regardless.
+  const effectiveProduct =
+    initialProduct && publishedFlags?.[initialProduct] === false ? null : initialProduct;
   return (
     <PageContainer>
       <Breadcrumbs
@@ -30,35 +40,56 @@ export function OrderPageView({
           { label: dict.order.title, url: localePath(locale, "order") },
         ]}
       />
-      <div className="mx-auto max-w-2xl py-8 md:py-10">
-        <h1 className="text-4xl font-bold tracking-tight text-text">{dict.order.title}</h1>
-        <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">{dict.order.subtitle}</p>
-        {initialProduct ? (
-          <div className="mt-6 flex items-center gap-4 rounded-2xl border-2 border-accent/30 bg-surface p-5">
+      <div className="mx-auto max-w-2xl py-6 md:py-8">
+        <p className="font-display text-[13px] font-bold tracking-[0.22em] text-accent-strong uppercase">
+          {dict.nav.orderCta} <span aria-hidden="true">—</span>
+        </p>
+        <h1 className="font-display mt-3 text-4xl font-bold tracking-[-0.03em] text-balance text-text sm:text-5xl">
+          {dict.order.title}
+        </h1>
+        <p className="mt-3 max-w-xl text-lg leading-relaxed text-pretty text-muted">
+          {dict.order.subtitle}
+        </p>
+        {effectiveProduct ? (
+          <div className="mt-5 flex items-center gap-3 rounded-[1.75rem] border border-ink/10 bg-surface p-4 shadow-card">
             <span
               aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent text-lg font-bold text-accent-contrast"
+              className="font-display flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-base font-bold text-white"
             >
-              {dict.products[initialProduct].name.slice(0, 1)}
+              {dict.products[effectiveProduct].name.slice(0, 1)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-base font-bold text-text">
-                {dict.products[initialProduct].name}
+              <span className="font-display block truncate text-[15px] font-bold text-text">
+                {dict.products[effectiveProduct].name}
               </span>
-              <span className="mt-0.5 block truncate text-sm text-muted">
-                {dict.products[initialProduct].tagline}
+              <span className="mt-0.5 block truncate text-[13px] text-muted">
+                {dict.products[effectiveProduct].tagline}
               </span>
+              {priceLines?.[effectiveProduct] ? (
+                <span className="mt-0.5 block truncate text-[13px] font-bold text-text">
+                  {priceLines[effectiveProduct]}
+                </span>
+              ) : null}
             </span>
             <Link
-              href={localePath(locale, "products", productSlugFromType(initialProduct))}
-              className="inline-flex min-h-11 shrink-0 items-center text-sm font-medium text-accent underline"
+              href={localePath(locale, "products", productSlugFromType(effectiveProduct))}
+              className="inline-flex min-h-11 shrink-0 items-center gap-1 text-[13px] font-semibold text-ink underline-offset-4 hover:underline"
             >
               {dict.common.learnMore}
+              <span aria-hidden="true" className="karti-flip-rtl">
+                →
+              </span>
             </Link>
           </div>
         ) : null}
       </div>
-      <OrderWizard locale={locale} dict={dict} initialProduct={initialProduct} />
+      <OrderWizard
+        locale={locale}
+        dict={dict}
+        initialProduct={effectiveProduct}
+        publishedFlags={publishedFlags}
+        priceLines={priceLines}
+      />
     </PageContainer>
   );
 }

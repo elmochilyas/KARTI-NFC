@@ -7,6 +7,30 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("server-only", () => ({}));
+
+vi.mock("next/cache", () => ({
+  updateTag: vi.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  unstable_cache: (fn: (...args: any[]) => unknown) => fn,
+}));
+
+// The catalog overlay is unreachable in unit tests: products render from
+// static copy in QUOTE mode with every product published.
+vi.mock("@/features/catalog/cache", () => ({
+  getCachedCatalogProduct: vi.fn(async () => null),
+  getCachedPublishedFlags: vi.fn(async () => ({
+    PERSONAL_CARD: true,
+    CAREER_CARD: true,
+    BUSINESS_CARD: true,
+    GOOGLE_REVIEW_CARD: true,
+    WHATSAPP_CARD: true,
+    INSTAGRAM_CARD: true,
+    CONTACT_CARD: true,
+    CUSTOM_LINK_CARD: true,
+  })),
+}));
+
 import FrProductPage, { generateMetadata } from "./page";
 
 const props = (productSlug: string) => ({ params: Promise.resolve({ productSlug }) });

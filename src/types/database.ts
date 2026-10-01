@@ -68,6 +68,157 @@ export type Database = {
           },
         ]
       }
+      catalog_product_localizations: {
+        Row: {
+          audiences: Json
+          benefits: Json
+          display_name: string | null
+          faqs: Json
+          hero_description: string | null
+          hero_title: string | null
+          included: Json
+          locale: string
+          outcome_text: string | null
+          pricing_note: string | null
+          product_type: string
+          seo_description: string | null
+          seo_title: string | null
+          short_description: string | null
+          short_name: string | null
+          updated_at: string
+          use_cases: Json
+        }
+        Insert: {
+          audiences?: Json
+          benefits?: Json
+          display_name?: string | null
+          faqs?: Json
+          hero_description?: string | null
+          hero_title?: string | null
+          included?: Json
+          locale: string
+          outcome_text?: string | null
+          pricing_note?: string | null
+          product_type: string
+          seo_description?: string | null
+          seo_title?: string | null
+          short_description?: string | null
+          short_name?: string | null
+          updated_at?: string
+          use_cases?: Json
+        }
+        Update: {
+          audiences?: Json
+          benefits?: Json
+          display_name?: string | null
+          faqs?: Json
+          hero_description?: string | null
+          hero_title?: string | null
+          included?: Json
+          locale?: string
+          outcome_text?: string | null
+          pricing_note?: string | null
+          product_type?: string
+          seo_description?: string | null
+          seo_title?: string | null
+          short_description?: string | null
+          short_name?: string | null
+          updated_at?: string
+          use_cases?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_localizations_product_type_fkey"
+            columns: ["product_type"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["product_type"]
+          },
+        ]
+      }
+      catalog_product_media: {
+        Row: {
+          alt_ar: string | null
+          alt_en: string | null
+          alt_fr: string | null
+          created_at: string
+          id: string
+          media_role: string
+          product_type: string
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          alt_ar?: string | null
+          alt_en?: string | null
+          alt_fr?: string | null
+          created_at?: string
+          id?: string
+          media_role: string
+          product_type: string
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          alt_ar?: string | null
+          alt_en?: string | null
+          alt_fr?: string | null
+          created_at?: string
+          id?: string
+          media_role?: string
+          product_type?: string
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_media_product_type_fkey"
+            columns: ["product_type"]
+            isOneToOne: false
+            referencedRelation: "catalog_products"
+            referencedColumns: ["product_type"]
+          },
+        ]
+      }
+      catalog_products: {
+        Row: {
+          availability: string | null
+          created_at: string
+          currency: string
+          og_image_path: string | null
+          price_minor: number | null
+          pricing_mode: string
+          primary_image_path: string | null
+          product_type: string
+          published: boolean
+          updated_at: string
+        }
+        Insert: {
+          availability?: string | null
+          created_at?: string
+          currency?: string
+          og_image_path?: string | null
+          price_minor?: number | null
+          pricing_mode?: string
+          primary_image_path?: string | null
+          product_type: string
+          published?: boolean
+          updated_at?: string
+        }
+        Update: {
+          availability?: string | null
+          created_at?: string
+          currency?: string
+          og_image_path?: string | null
+          price_minor?: number | null
+          pricing_mode?: string
+          primary_image_path?: string | null
+          product_type?: string
+          published?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           company: string | null

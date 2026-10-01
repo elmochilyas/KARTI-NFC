@@ -3848,6 +3848,280 @@ Mode defaults (ADR-075). Public vitrine only; dashboard untouched.
 
 ---
 
+# Phase 36 — Vitrine UI/UX Full Rebuild (premium minimal)
+
+Premium-minimal rebuild of the whole marketing vitrine (FR/EN/AR).
+Vitrine-only: no dashboard, public-profile, resolver, vCard, QR-payload,
+NFC, RLS, auth, or pricing-model changes. Quote-only pricing kept.
+
+## 36.1 Foundation
+
+- [x] Tokens: ink/gold/accent-soft, lift/hero shadows, hero-grid + card-sheen + nfc-wave utilities, RTL flip helper (`globals.css`).
+- [x] CTA kit: `PrimaryCta`/`SecondaryCta` lift + shadow, new `CtaLink` (primary/secondary/link), `Section` eyebrow pill + balanced type, `PageHero` hero-grid + tag pill, `CtaBlock` lifted, new `StatRow`.
+- [x] Media: `CardMockup` ink + foil sheen + accent/gold glow, `PhoneFrame` avatar initial + bordered rows + lift shadow (same prop API, no test changes).
+
+## 36.2 Shell
+
+- [x] `Header`: sticky + blur, chevron dropdowns, lifted order CTA, icon menu (☰/✕, aria-label), mobile drawer with order CTA.
+- [x] `Footer`: lifted brand mark, order CTA, bold headings, underline-offset links.
+- [x] `Breadcrumbs`: padded, truncated current page, RTL-safe separator.
+- [x] `Faq`: 12px→16px cards, icon circle, open lift.
+- [x] `StickyCta`: shadow + 12px CTA.
+- [x] `seo.ts`: `siteName: Karti` + `twitter summary_large_image` (no image fabrication).
+
+## 36.3 Home (all 15 blocks restyled, copy bug fixed)
+
+- [x] Hero: hero-grid, NFC+QR badge, framed TapVisual + caption, balanced type.
+- [x] Trust strip: pill cards on surface.
+- [x] How: card grid (no giant numerals), RTL-safe learn-more.
+- [x] Showcases: bordered cards with tinted visual wells, order-first CTAs.
+- [x] Direct products: ink icon tiles, RTL-safe Tap arrows, bordered compact rows.
+- [x] Audiences: bordered cards, ink CTA, RTL-safe arrow.
+- [x] Why Karti: fixed `redirectTitle` reuse bug → `differentiator.title`, ink sheen panel with glows.
+- [x] Destination flow: pill labels, bordered cards, accent same-card pill.
+- [x] Examples/pricing/process/FAQ: lifted cards, featured-tier ring, ink step badges, FAQ eyebrows.
+- [x] Final CTA: contained ink rounded panel with glows (was full-bleed `bg-text`).
+
+## 36.4 Products/Solutions/Info
+
+- [x] `ProductBlocks`: hero-grid hero with framed visual, accent TapStrip, bordered ProblemSplit, card Steps/Labeled flows, soft-check Benefits, lifted Scenario/Included/Quote/Related cards, RTL-safe arrows.
+- [x] `SolutionPage`: fixed `/#solutions` dead anchor → `/#goals`, bordered problem cards, lifted recommend cards.
+- [x] `PricingPage`: featured-tier ring + badge, soft-check points, bordered included, ink factor badges.
+
+## 36.5 Funnel + fallback
+
+- [x] `ContactPageView`: hero-grid + badge, lifted path cards with icon-circle arrows (RTL-safe), lifted form card.
+- [x] `OrderWizard`: lifted progress + step card, bordered error alerts.
+- [x] `not-found`: brand mark, `/fr` + contact CTAs (was `/` only).
+
+## 36.6 Verification
+
+- [x] `tsc --noEmit` clean.
+- [x] `eslint` clean (vitrine + app).
+- [x] `vitest` 112 files / 1156 tests green (vitrine 19/126).
+- [x] `next build` green (dummy env, all 79 vitrine routes prerendered).
+
+> 2026-10-01: implemented per plan. No Supabase/RLS/Auth, cards,
+> profiles, resolver, QR, NFC, or env changes. Human confirmations:
+> 320/390/768/1024/1440 eyeball pass + real-photo swap decision
+> (frames are photo-ready; CSS visuals kept as fallback).
+
+---
+
+# Phase 37 — Vitrine Full Redesign (light editorial + Space Grotesk)
+
+From-scratch visual rebuild after the Phase 36 polish read as "no
+noticeable change". Same routes/copy/funnel — new type, layout, shell,
+and photo-ready imagery slots. Vitrine-only: no dashboard,
+public-profile, resolver, vCard, QR-payload, NFC, RLS, auth, or
+pricing-model changes. Quote-only pricing kept.
+
+## 37.1 Foundation
+
+- [x] `Space_Grotesk` via `next/font/google` (`--font-display`, latin, swap) in `src/app/layout.tsx`; body stays Inter (+ Noto Kufi Arabic fallback for AR).
+- [x] Tokens: warm paper `#f7f5f0`, editorial grid-paper hero wash, `.font-display`, marquee keyframes, scroll-reveal, footer outline wordmark (`globals.css`).
+- [x] `Section`: hairline `Band`, editorial eyebrow (`—` kicker, no pill), display `h2 4xl→5xl`, display `PageHero 5xl→7xl`, ink pill `PrimaryCta` + ghost `SecondaryCta`, editorial `CtaBlock`.
+- [x] `Mockups`: photo-ready `imageSrc/imageAlt` wells (`next/image` fill + CSS fallback underneath, same prop API so all callers/tests pass).
+
+## 37.2 Shell
+
+- [x] `Header`: floating pill (`sticky top-3`, rounded-full, lift shadow), Space Grotesk wordmark, ink order pill + ink icon menu, bottom-sheet mobile panel.
+- [x] `Footer`: ink mega-footer (white order + ghost contact CTAs, white/60 kickers, giant outline KARTI wordmark, consent-safe bottom bar). Registry links + `hreflang` untouched.
+
+## 37.3 Home recomposition
+
+- [x] Hero: asymmetric `1.15fr/0.85fr`, kicker + display `5xl→7xl` + dual CTA + trust digest + photo-well with giant K backdrop.
+- [x] Trust: ink scrolling marquee (`karti-marquee`, duplicated list, reduced-motion safe) replaces static pills.
+- [x] Goals/demo: editorial sections; tap demo on hairline band.
+- [x] How: oversized `01/02/03` Space Grotesk numerals with hairline dividers (cards removed).
+- [x] Showcases: bento grid (first spans 2), numbered kickers, ink pill order + text learn-more.
+- [x] Direct products: card grid deleted → editorial index rows (numeral + icon + name + tap effect + circle arrow).
+- [x] Why: ink panel deleted → gold-rule editorial statement + hairline supporting rows.
+- [x] Redirect: stamp-style rotated `sameCard` badge on hairline band.
+
+## 37.4 Products/Solutions/Info + funnel
+
+- [x] `ProductHero`: editorial display hero + photo-well; `StepsFlow`/`LabeledFlow`: hairline numerals + 4-col bento variant; `TapStrip`/`ProblemSplit`/`Benefits`/`Scenario`/`Quote`/`Related` inherit editorial language.
+- [x] `SolutionPage`/`PricingPage`/`Contact`/`OrderWizard`/`not-found`/`seo.ts` (siteName + twitter) carried over from Phase 36 premium pass and verified against the new tokens.
+- [x] No copy-key, slug, funnel-logic, or consent/GTM changes.
+
+## 37.5 Verification
+
+- [x] `tsc --noEmit` clean.
+- [x] `eslint src/features/vitrine src/app --quiet` clean.
+- [x] `vitest` 112 files / 1156 tests green (incl. `routes.test.ts` link integrity + `seo.test.ts`).
+- [x] `next build` green (dummy env, all vitrine routes prerendered).
+
+> 2026-10-01: implemented per plan (light editorial + Space Grotesk +
+> photo-ready frames, all 24 routes kept). No Supabase/RLS/Auth, cards,
+> profiles, resolver, QR, NFC, or env changes. Human confirmations:
+> 320/390/768/1024/1440 eyeball + photo pack drop
+> (`public/vitrine/hero-tap.jpg, card-macro.jpg, profile-cafe.jpg,
+> business-counter.jpg, qr-scan.jpg` → pass as `imageSrc`, no layout change).
+>
+> 2026-10-01 hero fit: section capped to `md:min-h-[calc(100svh-7rem)]`
+> (pill header offset), type stepped down hero-only (4xl→6xl), trust
+> digest `dl` deleted (marquee is the single trust surface), visual
+> `lg→md` + well `max-w-md→sm`. `tsc/eslint/vitest/next build` green.
+>
+> 2026-10-01 perfect sizing: global `Section` rhythm tightened
+> (`py-16/24→py-10/14`, `h2 4xl/5xl→3xl/4xl`, children `mt-10/12→mt-6/8`)
+> + `PageHero` stepped down hero-wide; home blocks shrunk in place
+> (How numerals/cards, bento showcases `p-7/8→p-5/6` + visuals `lg→md`,
+> direct rows `py-5/6→py-4`, audiences `p-6/8→p-5/6`, Why statement
+> `3xl/5xl→2xl/4xl`, redirect stamp `h-24→h-20`, examples/pricing/
+> process/final CTA one notch each, GoalSelector island compacted).
+> Touch floors kept (`min-h-11/12`). Checks green.
+>
+> 2026-10-01 all-pages composition (Phase 38): shared `ProductBlocks`
+> recomposed (editorial hero `4xl→6xl` + compact well, gold-rule
+> TapStrip, compact Problem/Audience/Benefits/Scenario/Included/Quote/
+> Related); `ProductPage` Review/Contact/FinalCTA compacted; Solutions
+> recommend/problems + How hero/QR/compare/redirect/recipient + Pricing
+> tiers/included/factors + FAQ hub + Resources topics/guides/coming +
+> Articles (hairline sections, display numerals) + Legal (hairline
+> bodies) + Contact hero/cards/form + Order hero/banner compacted.
+> Display kickers, ink pill CTAs, circle arrows, `karti-flip-rtl`
+> throughout. No copy-key, slug, funnel-logic, consent/GTM, or
+> quote-model changes. `tsc/eslint/vitest 112/1156/build` green.
+
+---
+
+# Phase 38 — Multi-Card First-Class on Client Page (easy & clear)
+
+Client can have multiple cards, each with its own permanent link and
+destination, all visible and manageable from the client workspace. No
+schema change (FK already one-to-many). See ADR-076.
+
+## 38.1 Orchestration
+
+- [x] `configureCardForClient(..., { cardId?, forceNew? })` — explicit card
+      must belong to client (else NOT_FOUND, creates nothing);
+      LOST/REPLACED rejected with guidance; `forceNew` always creates an
+      additional card; default stays primary-reuse.
+- [x] `CARD_LIST_COLUMNS` / `CardSummary` carry `destination_url` +
+      `destination_profile_id` (no N+1 detail fetches for the list).
+- [x] Unit tests: forceNew creates 2nd card; cardId updates only that card;
+      foreign cardId rejected; existing 11 orchestration cases untouched.
+
+## 38.2 Dashboard UX
+
+- [x] Unified `NfcCardSection`: `NFC Cards (N)` — each card shows number +
+      Primary badge + status, `Opens` + external URL, permanent `/t/` URL
+      with Copy + Test, per-card `Change destination` (`/nfc?card=`) and
+      `Card details`, QR/NFC expander on primary, `Add another card`
+      (`/nfc?new=1`), unassigned-inventory attach picker.
+- [x] NFC configure page honors `?card=` (ownership-checked, 404 otherwise)
+      and `?new=1` with distinct titles/banners/hidden fields/success copy.
+- [x] Client detail uses the single unified section; `ClientCardsSection`
+      ("All cards (advanced)") removed.
+- [x] LOST/REPLACED cards show "Retired — add another card instead."
+
+### Phase 38 gate
+
+- [x] Each card has its own visible permanent link and destination.
+- [x] Add-another-card and change-one-card flows work from the client page.
+- [x] Other cards never touched by a single-card configure.
+- [x] Typecheck/lint/test/build pass.
+
+> 2026-10-01: implemented per plan (no migration; resolver/RLS/QR/NFC
+> parity/dashboard counts unchanged). `typecheck`, `lint`, `test` (112
+> files / 1159 tests), `build` green. Human confirmations: browser
+> click-through (add 2nd card, change one destination, verify other
+> unchanged + Test Links) + 390px eyeball.
+
+---
+
+# Phase 39 — Catalog CMS (commercial overlay for the 8 canonical products)
+
+Operator-editable prices, images, localized content, visibility, and SEO
+for exactly the 8 canonical products. Static domain code stays
+authoritative for technical behavior; the DB is authoritative for
+commercial presentation. See ADR-077. No invented prices — seeded
+QUOTE/NULL; the operator enters real values through the dashboard.
+
+## 39.1 Database + storage
+
+- [x] Migration `20261007000000_catalog_cms.sql`: `catalog_products`
+      (TEXT PK + CHECK, published/pricing_mode/price_minor/currency/
+      availability/image pointers, FIXED-FROM-require-price /
+      QUOTE-forbids-price CHECK, `updated_at` trigger), 
+      `catalog_product_localizations` (product × fr/en/ar, scalar copy +
+      JSONB arrays + FAQs, object-array CHECKs), `catalog_product_media`
+      (path/role/sort/localized alts), RLS admin-only
+      (`(select private.is_admin())`), anon default-deny.
+- [x] `catalog-assets` bucket (public read, admin writes, JPEG/PNG/WebP,
+      5 MB, no SVG) + managed-path conventions.
+- [x] Seed: 8 QUOTE/NULL rows + 24 empty localization skeletons.
+- [x] Applied live + verified (constraints reject bad ProductType,
+      FIXED-without-price, QUOTE-with-price; RLS policies present).
+
+## 39.2 Domain + services
+
+- [x] `src/features/catalog/`: `types`, Zod `schema` (bounded, no HTML),
+      `storagePaths` (client-safe), `service` (admin CRUD + uploads with
+      magic-byte/MIME-match gates, exact-set reorder, managed-path
+      deletes), `public` (published-only service-role projection),
+      `cache` (purge-only `unstable_cache` + `catalog-products` tag),
+      `price`/`copy` pure helpers, `route` locale-route builders.
+- [x] `priceOrder()` catalog override + partial-total model (FIXED/FROM
+      snapshot unit/subtotal, total stays unknown until delivery priced).
+- [x] `createPublicOrderAction` loads the live catalog price, blocks
+      unpublished, never trusts browser prices.
+
+## 39.3 Dashboard
+
+- [x] `/dashboard/catalog` list (name, type, published, mode, price,
+      image status, updated) + Catalog nav; no create/delete.
+- [x] `/dashboard/catalog/[productType]` editor: General+Pricing
+      (published, FIXED/FROM/QUOTE, MAD decimal → minor units, no float),
+      Media (upload/replace/remove, primary + OG select, order, alt
+      fr/en/ar), Content fr/en/ar (names, hero, sections, FAQs, SEO),
+      public preview link. All writes purge the catalog cache.
+
+## 39.4 Public + SEO + structured data
+
+- [x] Product pages use CMS copy/price/image/SEO with static fallback;
+      approved design untouched (`PriceBlock` shares `QuoteBlock` card
+      language). Unpublished: delisted from home/related/index/sitemap,
+      detail route stays `noindex` with no Offer.
+- [x] Homepage showcases + direct rows + order wizard show real FIXED/
+      FROM lines; QUOTE keeps request-price wording; unpublished blocked
+      from new orders. PricingPage tiers are generic (no per-product
+      amounts) and unchanged.
+- [x] `Product + Offer` (name/description/real image/brand=Karti, url +
+      decimal price + MAD, real availability only) iff a published
+      FIXED/FROM price exists; visible and schema prices share the same
+      minor units. No fake review/rating/availability/price-0.
+
+## 39.5 Tests + live proof + gates
+
+- [x] 60 new catalog tests (price/copy/schema/paths/service-auth/
+      pricing-override/SEO-offer/cache/route/pages/sitemap) + updated
+      route/page suites; full suite 121 files / 1219 tests green.
+- [x] Live disposable proof: PERSONAL_CARD → FIXED 19900 → order A
+      snapshots 19900 → catalog 24900 → order A unchanged, order B
+      24900×2=49800 → media pointer round-trip → full restore
+      (8 QUOTE/NULL, 0 orders, 0 media, operator data intact).
+- [x] `typecheck`, `lint` (0 warnings), `test`, `build`, `test:e2e`
+      (18 passed) green. `database.ts` manual backport marked;
+      `pnpm db:types` re-run left to the operator (needs token).
+- [ ] Operator follow-ups: enter real prices/images via dashboard; Rich
+      Results Test on 4 cards; only then Search Console Validate Fix;
+      browser upload + 390px eyeball of editor/public pages.
+
+### Phase 39 gate
+
+- [x] Exactly 8 products, type immutable, no second domain system.
+- [x] Price-change invariant holds (old orders immutable, new use new).
+- [x] No stale hardcoded prices; no fabricated structured data.
+- [x] Checks pass.
+
+> 2026-10-01: implemented per plan. Not committed — left ready for review
+> alongside the working-tree Phase 38 changes (untouched).
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

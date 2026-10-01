@@ -8,7 +8,6 @@ import { Section } from "@/components/dashboard/Section";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { getClientById } from "@/features/clients/service";
 import { ProfileLinkPanel } from "@/features/profiles/components/ProfileLinkPanel";
-import { ClientCardsSection } from "@/features/cards/components/ClientCardsSection";
 import { NfcCardSection } from "@/features/cards/components/NfcCardSection";
 import { getCardsByClientId, listUnassignedCards } from "@/features/cards/service";
 import type { CardSummary } from "@/features/cards/types";
@@ -279,8 +278,12 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         )}
       </Section>
 
-      <NfcCardSection clientId={client.id} cards={cards} />
-      <ClientCardsSection clientId={client.id} cards={cards} inventory={inventory} />
+      <NfcCardSection
+        clientId={client.id}
+        cards={cards}
+        inventory={inventory}
+        profileName={profile?.display_name ?? null}
+      />
 
       {client.notes ? (
         <Section title="Notes" description="Admin-only. Never shown on public pages.">

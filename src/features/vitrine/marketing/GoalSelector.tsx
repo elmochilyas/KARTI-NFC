@@ -37,11 +37,11 @@ export function GoalSelector({ locale, dict }: { locale: VitrineLocale; dict: Vi
   const slug = productSlugFromType(current.product);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2 lg:gap-10">
+    <div className="grid gap-4 lg:grid-cols-2 lg:gap-8">
       <div
         role="listbox"
         aria-label={dict.home.goalTitle}
-        className="grid grid-cols-2 items-stretch gap-2 sm:gap-3 lg:flex lg:flex-col"
+        className="grid grid-cols-2 items-stretch gap-2 sm:gap-2.5 lg:flex lg:flex-col lg:gap-2.5"
       >
         {goals.map((goal, index) => {
           const active = selected === index;
@@ -56,7 +56,7 @@ export function GoalSelector({ locale, dict }: { locale: VitrineLocale; dict: Vi
                 setSelected(index);
                 trackEvent("goal_selected", { product: goal.product, locale });
               }}
-              className={`flex w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border-2 p-3 text-start transition-colors focus-visible:outline-2 sm:p-4 lg:flex-row lg:items-center lg:gap-4 lg:p-4 ${
+              className={`flex w-full cursor-pointer flex-col items-start gap-1.5 rounded-2xl border-2 p-2.5 text-start transition-colors focus-visible:outline-2 sm:p-3 lg:flex-row lg:items-center lg:gap-3 ${
                 active
                   ? "border-accent bg-accent/[0.07] shadow-card"
                   : "border-border bg-surface hover:border-muted hover:bg-surface-muted/50"
@@ -64,17 +64,17 @@ export function GoalSelector({ locale, dict }: { locale: VitrineLocale; dict: Vi
             >
               <span
                 aria-hidden="true"
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-14 lg:w-14 ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl lg:h-11 lg:w-11 ${
                   active ? "bg-accent text-accent-contrast" : "bg-surface-muted text-muted"
                 }`}
               >
-                <Icon className="h-5 w-5 lg:h-7 lg:w-7" />
+                <Icon className="h-4 w-4 lg:h-5 lg:w-5" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm leading-snug font-bold text-text lg:truncate lg:text-lg">
+                <span className="block text-[13px] leading-snug font-bold text-text lg:truncate lg:text-base">
                   {goal.title}
                 </span>
-                <span className="mt-0.5 hidden truncate text-sm text-muted lg:block">
+                <span className="mt-0.5 hidden truncate text-[13px] text-muted lg:block">
                   {goal.desc}
                 </span>
               </span>
@@ -85,7 +85,7 @@ export function GoalSelector({ locale, dict }: { locale: VitrineLocale; dict: Vi
       <div className="lg:sticky lg:top-24 lg:self-start">
         <div
           aria-live="polite"
-          className="flex flex-col gap-5 rounded-2xl border-2 border-accent/30 bg-surface p-6 md:p-8"
+          className="flex flex-col gap-4 rounded-[1.75rem] border-2 border-accent/30 bg-surface p-5 md:p-6"
         >
           <div className="flex justify-center">
             <CardMockup label={dict.products[current.product].name} sublabel={current.audience} />

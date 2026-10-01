@@ -2575,7 +2575,7 @@ on `RATE_LIMIT_SECRET` rotation â€” both deliberate, documented in
 
 ---
 
-## ADR-075 — Google Tag Manager via centralized adapter + Consent Mode defaults
+## ADR-075 ï¿½ Google Tag Manager via centralized adapter + Consent Mode defaults
 
 **Status:** Accepted
 **Date:** 2026-09-30
@@ -2584,7 +2584,7 @@ on `RATE_LIMIT_SECRET` rotation â€” both deliberate, documented in
 
 Marketing needs GA4 measurement through GTM-PCXTLTM7 without breaking the
 existing privacy-safe analytics adapter, attribution source-of-truth, or
-dashboard isolation — and without firing analytics before consent.
+dashboard isolation ï¿½ and without firing analytics before consent.
 
 ### Decision
 
@@ -2606,7 +2606,7 @@ dashboard isolation — and without firing analytics before consent.
   preferences" reopen event; 180-day first-party cookie, no identity.
 - ONE centralized sanitized `page_view` (`PageViewTracker`, pathname +
   locale + page_type); explicit funnel events untouched; GA4 automatic
-  `page_view` must stay disabled (documented in DEPLOYMENT §3b).
+  `page_view` must stay disabled (documented in DEPLOYMENT ï¿½3b).
 - Attribution untouched: GTM is a transport, never the Order source of
   truth. No CSP change (none exists; GTM origins documented for the
   Phase-14 nonce-CSP work).
@@ -2616,3 +2616,107 @@ dashboard isolation — and without firing analytics before consent.
 No direct GA4 script; `order_submitted` (safe categorical payload) is
 the future GA4 conversion event. GTM container configuration/publish
 remains a manual step in Google Tag Manager.
+
+---
+
+## ADR-076 â€” Multi-card first-class on the client page
+
+**Status:** Accepted
+**Date:** 2026-10-01
+
+### Context
+
+The data model always allowed one client â†’ many cards, but the dashboard
+was single-primary biased: the client NFC section showed only
+`pickPrimaryCard()`, the configure action always reused it, and the full
+list hid under "All cards (advanced)". Operators could not see each
+card's link or add a second card without inventory hunting.
+
+### Decision
+
+- Client detail shows one unified `NfcCardSection`: every owned card with
+  its own `KARTI-XXXXXX`, status, destination (`Opens` + external URL when
+  present), permanent `https://karti.app/t/{shortCode}` with Copy + Test,
+  per-card `Change destination` (`/nfc?card={id}`) and `Card details`,
+  Primary badge (existing `pickPrimaryCard` rule, unchanged for counts),
+  QR/NFC expander on the primary, `Add another card` (`/nfc?new=1`), and
+  the unassigned-inventory attach picker. `ClientCardsSection` removed.
+- `CARD_LIST_COLUMNS` / `CardSummary` now carry `destination_url` +
+  `destination_profile_id` so the list needs no N+1 detail fetches.
+- `configureCardForClient(clientId, input, db, { cardId?, forceNew? })`:
+  explicit `cardId` must belong to the client (else NOT_FOUND, nothing
+  created); `LOST`/`REPLACED` rejected with guidance; `forceNew` always
+  creates an additional card; default stays primary-reuse. Activation,
+  destination, and permanent-URL rules unchanged.
+- NFC configure page honors `?card=` (validates ownership, 404 otherwise)
+  and `?new=1` with distinct titles, context banners, hidden form fields,
+  and success copy. LOST/REPLACED cards hide the change action.
+
+### Consequences
+
+No schema migration (FK already one-to-many); resolver, RLS, QR/NFC
+payload parity, and dashboard `Configured Cards` counts unchanged. Other
+cards are never touched by a single-card configure.
+
+---
+
+## ADR-077 â€” Catalog CMS commercial overlay (static technical truth + DB presentation)
+
+**Status:** Accepted
+**Date:** 2026-10-01
+
+### Context
+
+The 8 canonical products lived in `src/domain/orders/catalog.ts` as
+QUOTE-only static definitions. Commercial reality (prices, images,
+localized copy, visibility, SEO) needs operator editing without touching
+technical behavior (ProductType, requiresProfile, profileType,
+PROFILE-vs-EXTERNAL_URL, provisioning, normalization, order config
+schemas), and the public vitrine, checkout pricing, and Product
+structured data must share one source of truth.
+
+### Decision
+
+- New tables `catalog_products` (TEXT PRIMARY KEY + pricing/published/
+  image-pointer columns), `catalog_product_localizations`
+  (product_type Ã— fr/en/ar: scalar copy + JSONB string arrays + FAQs as
+  `[{q,a}]`), `catalog_product_media` (storage path + role + sort +
+  localized alts). TEXT + CHECK throughout (ADR-010); FIXED/FROM
+  require `price_minor > 0`, QUOTE forbids it; currency pinned `'MAD'`.
+  No technical-behavior column exists, so it cannot be edited by
+  construction.
+- New public `catalog-assets` bucket (JPEG/PNG/WebP, 5 MB, no SVG),
+  public read + `(select private.is_admin())` writes; server-generated
+  `catalog/{TYPE}/{role}/{hex}.{ext}` paths with magic-byte + MIME-match
+  gates. RLS admin-only on all three tables, anon default-deny; public
+  rendering reads published rows through the server-only service-role
+  client with explicit projections (ADR-018/032 pattern, no anon
+  policies).
+- `priceOrder()` accepts a server-loaded `catalogPrice` override; with
+  unresolved delivery (the public-order case) a FIXED/FROM price
+  snapshots `unit/subtotal` while `pricing_status` stays
+  `QUOTE_REQUIRED` with `total_minor NULL` â€” no schema change needed
+  (`orders_priced_totals_present` already allows it), finalized later
+  via `admin_set_order_price`. `createPublicOrderAction` blocks
+  unpublished products and never reads browser prices.
+- Public catalog uses purge-only `unstable_cache` + one global
+  `catalog-products` tag (`updateTag` on every admin write, ADR-045
+  pattern); order submission always reads the live row. `sitemap.ts` is
+  async and excludes unpublished products; unpublished detail routes stay
+  stable but render `noindex, nofollow` with no Offer markup.
+- Product JSON-LD emits `Product + Offer` (name/description/real image/
+  brand=Karti, offer url/decimal-price/MAD, real availability only) iff
+  a published FIXED/FROM price exists â€” visible and schema prices derive
+  from the same minor units. QUOTE stays a bare Product: no fake price,
+  review, rating, or availability (Search Console fix path).
+- `src/types/database.ts` carries a marked manual backport of the three
+  tables until `pnpm db:types` can re-run with a token (ADR-046
+  precedent).
+
+### Consequences
+
+Static definitions stay authoritative for behavior; the DB is
+authoritative for commercial presentation. Price changes affect only new
+order snapshots; historical orders are immutable. Seeded QUOTE/NULL for
+all 8 â€” no invented prices; the operator enters real values through
+`/dashboard/catalog`.

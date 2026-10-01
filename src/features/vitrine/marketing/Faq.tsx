@@ -10,19 +10,22 @@ export function FaqList({
   idPrefix: string;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {items.map((item, index) => (
         <details
           key={`${idPrefix}-${index}`}
-          className="group rounded-xl border border-border bg-surface px-4 py-3"
+          className="group rounded-2xl border border-border bg-surface px-5 py-2 shadow-card transition-colors open:border-accent/30 open:shadow-[var(--shadow-lift)]"
         >
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-start text-sm font-semibold text-text [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 text-start text-[15px] font-semibold text-text [&::-webkit-details-marker]:hidden">
             {item.q}
-            <span aria-hidden="true" className="shrink-0 text-muted group-open:rotate-45">
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted text-lg font-medium text-muted transition-transform group-open:rotate-45 group-open:bg-accent-soft group-open:text-accent-strong"
+            >
               +
             </span>
           </summary>
-          <p className="mt-1 pb-1 text-sm leading-relaxed text-muted">{item.a}</p>
+          <p className="pb-4 text-[15px] leading-relaxed text-pretty text-muted">{item.a}</p>
         </details>
       ))}
     </div>

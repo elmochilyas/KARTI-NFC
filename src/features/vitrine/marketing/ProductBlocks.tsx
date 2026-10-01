@@ -40,39 +40,44 @@ export function ProductHero({
   return (
     <section
       aria-label={copy.name}
-      className="grid items-center gap-10 py-10 md:grid-cols-2 md:gap-12 md:py-14"
+      className="karti-hero-grid grid items-center gap-8 py-10 md:grid-cols-[1.1fr_0.9fr] md:gap-8 md:py-12"
     >
       <div className={flip ? "md:order-2" : ""}>
-        <p className="text-sm font-semibold text-accent">{copy.tagline}</p>
-        <h1 className="mt-2 max-w-xl text-4xl font-bold tracking-tight text-text sm:text-5xl">
+        <p className="font-display text-[13px] font-bold tracking-[0.22em] text-accent-strong uppercase">
+          {copy.tagline} <span aria-hidden="true">—</span>
+        </p>
+        <h1 className="font-display mt-3 max-w-xl text-4xl leading-[1.0] font-bold tracking-[-0.035em] text-balance text-text sm:text-5xl lg:text-6xl">
           {copy.name}
         </h1>
-        <p className="mt-5 max-w-xl text-xl leading-relaxed text-muted">{copy.outcome}</p>
-        <div className="mt-8">
+        <p className="mt-4 max-w-xl text-lg leading-relaxed text-pretty text-muted md:text-xl">
+          {copy.outcome}
+        </p>
+        <div className="mt-6">
           <TrackLink
             href={orderPath(locale, productSlugFromType(product))}
             event="product_cta_click"
             payload={{ product, locale, placement: "hero" }}
-            className="inline-flex min-h-14 items-center justify-center rounded-lg bg-accent px-8 text-lg font-medium text-accent-contrast hover:bg-accent-strong"
+            className="font-display inline-flex min-h-12 items-center justify-center rounded-full bg-ink px-7 text-base font-bold text-white hover:bg-accent-strong"
           >
             {template.orderCta}
           </TrackLink>
         </div>
-        <p className="mt-4 max-w-xl text-sm text-muted">{note}</p>
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">{note}</p>
       </div>
-      <div className={`flex justify-center ${flip ? "md:order-1" : ""}`}>{visual}</div>
+      <div
+        className={`relative flex justify-center rounded-[2rem] border border-ink/10 bg-surface p-4 shadow-[var(--shadow-hero)] ${flip ? "md:order-1" : ""}`}
+      >
+        {visual}
+      </div>
     </section>
   );
 }
 
-/** Tap→result strip in the approved homepage style. */
+/** Tap→result strip: editorial quote row with gold rule. */
 export function TapStrip({ title, tapEffect }: { title: string; tapEffect: string }) {
   return (
     <Section title={title}>
-      <p className="max-w-3xl rounded-2xl bg-surface-muted px-5 py-4 text-lg text-text md:px-6 md:py-5">
-        <span aria-hidden="true" className="font-bold text-accent">
-          Tap →{" "}
-        </span>
+      <p className="max-w-3xl border-s-4 border-gold ps-5 text-lg font-medium text-pretty text-text">
         {tapEffect}
       </p>
     </Section>
@@ -91,16 +96,23 @@ export function ProblemSplit({
 }) {
   return (
     <Section title={useCasesTitle}>
-      <div className="grid gap-8 md:grid-cols-2 md:gap-12">
-        <p className="max-w-xl text-xl leading-relaxed text-text">{problem}</p>
-        <ul className="flex flex-col gap-3">
+      <div className="grid gap-5 md:grid-cols-2 md:gap-6">
+        <p className="max-w-xl rounded-[1.75rem] border border-border bg-surface p-5 text-lg leading-relaxed text-pretty text-text shadow-card md:p-6">
+          {problem}
+        </p>
+        <ul className="flex flex-col gap-2.5">
           {useCases.map((useCase) => (
             <li
               key={useCase}
-              className="flex items-center gap-3 rounded-2xl bg-surface-muted/60 px-5 py-4 text-base font-medium text-text"
+              className="flex items-center gap-2.5 rounded-2xl border border-border/70 bg-surface px-4 py-3 text-[15px] font-medium text-text shadow-card"
             >
-              <span aria-hidden="true" className="font-bold text-accent">
-                →
+              <span
+                aria-hidden="true"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-strong"
+              >
+                <span aria-hidden="true" className="karti-flip-rtl inline-block">
+                  →
+                </span>
               </span>
               {useCase}
             </li>
@@ -119,13 +131,13 @@ export function AudienceList({ title, items }: { title: string; items: string[] 
         {items.map((item) => (
           <li
             key={item}
-            className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-5 text-base font-medium text-text"
+            className="flex items-start gap-2.5 rounded-2xl border border-border bg-surface p-4 text-[15px] font-medium text-text shadow-card"
           >
             <span
               aria-hidden="true"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/[0.12] text-accent"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-strong"
             >
-              <LuCheck className="h-4 w-4" />
+              <LuCheck className="h-3.5 w-3.5" />
             </span>
             {item}
           </li>
@@ -139,16 +151,16 @@ export function AudienceList({ title, items }: { title: string; items: string[] 
 export function StepsFlow({ title, steps }: { title: string; steps: string[] }) {
   return (
     <Section title={title}>
-      <ol className="grid gap-8 md:grid-cols-3 md:gap-6">
+      <ol className="divide-y divide-border/70 border-y border-border/70">
         {steps.map((step, index) => (
-          <li key={step} className="flex gap-4 md:block">
+          <li key={step} className="grid gap-1 py-6 sm:grid-cols-[auto_1fr] sm:gap-6">
             <p
               aria-hidden="true"
-              className="text-5xl font-black tracking-tight text-accent/25 tabular-nums md:text-7xl"
+              className="font-display text-4xl font-bold tracking-[-0.02em] text-ink/15 tabular-nums"
             >
               {String(index + 1).padStart(2, "0")}
             </p>
-            <p className="text-xl font-bold text-text md:mt-4">{step}</p>
+            <p className="font-display text-xl font-bold text-text">{step}</p>
           </li>
         ))}
       </ol>
@@ -171,21 +183,28 @@ export function LabeledFlow({
       <ol
         className={
           columns === 3
-            ? "grid gap-8 md:grid-cols-3 md:gap-6"
-            : "grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6"
+            ? "divide-y divide-border/70 border-y border-border/70"
+            : "grid gap-px overflow-hidden rounded-[2rem] border border-ink/10 bg-ink/10 sm:grid-cols-2 lg:grid-cols-4"
         }
       >
         {steps.map((step, index) => (
-          <li key={step.title} className="flex gap-4 lg:block">
+          <li
+            key={step.title}
+            className={
+              columns === 3
+                ? "grid gap-1 py-6 sm:grid-cols-[auto_1fr] sm:gap-6"
+                : "bg-surface p-6 md:p-7"
+            }
+          >
             <p
               aria-hidden="true"
-              className="text-5xl font-black tracking-tight text-accent/25 tabular-nums lg:text-6xl"
+              className="font-display text-4xl font-bold tracking-[-0.02em] text-ink/15 tabular-nums"
             >
-              {index + 1}
+              {String(index + 1).padStart(2, "0")}
             </p>
-            <div className="lg:mt-4">
-              <p className="text-xl font-bold text-text">{step.title}</p>
-              <p className="mt-2 text-[15px] leading-relaxed text-muted">{step.desc}</p>
+            <div>
+              <p className="font-display text-lg font-bold text-text">{step.title}</p>
+              <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{step.desc}</p>
             </div>
           </li>
         ))}
@@ -198,19 +217,19 @@ export function LabeledFlow({
 export function BenefitsGrid({ title, items }: { title: string; items: string[] }) {
   return (
     <Section title={title}>
-      <ul className="grid gap-4 sm:grid-cols-2">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
           <li
             key={item}
-            className="flex items-start gap-4 rounded-2xl border border-border bg-surface p-5 md:p-6"
+            className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5 md:p-5"
           >
             <span
               aria-hidden="true"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-contrast"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-strong"
             >
-              <LuCheck className="h-5 w-5" />
+              <LuCheck className="h-4 w-4" />
             </span>
-            <span className="text-base leading-relaxed font-medium text-text">{item}</span>
+            <span className="text-[15px] leading-relaxed font-medium text-text">{item}</span>
           </li>
         ))}
       </ul>
@@ -231,36 +250,43 @@ export function ScenarioCards({
   if (items.length === 0) return null;
   return (
     <Section title={dict.productPage.examplesTitle} subtitle={dict.examplesPage.subtitle}>
-      <ul className="grid gap-6 md:grid-cols-2">
+      <ul className="grid gap-4 md:grid-cols-2">
         {items.slice(0, 2).map((item) => (
           <li
             key={item.name}
-            className="flex flex-col rounded-2xl border border-border bg-surface p-6"
+            className="flex flex-col rounded-[1.75rem] border border-border bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
           >
-            <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+            <p className="text-[11px] font-bold tracking-wider text-muted uppercase">
               {dict.common.demoExample}
             </p>
-            <p className="mt-2 text-xl font-bold tracking-tight text-text">{item.name}</p>
-            <p className="mt-1 text-[15px] text-muted">{item.useCase}</p>
-            <div className="mt-4 flex justify-center rounded-xl bg-surface-muted/60 p-4">
+            <p className="font-display mt-1.5 text-lg font-bold tracking-[-0.01em] text-text">
+              {item.name}
+            </p>
+            <p className="mt-1 text-sm text-muted">{item.useCase}</p>
+            <div className="mt-3 flex justify-center rounded-2xl bg-gradient-to-b from-surface-muted/80 to-surface-muted/30 p-4">
               <PhoneFrame title={item.tapResult} lines={[item.useCase]} size="md" />
             </div>
-            <p className="mt-4 text-[15px] text-text">
-              <span aria-hidden="true" className="font-bold text-accent">
-                →{" "}
+            <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-text">
+              <span
+                aria-hidden="true"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-strong"
+              >
+                <span aria-hidden="true" className="karti-flip-rtl inline-block">
+                  →
+                </span>
               </span>
               {item.tapResult}
             </p>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-3 flex flex-wrap gap-2.5">
               <Link
                 href={localePath(locale, "products", productSlugFromType(item.product))}
-                className="inline-flex min-h-11 items-center rounded-lg border border-border px-5 text-sm font-medium hover:border-muted"
+                className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-[13px] font-semibold hover:border-muted"
               >
                 {dict.products[item.product].name}
               </Link>
               <Link
                 href={orderPath(locale, productSlugFromType(item.product))}
-                className="inline-flex min-h-11 items-center rounded-lg bg-accent px-5 text-sm font-medium text-accent-contrast hover:bg-accent-strong"
+                className="font-display inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-bold text-white hover:bg-accent-strong"
               >
                 {dict.common.orderNow}
               </Link>
@@ -284,20 +310,101 @@ export function IncludedBlock({
 }) {
   return (
     <Section title={title}>
-      <p className="max-w-2xl text-lg leading-relaxed text-muted">{customization}</p>
-      <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+      <p className="max-w-2xl text-lg leading-relaxed text-pretty text-muted">{customization}</p>
+      <ul className="mt-5 grid gap-2.5 sm:grid-cols-2">
         {included.map((item) => (
           <li
             key={item}
-            className="flex items-start gap-3 rounded-2xl bg-surface-muted/60 px-5 py-4 text-[15px] font-medium text-text"
+            className="flex items-start gap-2.5 rounded-2xl border border-border/70 bg-surface px-4 py-3 text-sm font-medium text-text shadow-card"
           >
-            <span aria-hidden="true" className="font-bold text-accent">
+            <span
+              aria-hidden="true"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-strong"
+            >
               ✓
             </span>
             {item}
           </li>
         ))}
       </ul>
+    </Section>
+  );
+}
+
+/**
+ * Catalog-aware pricing section: same card language as QuoteBlock.
+ * FIXED/FROM with a real price shows the exact visible price (+ "From"
+ * prefix for floor prices, CMS image thumb, pricing note); QUOTE renders
+ * the honest request-price fallback. Visible price and JSON-LD Offer price
+ * derive from the same minor units, so they always match.
+ */
+export function PriceBlock({
+  locale,
+  dict,
+  pricing,
+  priceLine,
+  pricingNote,
+  imageUrl,
+  imageAlt,
+}: {
+  locale: VitrineLocale;
+  dict: VitrineDict;
+  pricing: string;
+  priceLine: string | null;
+  pricingNote?: string | null;
+  imageUrl?: string | null;
+  imageAlt?: string;
+}) {
+  const note = pricingNote?.trim() !== "" ? pricingNote : pricing;
+  return (
+    <Section title={dict.productPage.pricingTitle}>
+      <div className="rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card md:p-6">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt={imageAlt ?? ""}
+            className="mb-4 h-40 w-full rounded-2xl border border-border object-cover"
+            loading="lazy"
+          />
+        ) : null}
+        {priceLine ? (
+          <>
+            <p className="font-display text-3xl font-bold tracking-[-0.02em] text-text">
+              {priceLine}
+            </p>
+            <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
+              {note}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
+              {dict.common.requestPrice} —
+            </p>
+            <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
+              {note}
+            </p>
+          </>
+        )}
+        <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+          <Link
+            href={orderPath(locale)}
+            className="font-display inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-bold text-white hover:bg-accent-strong"
+          >
+            {priceLine ? dict.common.orderNow : dict.common.requestPrice}
+          </Link>
+          <Link
+            href={localePath(locale, "pricing")}
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full px-6 text-[15px] font-semibold text-ink underline-offset-4 hover:underline"
+          >
+            {dict.common.learnMore}
+            <span aria-hidden="true" className="karti-flip-rtl">
+              →
+            </span>
+          </Link>
+        </div>
+      </div>
     </Section>
   );
 }
@@ -314,20 +421,28 @@ export function QuoteBlock({
 }) {
   return (
     <Section title={dict.productPage.pricingTitle}>
-      <div className="rounded-2xl border-2 border-border bg-surface p-6 md:p-8">
-        <p className="max-w-2xl text-xl leading-relaxed font-medium text-text">{pricing}</p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <div className="rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card md:p-6">
+        <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
+          {dict.common.requestPrice} —
+        </p>
+        <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
+          {pricing}
+        </p>
+        <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
           <Link
             href={orderPath(locale)}
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-accent px-6 text-base font-medium text-accent-contrast hover:bg-accent-strong"
+            className="font-display inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-bold text-white hover:bg-accent-strong"
           >
             {dict.common.requestPrice}
           </Link>
           <Link
             href={localePath(locale, "pricing")}
-            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-6 text-base font-medium hover:border-muted"
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full px-6 text-[15px] font-semibold text-ink underline-offset-4 hover:underline"
           >
             {dict.common.learnMore}
+            <span aria-hidden="true" className="karti-flip-rtl">
+              →
+            </span>
           </Link>
         </div>
       </div>
@@ -347,16 +462,24 @@ export function RelatedGrid({
 }) {
   return (
     <Section title={dict.productPage.relatedTitle}>
-      <ul className="grid gap-4 sm:grid-cols-3">
+      <ul className="grid gap-3 sm:grid-cols-3">
         {products.map((item) => (
-          <li key={item} className="flex flex-col rounded-2xl border border-border bg-surface p-6">
-            <p className="text-lg font-bold text-text">{dict.products[item].name}</p>
-            <p className="mt-1 flex-1 text-sm text-muted">{dict.products[item].tagline}</p>
+          <li
+            key={item}
+            className="flex flex-col rounded-2xl border border-border bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5"
+          >
+            <p className="font-display text-base font-bold text-text">{dict.products[item].name}</p>
+            <p className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">
+              {dict.products[item].tagline}
+            </p>
             <Link
               href={localePath(locale, "products", productSlugFromType(item))}
-              className="mt-4 inline-flex min-h-11 items-center text-base font-medium text-accent underline"
+              className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink underline-offset-4 hover:underline"
             >
-              {dict.common.learnMore} →
+              {dict.common.learnMore}
+              <span aria-hidden="true" className="karti-flip-rtl">
+                →
+              </span>
             </Link>
           </li>
         ))}

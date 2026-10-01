@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BackLink } from "@/components/dashboard/BackLink";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { getClientById } from "@/features/clients/service";
+import { getCardsByClientId } from "@/features/cards/service";
 import { listProfileLinks } from "@/features/profiles/links";
 import { getProfileByClientId } from "@/features/profiles/service";
 import { LINK_TYPE_LABELS } from "@/features/profiles/types";
@@ -26,10 +27,14 @@ const SUGGESTABLE_LINK_TYPES = [
 
 type NfcPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ card?: string; new?: string }>;
 };
 
-export default async function NfcConfigurePage({ params }: NfcPageProps) {
+export default async function NfcConfigurePage({ params, searchParams }: NfcPageProps) {
   const { id: clientId } = await params;
+  const query = searchParams ? await searchParams : {};
+  const forceNew = query.new === "1";
+  const targetCardId = typeof query.card === "string" && query.card.length > 0 ? query.card : null;
 
   if (!isSupabaseConfigured()) {
     return (
@@ -66,6 +71,26 @@ export default async function NfcConfigurePage({ params }: NfcPageProps) {
       }));
   }
 
+  // Multi-card context: explicit card must belong to this client.
+  let targetCardNumber: string | null = null;
+  if (targetCardId && !forceNew) {
+    const cardsResult = await getCardsByClientId(clientId, supabase);
+    const target = cardsResult.ok ? cardsResult.data.find((c) => c.id === targetCardId) : undefined;
+    if (!target) notFound();
+    targetCardNumber = target.card_number;
+  }
+
+  const title = forceNew
+    ? "Add another card"
+    : targetCardNumber
+      ? `Change destination — ${targetCardNumber}`
+      : "Configure NFC Card";
+  const subtitle = forceNew
+    ? "Creates an additional card for this client. Existing cards keep working untouched."
+    : targetCardNumber
+      ? "Updates this card only. Same card, same permanent URL — other cards untouched."
+      : "Step 1 — destination, Step 2 — confirm, Step 3 — tap a blank tag. The card record is prepared automatically.";
+
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <div>
@@ -73,10 +98,7 @@ export default async function NfcConfigurePage({ params }: NfcPageProps) {
           Back to {clientResult.data.name}
         </BackLink>
         <div className="mt-2">
-          <PageHeader
-            title="Configure NFC Card"
-            subtitle="Step 1 — destination, Step 2 — confirm, Step 3 — tap a blank tag. The card record is prepared automatically."
-          />
+          <PageHeader title={title} subtitle={subtitle} />
         </div>
       </div>
       <NfcConfigureForm
@@ -86,6 +108,9 @@ export default async function NfcConfigurePage({ params }: NfcPageProps) {
         profileActive={profile?.status === "ACTIVE"}
         website={profile?.website ?? null}
         suggestions={suggestions}
+        targetCardId={targetCardId}
+        forceNew={forceNew}
+        targetCardNumber={targetCardNumber}
       />
     </div>
   );

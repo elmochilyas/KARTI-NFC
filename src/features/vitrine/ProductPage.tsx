@@ -9,6 +9,8 @@ import { notFound } from "next/navigation";
 import { LuGlobe, LuNavigation, LuPhone } from "react-icons/lu";
 import { SiGoogle, SiInstagram, SiWhatsapp } from "react-icons/si";
 import type { ProductType } from "@/domain/orders/productTypes";
+import { catalogPriceLine, resolveProductCopy } from "@/features/catalog/copy";
+import type { PublicCatalogProduct } from "@/features/catalog/public";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { productSlugFromType, productTypeFromSlug } from "./products";
 import { localePath, orderPath } from "./site";
@@ -19,9 +21,9 @@ import {
   AudienceList,
   BenefitsGrid,
   IncludedBlock,
+  PriceBlock,
   ProblemSplit,
   ProductHero,
-  QuoteBlock,
   RelatedGrid,
   ScenarioCards,
   StepsFlow,
@@ -242,33 +244,36 @@ function ReviewComparison({ dict }: { dict: VitrineDict }) {
   const copy = dict.products.GOOGLE_REVIEW_CARD;
   return (
     <Section title={dict.productPage.outcomeTitle} subtitle={copy.problem}>
-      <div className="grid items-stretch gap-4 md:grid-cols-[1fr_auto_1fr]">
-        <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface-muted/60 p-6">
+      <div className="grid items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
+        <div className="flex flex-col items-center gap-2.5 rounded-[1.75rem] bg-surface-muted/60 p-5">
           <span
             aria-hidden="true"
-            className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface text-muted"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface text-muted"
           >
-            <SiGoogle className="h-7 w-7" />
+            <SiGoogle className="h-5 w-5" />
           </span>
-          <div aria-hidden="true" className="flex w-full max-w-[220px] flex-col gap-2">
-            <span className="h-2.5 w-full rounded-full bg-border" />
-            <span className="h-2.5 w-5/6 rounded-full bg-border" />
-            <span className="h-2.5 w-2/3 rounded-full bg-border" />
-            <span className="mt-1 h-9 w-full rounded-xl bg-border" />
+          <div aria-hidden="true" className="flex w-full max-w-[200px] flex-col gap-1.5">
+            <span className="h-2 w-full rounded-full bg-border" />
+            <span className="h-2 w-5/6 rounded-full bg-border" />
+            <span className="h-2 w-2/3 rounded-full bg-border" />
+            <span className="mt-1 h-8 w-full rounded-xl bg-border" />
           </div>
-          <p className="text-center text-sm text-muted">{copy.customization}</p>
+          <p className="text-center text-[13px] text-muted">{copy.customization}</p>
         </div>
         <div aria-hidden="true" className="flex items-center justify-center">
-          <span className="text-4xl font-bold text-accent md:hidden">↓</span>
-          <span className="hidden text-4xl font-bold text-accent md:inline rtl:-scale-x-100">
+          <span className="font-display text-3xl font-bold text-ink md:hidden">↓</span>
+          <span className="font-display hidden text-3xl font-bold text-ink md:inline rtl:-scale-x-100">
             →
           </span>
         </div>
-        <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-accent/40 bg-surface p-6">
+        <div className="flex flex-col items-center gap-2.5 rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card">
           <CardMockup label="Karti" sublabel={copy.name} size="md" />
-          <p className="rounded-xl bg-surface-muted px-4 py-3 text-center text-base font-medium text-text">
-            <span aria-hidden="true" className="font-bold text-accent">
-              Tap →{" "}
+          <p className="rounded-xl bg-surface-muted px-3 py-2.5 text-center text-sm font-medium text-text">
+            <span aria-hidden="true" className="font-bold text-accent-strong">
+              Tap{" "}
+              <span aria-hidden="true" className="karti-flip-rtl inline-block">
+                →
+              </span>{" "}
             </span>
             {copy.tapEffect}
           </p>
@@ -285,11 +290,11 @@ function ContactFocus({ dict }: { dict: VitrineDict }) {
   const distinction = copy.faq[0]?.a ?? copy.outcome;
   return (
     <Section title={dict.productPage.demoTitle}>
-      <ul className="grid gap-4 md:grid-cols-3">
+      <ul className="grid gap-3 md:grid-cols-3">
         {[copy.outcome, saveLine, distinction].map((line, index) => (
           <li
             key={index}
-            className="rounded-2xl border border-border bg-surface p-6 text-base leading-relaxed text-text"
+            className="rounded-2xl border border-border bg-surface p-4 text-[15px] leading-relaxed text-text shadow-card md:p-5"
           >
             {line}
           </li>
@@ -326,7 +331,7 @@ function FinalCta({
 }) {
   const template = dict.productPage;
   return (
-    <div className="py-10">
+    <div className="py-6">
       <CtaBlock
         title={template.finalTitle}
         subtitle={template.finalSubtitle}
@@ -341,18 +346,31 @@ function FinalCta({
 
 export function ProductPage({
   locale,
-  dict,
+  dict: baseDict,
   slug,
+  catalog = null,
+  publishedFlags = null,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
   slug: string;
+  /** Published CMS overlay, or null (unpublished/QUOTE-missing/unreachable → static fallback). */
+  catalog?: PublicCatalogProduct | null;
+  publishedFlags?: Record<ProductType, boolean> | null;
 }) {
   const product: ProductType | null = productTypeFromSlug(slug);
   if (!product) notFound();
-  const copy = dict.products[product];
+  // CMS overrides only the words (never structure): heroes and blocks keep
+  // reading `dict.products`, so a shallow-merged dict carries the override
+  // through the whole page without touching the approved design.
+  const copy = resolveProductCopy(baseDict.products[product], catalog);
+  const dict: VitrineDict = {
+    ...baseDict,
+    products: { ...baseDict.products, [product]: copy },
+  };
+  const priceLine = catalogPriceLine(catalog);
   const template = dict.productPage;
-  const related = RELATED[product];
+  const related = RELATED[product].filter((item) => publishedFlags?.[item] !== false);
   const scenarios = dict.examplesPage.items.filter((item) => item.product === product);
 
   const hero =
@@ -464,9 +482,19 @@ export function ProductPage({
           included={copy.included}
         />
       )}
-      <QuoteBlock locale={locale} dict={dict} pricing={copy.pricing} />
+      <PriceBlock
+        locale={locale}
+        dict={dict}
+        pricing={copy.pricing}
+        priceLine={priceLine}
+        pricingNote={catalog?.pricingNote ?? null}
+        imageUrl={catalog?.primaryImageUrl ?? null}
+        imageAlt={copy.name}
+      />
       <FaqSection dict={dict} slug={slug} items={copy.faq} />
-      <RelatedGrid locale={locale} dict={dict} products={[...related]} />
+      {related.length > 0 ? (
+        <RelatedGrid locale={locale} dict={dict} products={[...related]} />
+      ) : null}
       <FinalCta locale={locale} dict={dict} product={product} />
     </PageContainer>
   );

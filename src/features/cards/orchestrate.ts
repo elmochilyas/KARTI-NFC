@@ -14,13 +14,18 @@ import { getProfileByClientId } from "@/features/profiles/service";
 import type { CardRow, CardSummary } from "./types";
 
 /**
- * Client-centric NFC orchestration (ADR-023).
+ * Client-centric NFC orchestration (ADR-023, multi-card in Phase 24).
  *
  * The operator never manually creates/assigns/activates cards in the normal
  * flow — this function composes the existing card primitives so that
  * "Configure NFC Card" is one action: create (if needed) → assign →
  * destination → ACTIVE. Short codes and card numbers never change on
  * reconfigure; the same physical card keeps working.
+ *
+ * Multi-card: by default the primary card is reused (existing behavior).
+ * Pass `{ forceNew: true }` to configure an additional card (always
+ * creates), or `{ cardId }` to configure one specific card owned by the
+ * client. Other cards are never touched.
  */
 
 export type ConfigureInput = { kind: "PROFILE" } | { kind: "EXTERNAL_URL"; url: string };
@@ -61,10 +66,20 @@ export function pickPrimaryCard<T extends Pick<CardSummary, "status" | "created_
   return [...cards].sort(byNewest)[0] ?? null;
 }
 
+export type ConfigureOpts = {
+  /** Configure this exact card instead of the primary. Must belong to the client (or be unassigned). */
+  cardId?: string;
+  /** Always create an additional card, even when the client already has cards. */
+  forceNew?: boolean;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function configureCardForClient(
   clientId: string,
   input: ConfigureInput,
   supabase: CardDb,
+  opts?: ConfigureOpts,
 ): Promise<ConfigureResult> {
   if (!(await requireAdmin(supabase))) {
     return fail("UNAUTHORIZED", "Sign in to configure NFC cards.");
@@ -110,7 +125,26 @@ export async function configureCardForClient(
     destinationUrl = normalized;
   }
 
-  const primary = pickPrimaryCard(cardsResult.data);
+  // Target selection: explicit card > forced new > primary > create.
+  // Explicit cardId must belong to this client or be unassigned inventory;
+  // cards of other clients are rejected without touching anything.
+  let target: { id: string; status: string } | null = null;
+  if (opts?.cardId) {
+    if (!UUID_PATTERN.test(opts.cardId)) {
+      return fail("NOT_FOUND", "Card not found.");
+    }
+    const found = cardsResult.data.find((c) => c.id === opts.cardId) ?? null;
+    if (!found) {
+      return fail("NOT_FOUND", "That card does not belong to this client.");
+    }
+    if (found.status === "LOST" || found.status === "REPLACED") {
+      return fail(
+        "VALIDATION_ERROR",
+        `A ${found.status} card cannot be reconfigured. Add another card instead.`,
+      );
+    }
+    target = found;
+  }
 
   // Thread the fetched row through assign → destination → status so the
   // same card id is not re-fetched in every step. Each step returns the
@@ -118,7 +152,7 @@ export async function configureCardForClient(
   let cardId: string;
   let reused = false;
   let currentRow: CardRow | null = null;
-  if (!primary) {
+  if (opts?.forceNew || (!target && !pickPrimaryCard(cardsResult.data))) {
     const created = await createCard(supabase);
     if (!created.ok) {
       return fail("UNKNOWN", "Could not create the card. Please try again.");
@@ -132,10 +166,14 @@ export async function configureCardForClient(
     cardId = assigned.data.id;
     currentRow = assigned.data;
   } else {
+    const chosen = target ?? pickPrimaryCard(cardsResult.data);
+    if (!chosen) {
+      return fail("UNKNOWN", "Could not load the client cards. Please try again.");
+    }
     reused = true;
-    cardId = primary.id;
-    if (primary.status === "UNASSIGNED") {
-      const assigned = await assignCardToClient(primary.id, clientId, supabase);
+    cardId = chosen.id;
+    if (chosen.status === "UNASSIGNED") {
+      const assigned = await assignCardToClient(chosen.id, clientId, supabase);
       if (!assigned.ok) {
         return fail("UNKNOWN", "Could not assign the card. Please try again.");
       }

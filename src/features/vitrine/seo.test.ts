@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   articleJsonLd,
   breadcrumbJsonLd,
+  catalogAvailabilityToSchema,
   faqJsonLd,
   organizationJsonLd,
   pageMetadata,
@@ -61,6 +62,51 @@ describe("structured data", () => {
     expect(data["@type"]).toBe("Product");
     expect(JSON.stringify(data)).not.toContain("Offer");
     expect(JSON.stringify(data)).not.toContain("price");
+  });
+
+  it("emits Product + Offer only with a real configured price", () => {
+    const data = productJsonLd({
+      name: "Personal Card",
+      description: "Share your contact in one tap.",
+      url: "https://karti.pro/fr/products/personal-card",
+      image: ["https://cdn.example/personal.jpg"],
+      brand: "Karti",
+      offer: {
+        url: "https://karti.pro/fr/products/personal-card",
+        price: "199.00",
+        priceCurrency: "MAD",
+      },
+    }) as Record<string, unknown>;
+    expect(data["@type"]).toBe("Product");
+    const offers = data.offers as Record<string, unknown>;
+    expect(offers["@type"]).toBe("Offer");
+    expect(offers.price).toBe("199.00");
+    expect(offers.priceCurrency).toBe("MAD");
+    expect(offers.url).toBe("https://karti.pro/fr/products/personal-card");
+    expect(data.image).toEqual(["https://cdn.example/personal.jpg"]);
+    const brand = data.brand as Record<string, unknown>;
+    expect(brand.name).toBe("Karti");
+    // Never fabricated: no reviews, no ratings.
+    expect(JSON.stringify(data)).not.toContain("review");
+    expect(JSON.stringify(data)).not.toContain("aggregateRating");
+  });
+
+  it("maps only real configured availability states", () => {
+    expect(catalogAvailabilityToSchema("IN_STOCK")).toBe("https://schema.org/InStock");
+    expect(catalogAvailabilityToSchema("OUT_OF_STOCK")).toBe("https://schema.org/OutOfStock");
+    expect(catalogAvailabilityToSchema("PREORDER")).toBe("https://schema.org/PreOrder");
+    expect(catalogAvailabilityToSchema(null)).toBeUndefined();
+  });
+
+  it("carries CMS OG images into metadata when provided", () => {
+    const meta = pageMetadata({
+      locale: "fr",
+      title: "T",
+      description: "D",
+      segments: ["products", "personal-card"],
+      images: ["https://cdn.example/og.jpg"],
+    });
+    expect(meta.openGraph?.images).toEqual(["https://cdn.example/og.jpg"]);
   });
 
   it("builds ordered breadcrumbs", () => {

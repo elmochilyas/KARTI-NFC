@@ -26,7 +26,14 @@ export type DestinationProfile = {
 
 export type CardSummary = Pick<
   CardRow,
-  "id" | "card_number" | "short_code" | "status" | "destination_type" | "created_at"
+  | "id"
+  | "card_number"
+  | "short_code"
+  | "status"
+  | "destination_type"
+  | "destination_profile_id"
+  | "destination_url"
+  | "created_at"
 > & {
   clients: AssignedClient;
 };
@@ -37,7 +44,7 @@ export type CardDetail = CardRow & {
 };
 
 export const CARD_LIST_COLUMNS =
-  "id, card_number, short_code, status, destination_type, created_at, clients (id, name)" as const;
+  "id, card_number, short_code, status, destination_type, destination_profile_id, destination_url, created_at, clients (id, name)" as const;
 
 export const CARD_DETAIL_COLUMNS =
   "id, card_number, short_code, client_id, destination_type, destination_profile_id, destination_url, status, created_at, updated_at" as const;

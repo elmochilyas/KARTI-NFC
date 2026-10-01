@@ -48,12 +48,12 @@ export function StickyCta({
     <>
       <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
       {visible ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_32px_-16px_rgb(11_27_22/0.25)] backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-            <p className="truncate text-sm font-medium text-text">{title}</p>
+            <p className="truncate text-sm font-semibold text-text">{title}</p>
             <Link
               href={href}
-              className="inline-flex min-h-11 shrink-0 items-center rounded-md bg-accent px-5 text-sm font-medium text-accent-contrast hover:bg-accent-strong"
+              className="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-accent px-6 text-sm font-semibold text-accent-contrast shadow-[0_8px_20px_-8px_rgb(14_124_91/0.6)] hover:bg-accent-strong"
             >
               {action}
             </Link>
