@@ -934,8 +934,13 @@ function GalleryPhoto({
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhoto = image !== "";
 
-  function upload(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  function upload(files: File[]) {
+    // Never fail silently: an empty pick (e.g. a FileList cleared by the
+    // input reset in some browsers) must tell the operator to retry.
+    if (files.length === 0) {
+      setError("No file was selected. Please try again.");
+      return;
+    }
     if (!context?.uploadImage) {
       setError("Image upload is unavailable here.");
       return;
@@ -946,7 +951,7 @@ function GalleryPhoto({
     startTransition(async () => {
       try {
         const paths: string[] = [];
-        for (const file of Array.from(files)) {
+        for (const file of files) {
           const result = await uploadImage(file);
           if (result.ok && result.path) {
             paths.push(result.path);
@@ -993,7 +998,10 @@ function GalleryPhoto({
             aria-label={alt === "" ? "Gallery photo" : `Replace photo: ${alt}`}
             disabled={uploading || starting || !context?.uploadImage}
             onChange={(e) => {
-              const files = e.target.files;
+              // Snapshot BEFORE resetting: the input's FileList is live in
+              // some browsers (Chrome), so resetting first would silently
+              // empty the very list we are about to upload.
+              const files = snapshotGalleryFiles(e.target.files);
               e.target.value = "";
               upload(files);
             }}
@@ -1033,6 +1041,17 @@ function GalleryPhoto({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Snapshot a file pick into an independent array BEFORE the input is
+ * reset. The input's FileList is live in some browsers, so
+ * `Array.from` must run first — otherwise clearing the input silently
+ * drops the selection (the gallery "nothing happens" bug).
+ */
+export function snapshotGalleryFiles(files: FileList | null): File[] {
+  if (!files || files.length === 0) return [];
+  return Array.from(files);
 }
 
 /** Client-side preview URL (mirrors publicAssetPathUrl, zero-client safe). */
@@ -1222,6 +1241,12 @@ export function GallerySettingsEditor({
         </div>
       ))}
 
+      {images.length === 0 ? (
+        <p className="text-sm text-muted">
+          No photos yet. Add a slot, choose photos inside it — they upload immediately and show in
+          the preview. Press Save to keep them.
+        </p>
+      ) : null}
       <Button type="button" variant="secondary" onClick={addBlank}>
         <Plus aria-hidden="true" className="h-4 w-4" />
         Add photo slot
