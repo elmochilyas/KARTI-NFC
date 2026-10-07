@@ -4117,6 +4117,43 @@ QUOTE/NULL; the operator enters real values through the dashboard.
 - [x] No stale hardcoded prices; no fabricated structured data.
 - [x] Checks pass.
 
+## 39.6 Production Edit-crash fix (2026-10-07)
+
+Detail routes `/dashboard/catalog/[productType]` crashed in production
+("A server error occurred") while the list rendered fine.
+
+- [x] Root cause proven by local repro (dev 500 + server log): the editor
+      page passed two plain closures (`altActionFor`, `moveAction`) to the
+      `"use client"` `MediaManager`. Plain functions cannot cross the
+      Server → Client boundary — Next.js throws `Functions cannot be
+      passed directly to Client Components unless you explicitly expose it
+      by marking it with "use server"`. Pre-bound Server Actions
+      (`upload/setPrimary/setOG/delete`) passed fine, which is why only the
+      two closure props crashed all 8 routes identically.
+- [x] Fix (no UI/design change, no order/NFC/analytics/GTM touch): page now
+      passes pre-bound Server Actions
+      (`updateCatalogMediaAltAction.bind(null, productType)`,
+      `moveCatalogMediaAction.bind(null, productType)`); `MediaManager`
+      binds only the item id in the client (`updateAltAction.bind(null,
+      item.id)`). Prop renamed `altActionFor` → `updateAltAction` so the
+      old pattern fails typecheck.
+- [x] No migration: live DB verified (8 `catalog_products` QUOTE/NULL, 24
+      localization skeletons, 0 media, `catalog-assets` bucket + RLS
+      policies present, `private.admin_users` untouched). Redeploy only.
+- [x] All 8 editors verified on the production build as authenticated
+      admin (throwaway user, removed afterwards): General+Pricing, Media
+      upload area + `No images yet`, FR/EN/AR + SEO fields, preview links.
+- [x] Disposable round-trip on CUSTOM_LINK_CARD: QUOTE → FIXED 199.50 →
+      save → reload persisted → QUOTE → save → reload restored; DB
+      confirmed 8× QUOTE/NULL, 0 media rows afterwards.
+- [x] Non-admin authenticated user never sees the editor (RLS → NOT_FOUND);
+      RLS/policies unchanged.
+- [x] Regression tests: service empty-state/malformed-JSON/NOT_FOUND +
+      price save/reload validation; page test pins all 8 routes, empty
+      states, preview hrefs, and the Server-Action-only prop contract.
+- [x] `typecheck`, `lint` (0 warnings), `test` (124 files / 1254 tests),
+      `build`, `test:e2e` (18 passed) green.
+
 > 2026-10-01: implemented per plan. Not committed — left ready for review
 > alongside the working-tree Phase 38 changes (untouched).
 

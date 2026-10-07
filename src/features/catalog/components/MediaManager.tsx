@@ -107,7 +107,7 @@ function AltForm({
  */
 export function MediaManager({
   uploadAction,
-  altActionFor,
+  updateAltAction,
   setPrimaryAction,
   setOgAction,
   moveAction,
@@ -117,11 +117,21 @@ export function MediaManager({
   ogImagePath,
 }: {
   uploadAction: (prevState: CatalogFormState, formData: FormData) => Promise<CatalogFormState>;
-  altActionFor: (
+  /**
+   * Pre-bound Server Action (`productType` already bound in the Server
+   * Component). The item id is bound here in the client — the same
+   * supported pattern as `configureNfcAction.bind(null, clientId)`.
+   * Never pass a `(mediaId) => ...` closure from the server: plain
+   * functions cannot cross the Server → Client boundary (RSC error).
+   */
+  updateAltAction: (
     mediaId: string,
-  ) => (prevState: CatalogFormState, formData: FormData) => Promise<CatalogFormState>;
+    prevState: CatalogFormState,
+    formData: FormData,
+  ) => Promise<CatalogFormState>;
   setPrimaryAction: (mediaId: string) => Promise<void>;
   setOgAction: (mediaId: string) => Promise<void>;
+  /** Pre-bound Server Action (`productType` already bound in the Server Component). */
   moveAction: (mediaId: string, direction: "up" | "down") => Promise<void>;
   deleteAction: (mediaId: string) => Promise<void>;
   media: CatalogMediaRow[];
@@ -239,7 +249,7 @@ export function MediaManager({
                     </div>
                   </div>
                 </div>
-                <AltForm media={item} action={altActionFor(item.id)} />
+                <AltForm media={item} action={updateAltAction.bind(null, item.id)} />
               </li>
             );
           })}
