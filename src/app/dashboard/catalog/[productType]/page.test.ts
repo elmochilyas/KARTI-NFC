@@ -13,9 +13,8 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock("next/link", () => ({
-  default: function LinkStub(props: any) {
+  default: function LinkStub(props: { href?: string }) {
     return props;
   },
 }));
