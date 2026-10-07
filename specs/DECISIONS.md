@@ -2720,3 +2720,77 @@ authoritative for commercial presentation. Price changes affect only new
 order snapshots; historical orders are immutable. Seeded QUOTE/NULL for
 all 8 — no invented prices; the operator enters real values through
 `/dashboard/catalog`.
+
+## ADR-078 — Karti Product Pricing — Fixed Price Only
+
+Supersedes the QUOTE-oriented pricing architecture in ADR-070
+(QUOTE-only Phase 1) and ADR-077 (FIXED/FROM/QUOTE catalog modes):
+those sections are historical and must not be reimplemented.
+
+### Decision
+
+- Every Karti product has exactly one fixed base price (`price_minor`,
+  MAD minor units) configured by the operator in
+  `/dashboard/catalog/[productType]`. There is no FIXED / FROM / QUOTE
+  mode, no `pricing_mode` column, no "request a price" state.
+- `price_minor NULL` is a temporary admin readiness state ("Price not
+  configured"), never a customer-facing mode. Unpriced products cannot
+  be ordered, show an honest pending state, and emit NO Product
+  JSON-LD at all (a priceless Product trips the Search Console
+  "offers/review/aggregateRating" error). Ready products emit
+  Product + Offer with the exact visible price.
+- `orders.pricing_status` is removed (zero legacy commercial rows at
+  migration time): every order snapshots its fixed price at submission
+  (`unit_price_minor`, `subtotal_minor = unit x quantity`,
+  `total_minor = subtotal + delivery - discount`).
+- The snapshot is immutable history: catalog edits affect only NEW
+  orders. The operator may adjust delivery fee and discount only
+  (`admin_update_order_adjustments`); there is no base-price override
+  workflow. A future audited override, if ever needed, is a separate
+  feature.
+- Order attention has no SET_PRICE: NEW -> CONTACTED -> CONFIRMED ->
+  fulfillment without waiting for any quote. Timeline event
+  `PRICE_SET` is replaced by `PRICE_ADJUSTED` ("Delivery / discount
+  updated").
+
+### Migration
+
+`20261008000000_fixed_price_only.sql` (additive, applied 2026-10-07):
+drops `catalog_products.pricing_mode`, drops
+`orders.pricing_status` + its totals CHECK, tightens money columns to
+NOT NULL, recreates `create_public_order` without `p_pricing_status`
+(with snapshot-integrity gates), replaces `admin_set_order_price` with
+`admin_update_order_adjustments`. `price_minor` stays NULLABLE so no
+prices are invented; a later hardening migration sets NOT NULL once
+all 8 real prices are configured.
+
+### Consequences
+
+Public pages, checkout, and Product Offer all consume the same catalog
+price; historical orders never change. `src/pricing-guard.test.ts`
+fails the build if alternate pricing concepts return.
+
+## ADR-079 — Catalog product media: 4:3 WebP optimization pipeline
+
+### Decision
+
+- Canonical product media is 4:3 WebP, max 1600x1200, quality 83
+  (`src/features/catalog/optimize.ts`, sharp, server-only).
+- Uploads (JPEG/PNG/WebP) are auto-oriented (EXIF), center cover-cropped
+  to 4:3, downscaled only (minimum feasible crop 800x600, else a clear
+  error), metadata-stripped (no EXIF/GPS/XMP), alpha-preserving. The raw
+  original is never stored or served.
+- OG-role uploads are optimized to WebP inside 1200x630 with no crop.
+- Server-generated versioned paths (`catalog/{TYPE}/{role}/{hex}.webp`,
+  `upsert: false`) + `cacheControl: 31536000`; replacements mint new
+  paths (no overwrite, no query-string busting). Old files are not
+  auto-deleted: media rows may still reference them.
+- Public product image renders through `next/image` (1600x1200, sizes,
+  lazy) inside an `aspect-[4/3]` frame; dashboard thumbnails use the
+  same frame. Legacy non-4:3 assets display safely via `object-cover`;
+  no bulk reconversion.
+
+### Consequences
+
+No multi-megabyte originals reach the public site; JSON-LD/OG image
+URLs are unchanged in shape (now pointing at optimized assets).
