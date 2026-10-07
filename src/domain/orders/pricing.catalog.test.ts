@@ -2,21 +2,21 @@ import { describe, expect, it } from "vitest";
 import { priceOrder } from "./pricing";
 
 /**
- * Catalog-driven pricing: the live CMS row overrides the static QUOTE
- * definition at order submission. The browser never supplies prices —
- * `catalogPrice` is server-loaded only.
+ * Catalog-driven pricing: the live CMS row supplies the fixed base price
+ * at order submission. The browser never supplies prices — `catalogPrice`
+ * is server-loaded only. The snapshot is immutable history: later catalog
+ * edits only affect NEW orders.
  */
 describe("catalog-driven order pricing", () => {
-  it("snapshots a FIXED unit price while keeping the order total unknown (delivery quoted later)", () => {
+  it("snapshots the fixed unit price with exact integer math", () => {
     const pricing = priceOrder({
       productType: "PERSONAL_CARD",
       quantity: 2,
-      catalogPrice: { pricingMode: "FIXED", priceMinor: 19900 },
+      catalogPrice: { priceMinor: 19900, currency: "MAD" },
     });
-    expect(pricing.pricingStatus).toBe("QUOTE_REQUIRED");
     expect(pricing.unitPriceMinor).toBe(19900);
     expect(pricing.subtotalMinor).toBe(39800);
-    expect(pricing.totalMinor).toBeUndefined();
+    expect(pricing.totalMinor).toBe(39800);
     expect(pricing.currency).toBe("MAD");
   });
 
@@ -24,59 +24,38 @@ describe("catalog-driven order pricing", () => {
     const pricing = priceOrder({
       productType: "BUSINESS_CARD",
       quantity: 3,
-      catalogPrice: { pricingMode: "FIXED", priceMinor: 24950 },
+      catalogPrice: { priceMinor: 24950, currency: "MAD" },
     });
     expect(pricing.subtotalMinor).toBe(24950 * 3);
   });
 
-  it("FROM snapshots the floor price (the page always prefixes “From”)", () => {
-    const pricing = priceOrder({
-      productType: "CAREER_CARD",
-      quantity: 1,
-      catalogPrice: { pricingMode: "FROM", priceMinor: 19900 },
-    });
-    expect(pricing.unitPriceMinor).toBe(19900);
-    expect(pricing.subtotalMinor).toBe(19900);
-    expect(pricing.totalMinor).toBeUndefined();
-  });
-
-  it("prices fully only when delivery is operator-resolved", () => {
+  it("applies delivery and discount on top of the immutable snapshot", () => {
     const pricing = priceOrder({
       productType: "PERSONAL_CARD",
       quantity: 2,
       deliveryFeeMinor: 3000,
-      catalogPrice: { pricingMode: "FIXED", priceMinor: 19900 },
-      deliveryPriced: true,
+      discountMinor: 500,
+      catalogPrice: { priceMinor: 19900, currency: "MAD" },
     });
-    expect(pricing.pricingStatus).toBe("PRICED");
-    expect(pricing.totalMinor).toBe(39800 + 3000);
+    expect(pricing.subtotalMinor).toBe(39800);
+    expect(pricing.totalMinor).toBe(39800 + 3000 - 500);
   });
 
-  it("a later catalog price changes only new snapshots (deterministic per input)", () => {
+  it("a later catalog price changes only new snapshots (historical orders never recomputed)", () => {
     const orderA = priceOrder({
       productType: "PERSONAL_CARD",
-      quantity: 1,
-      catalogPrice: { pricingMode: "FIXED", priceMinor: 19900 },
+      quantity: 2,
+      catalogPrice: { priceMinor: 19900, currency: "MAD" },
     });
     const orderB = priceOrder({
       productType: "PERSONAL_CARD",
-      quantity: 1,
-      catalogPrice: { pricingMode: "FIXED", priceMinor: 24900 },
+      quantity: 2,
+      catalogPrice: { priceMinor: 24900, currency: "MAD" },
     });
     expect(orderA.unitPriceMinor).toBe(19900);
+    expect(orderA.subtotalMinor).toBe(39800);
     expect(orderB.unitPriceMinor).toBe(24900);
-  });
-
-  it("QUOTE catalog rows keep the historical quote flow (no price fields)", () => {
-    const pricing = priceOrder({
-      productType: "PERSONAL_CARD",
-      quantity: 1,
-      catalogPrice: { pricingMode: "QUOTE", priceMinor: null },
-    });
-    expect(pricing.pricingStatus).toBe("QUOTE_REQUIRED");
-    expect("unitPriceMinor" in pricing).toBe(false);
-    expect(pricing.subtotalMinor).toBeUndefined();
-    expect(pricing.totalMinor).toBeUndefined();
+    expect(orderB.subtotalMinor).toBe(49800);
   });
 
   it("rejects non-positive catalog prices instead of snapshotting them", () => {
@@ -84,7 +63,7 @@ describe("catalog-driven order pricing", () => {
       priceOrder({
         productType: "PERSONAL_CARD",
         quantity: 1,
-        catalogPrice: { pricingMode: "FIXED", priceMinor: 0 },
+        catalogPrice: { priceMinor: 0, currency: "MAD" },
       }),
     ).toThrow();
   });

@@ -20,7 +20,7 @@ const EVENT_LABELS: Record<string, string> = {
   ORDER_CONFIRMED: "Order confirmed",
   ORDER_CANCELLED: "Order cancelled",
   ORDER_COMPLETED: "Order completed",
-  PRICE_SET: "Quote set",
+  PRICE_ADJUSTED: "Delivery / discount updated",
   CLIENT_LINKED: "Client linked",
   CLIENT_CREATED: "Client created",
   PROFILE_CREATED: "Profile created",

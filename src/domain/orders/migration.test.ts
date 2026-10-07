@@ -78,7 +78,7 @@ describe("orders foundation migration contract", () => {
     expect(migrationSql().toLowerCase()).not.toContain("to anon");
   });
 
-  it("keeps money in integer minor units with quote/priced discipline", () => {
+  it("keeps money in integer minor units (historical foundation migration, superseded by ADR-078)", () => {
     const sql = migrationSql();
     expect(sql).toContain("subtotal_minor bigint");
     expect(sql).toContain("total_minor bigint");

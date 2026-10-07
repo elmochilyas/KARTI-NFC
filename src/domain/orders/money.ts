@@ -1,5 +1,5 @@
 /**
- * Operator quote money handling (specs/specs-vitrin/01 §10).
+ * Order money handling.
  *
  * Storage is integer minor units (MAD). The dashboard accepts decimal MAD
  * strings for usability; conversion uses string/integer math only — never
@@ -8,7 +8,7 @@
 
 export const MAD_MINOR_PER_MAJOR = 100;
 export const MAD_CURRENCY = "MAD";
-export const MAX_QUOTE_MINOR = Number.MAX_SAFE_INTEGER;
+export const MAX_MONEY_MINOR = Number.MAX_SAFE_INTEGER;
 
 /** Non-negative safe-integer minor-unit check for RPC-bound amounts. */
 export function isNonNegativeMinor(value: unknown): value is number {
@@ -16,7 +16,7 @@ export function isNonNegativeMinor(value: unknown): value is number {
     typeof value === "number" &&
     Number.isSafeInteger(value) &&
     value >= 0 &&
-    value <= MAX_QUOTE_MINOR
+    value <= MAX_MONEY_MINOR
   );
 }
 
@@ -50,15 +50,15 @@ export function parseMadDecimalToMinor(raw: unknown): number | null {
   const minorNum = Number(minorText);
   if (!Number.isSafeInteger(majorNum) || !Number.isSafeInteger(minorNum)) return null;
   const total = majorNum * MAD_MINOR_PER_MAJOR + minorNum;
-  if (!Number.isSafeInteger(total) || total > MAX_QUOTE_MINOR) return null;
+  if (!Number.isSafeInteger(total) || total > MAX_MONEY_MINOR) return null;
   return total;
 }
 
 /**
- * Server-side quote formula: total = subtotal + delivery − discount.
+ * Order total formula: total = subtotal + delivery − discount.
  * Returns null when the discount would drive the total negative.
  */
-export function computeQuoteTotal(args: {
+export function computeOrderTotal(args: {
   subtotalMinor: number;
   deliveryFeeMinor: number;
   discountMinor: number;

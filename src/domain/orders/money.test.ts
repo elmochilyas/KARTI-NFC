@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  computeQuoteTotal,
+  computeOrderTotal,
   formatMinorToMad,
   isNonNegativeMinor,
   parseMadDecimalToMinor,
 } from "./money";
 
-describe("quote money", () => {
+describe("order money", () => {
   it("parses whole and decimal MAD strings into minor units", () => {
     expect(parseMadDecimalToMinor("1250")).toBe(125000);
     expect(parseMadDecimalToMinor("1250.5")).toBe(125050);
@@ -31,17 +31,17 @@ describe("quote money", () => {
 
   it("computes total = subtotal + delivery − discount", () => {
     expect(
-      computeQuoteTotal({ subtotalMinor: 10000, deliveryFeeMinor: 2000, discountMinor: 500 }),
+      computeOrderTotal({ subtotalMinor: 10000, deliveryFeeMinor: 2000, discountMinor: 500 }),
     ).toBe(11500);
-    expect(computeQuoteTotal({ subtotalMinor: 0, deliveryFeeMinor: 0, discountMinor: 0 })).toBe(0);
+    expect(computeOrderTotal({ subtotalMinor: 0, deliveryFeeMinor: 0, discountMinor: 0 })).toBe(0);
   });
 
   it("rejects discounts that would make the total negative", () => {
     expect(
-      computeQuoteTotal({ subtotalMinor: 1000, deliveryFeeMinor: 0, discountMinor: 1001 }),
+      computeOrderTotal({ subtotalMinor: 1000, deliveryFeeMinor: 0, discountMinor: 1001 }),
     ).toBeNull();
     expect(
-      computeQuoteTotal({ subtotalMinor: -1, deliveryFeeMinor: 0, discountMinor: 0 }),
+      computeOrderTotal({ subtotalMinor: -1, deliveryFeeMinor: 0, discountMinor: 0 }),
     ).toBeNull();
   });
 

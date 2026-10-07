@@ -8,7 +8,7 @@ describe("order event labels", () => {
     expect(orderEventLabel("ORDER_CONFIRMED")).toBe("Order confirmed");
     expect(orderEventLabel("ORDER_CANCELLED")).toBe("Order cancelled");
     expect(orderEventLabel("ORDER_COMPLETED")).toBe("Order completed");
-    expect(orderEventLabel("PRICE_SET")).toBe("Quote set");
+    expect(orderEventLabel("PRICE_ADJUSTED")).toBe("Delivery / discount updated");
     expect(orderEventLabel("INTERNAL_NOTE_UPDATED")).toBe("Internal note updated");
   });
 

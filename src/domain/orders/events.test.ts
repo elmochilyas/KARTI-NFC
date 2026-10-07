@@ -11,7 +11,7 @@ describe("order event types", () => {
       "ORDER_CANCELLED",
       "ORDER_COMPLETED",
       "PAYMENT_STATUS_CHANGED",
-      "PRICE_SET",
+      "PRICE_ADJUSTED",
       "FULFILLMENT_STATUS_CHANGED",
       "CLIENT_LINKED",
       "CLIENT_CREATED",

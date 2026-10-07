@@ -68,10 +68,10 @@ describe("marketing product catalog", () => {
     }
   });
 
-  it("keeps every product QUOTE with no invented price (V1)", () => {
+  it("keeps technical behavior in code with no price fields (prices live in the CMS)", () => {
     for (const def of Object.values(MARKETING_PRODUCT_CATALOG)) {
-      expect(def.pricingMode).toBe("QUOTE");
-      expect(def.priceMinor).toBeUndefined();
+      expect("pricingMode" in def).toBe(false); // pricing-guard-allow: pricingMode
+      expect("priceMinor" in def).toBe(false);
       expect(def.minQuantity).toBeGreaterThan(0);
     }
   });

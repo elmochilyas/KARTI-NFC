@@ -5,14 +5,13 @@
  */
 
 import type { FulfillmentStatus, OrderStatus, PaymentStatus } from "./lifecycle";
-import type { PricingStatus } from "./pricing";
 
 export const ORDER_ACTION_KEYS = [
   "MARK_CONTACTED",
   "CONFIRM_ORDER",
   "COMPLETE_ORDER",
   "CANCEL_ORDER",
-  "SET_PRICE",
+  "UPDATE_ADJUSTMENTS",
   "UPDATE_PAYMENT",
   "ADVANCE_FULFILLMENT",
   "EDIT_INTERNAL_NOTE",
@@ -25,7 +24,6 @@ export type NextActionsInput = {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   fulfillmentStatus: FulfillmentStatus;
-  pricingStatus: PricingStatus;
 };
 
 /** Primary lifecycle action for the current status (if any). */
@@ -58,9 +56,10 @@ export function getOrderNextActions(input: NextActionsInput): OrderActionKey[] {
   const primary = primaryOrderAction(input);
   if (primary) actions.push(primary);
 
-  // Quote/payment/fulfillment live in their own sections but stay
-  // available while the order is operational.
-  if (!actions.includes("SET_PRICE")) actions.push("SET_PRICE");
+  // Delivery/discount adjustments and payment live in their own sections
+  // but stay available while the order is operational. The snapshotted
+  // base product price is never editable here.
+  if (!actions.includes("UPDATE_ADJUSTMENTS")) actions.push("UPDATE_ADJUSTMENTS");
   actions.push("UPDATE_PAYMENT");
   if (status === "CONFIRMED" || status === "IN_PROGRESS") {
     if (!actions.includes("ADVANCE_FULFILLMENT") && input.fulfillmentStatus !== "DELIVERED") {
