@@ -2,8 +2,7 @@
  * French vitrine copy (primary marketing locale).
  *
  * Factual only: no invented prices, testimonials, ratings, customer
- * counts, or delivery promises. Quote-state wording reflects the
- * QUOTE-only catalog (Phase 1).
+ * counts, or delivery promises. Every product has one fixed catalog price.
  */
 
 import type { VitrineBaseDict } from "./dict";
@@ -72,8 +71,7 @@ export const frDict: VitrineBaseDict = {
     ],
     pricingTitle: "Combien ça coûte ?",
     pricingDesc:
-      "Chaque demande est étudiée individuellement : décrivez votre besoin et recevez un prix confirmé avant production. Aucun montant n'est débité en ligne.",
-    pricingCta: "Demander un prix",
+      "Chaque carte a un prix fixe affiché. Choisissez votre produit, la quantité, et passez commande. Aucun montant n'est débité en ligne.",
     faqTitle: "Questions fréquentes",
     faqItems: [
       {
@@ -82,7 +80,7 @@ export const frDict: VitrineBaseDict = {
       },
       {
         q: "Comment sont confirmés le prix et la livraison ?",
-        a: "Après votre demande, Karti vous contacte pour confirmer les détails, le prix et la livraison avant production.",
+        a: "Le prix est fixe et affiché sur chaque produit. Après votre commande, Karti vous contacte pour confirmer les détails et la livraison avant production.",
       },
       {
         q: "Puis-je modifier ma carte après réception ?",
@@ -118,7 +116,7 @@ export const frDict: VitrineBaseDict = {
         "Nous créons votre profil avec vos informations",
         "Présentez la carte : votre profil s'ouvre",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Faut-il une application pour recevoir mon profil ?",
@@ -175,7 +173,7 @@ export const frDict: VitrineBaseDict = {
         "Nous créons votre profil avec vos informations",
         "Présentez la carte : votre profil carrière s'ouvre",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Dois-je fournir mon CV définitif à la commande ?",
@@ -228,7 +226,7 @@ export const frDict: VitrineBaseDict = {
         "Nous créons le profil de votre entreprise",
         "Présentez la carte : vos clients agissent",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Quelles actions mes clients peuvent-ils faire ?",
@@ -285,7 +283,7 @@ export const frDict: VitrineBaseDict = {
         "Nous configurons la carte vers votre page d'avis",
         "Présentez la carte à vos clients satisfaits",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Je ne trouve pas mon lien d'avis Google. Puis-je commander ?",
@@ -342,7 +340,7 @@ export const frDict: VitrineBaseDict = {
         "Nous configurons la carte vers votre conversation",
         "Vos clients scannent et discutent",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Puis-je ajouter un message pré-rempli ?",
@@ -395,7 +393,7 @@ export const frDict: VitrineBaseDict = {
         "Nous configurons la carte vers votre profil",
         "Vos visiteurs scannent et vous suivent",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Que dois-je fournir : pseudo ou lien ?",
@@ -452,7 +450,7 @@ export const frDict: VitrineBaseDict = {
         "Nous créons votre fiche contact",
         "Présentez la carte : on vous enregistre",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Quelle différence avec la Carte Personnelle ?",
@@ -505,7 +503,7 @@ export const frDict: VitrineBaseDict = {
         "Nous validons et configurons la destination",
         "Présentez la carte : votre page s'ouvre",
       ],
-      pricing: "Prix confirmé après étude de votre demande.",
+      pricing: "Prix fixe. Livraison confirmée avec l'opérateur.",
       faq: [
         {
           q: "Quels liens sont acceptés ?",
@@ -574,7 +572,7 @@ export const frDict: VitrineBaseDict = {
     selectProductHint: "Sélectionnez la carte qui correspond à votre besoin.",
     quantity: "Quantité",
     configTitle: "Votre configuration",
-    quoteNote: "Prix confirmé après étude de votre demande.",
+    pricePending: "Prix à venir.",
     fields: {
       fullName: "Nom complet",
       professionalTitle: "Titre professionnel",
@@ -610,8 +608,7 @@ export const frDict: VitrineBaseDict = {
       destinationUrl: "Lien de destination",
       purpose: "Usage prévu (optionnel)",
     },
-    deliveryNote:
-      "La livraison et le prix final seront confirmés par Karti après étude de votre demande.",
+    deliveryNote: "La livraison sera confirmée par Karti après votre commande.",
     review: {
       title: "Vérifiez votre demande",
       product: "Produit",
@@ -623,7 +620,6 @@ export const frDict: VitrineBaseDict = {
       pricing: "Tarification",
       edit: "Modifier",
       sendRequest: "Envoyer la demande",
-      quotePending: "Devis à confirmer",
       submitting: "Envoi en cours…",
     },
     errors: {
@@ -687,12 +683,9 @@ export const frDict: VitrineBaseDict = {
     products: "Produits",
     learnMore: "En savoir plus",
     orderNow: "Commander",
-    requestPrice: "Demander un prix",
     talkToUs: "Parlons-nous",
     helpMeChoose: "Aidez-moi à choisir",
     viewExamples: "Voir les exemples",
     demoExample: "Exemple de démonstration",
-    stickyOrder: "Commander",
-    stickyRequest: "Demander",
   },
 };

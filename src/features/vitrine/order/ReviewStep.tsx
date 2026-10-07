@@ -2,7 +2,8 @@
  * Wizard Step 4 — Review.
  *
  * Readable summary only: never raw JSON. Edit buttons return to prior
- * steps without losing state. CTA reads "Send request" (QUOTE wording).
+ * steps without losing state. Prices shown are the fixed catalog prices
+ * (informational — the server snapshots the live catalog at submission).
  */
 
 import type { ProductType } from "@/domain/orders/productTypes";
@@ -92,7 +93,7 @@ export function ReviewStep({
   customerWhatsapp: string;
   delivery: DeliveryForm;
   onEdit: (step: number) => void;
-  /** Visible catalog unit snapshot (null = QUOTE, request-price wording). */
+  /** Visible fixed catalog unit snapshot (null = price not configured). */
   priceLine?: string | null;
 }) {
   const r = dict.order.review;
@@ -191,15 +192,9 @@ export function ReviewStep({
       <section aria-label={r.pricing} className="rounded-2xl bg-neutral-muted p-5 md:p-6">
         <p className="text-sm text-muted">{r.pricing}</p>
         {priceLine ? (
-          <>
-            <p className="mt-1 text-lg font-bold">{priceLine}</p>
-            <p className="mt-1 text-sm text-muted">{dict.order.quoteNote}</p>
-          </>
+          <p className="mt-1 text-lg font-bold">{priceLine}</p>
         ) : (
-          <>
-            <p className="mt-1 text-lg font-bold">{r.quotePending}</p>
-            <p className="mt-1 text-sm text-muted">{dict.order.quoteNote}</p>
-          </>
+          <p className="mt-1 text-lg font-bold">{dict.order.pricePending}</p>
         )}
       </section>
     </div>

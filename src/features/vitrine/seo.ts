@@ -85,12 +85,14 @@ export function organizationJsonLd(appUrl: string, name: string, description: st
 }
 
 /**
- * Product markup. QUOTE products emit a bare Product (any Offer price would
- * fabricate). FIXED/FROM products with a real configured price emit
+ * Product markup. Only call with a real configured fixed price: emits
  * Product + Offer with the exact visible price (decimal string, MAD) and
  * the real canonical image URLs — visible page price and schema price are
- * derived from the same `priceMinor`, so they always match. Never emits
- * review/aggregateRating/availability unless a real configured state exists.
+ * derived from the same `priceMinor`, so they always match. Products
+ * without a configured price must NOT use this function at all (a
+ * priceless Product trips the Search Console
+ * "offers/review/aggregateRating" error). Never emits
+ * review/aggregateRating.
  */
 export function productJsonLd(input: {
   name: string;

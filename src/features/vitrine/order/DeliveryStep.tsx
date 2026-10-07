@@ -1,8 +1,8 @@
 /**
  * Wizard Step 3 — Delivery.
  *
- * No shipping provider, no invented fees or promises. The quote
- * disclosure states delivery is confirmed later by Karti.
+ * No shipping provider, no invented fees or promises. The delivery
+ * note states delivery is confirmed later by Karti.
  */
 
 import { Field } from "@/components/ui/Field";

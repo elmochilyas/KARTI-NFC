@@ -249,33 +249,31 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
     if (address === "" || address.length > MAX_ADDRESS) return invalid();
     if (instructions.length > MAX_NOTES) return invalid();
 
-    // Server-authoritative pricing from the live catalog (browser amounts
-    // cannot reach this function — no price input exists). Unpublished
-    // products refuse new orders; an unreachable catalog falls back to
-    // static QUOTE pricing (fail-safe, never a wrong price). Delivery is
-    // operator-quoted, so the snapshot keeps unit/subtotal truth while the
-    // final total stays unknown until `admin_set_order_price`.
-    let catalogPrice: {
-      pricingMode: "FIXED" | "FROM" | "QUOTE";
-      priceMinor: number | null;
-    } | null = null;
+    // Server-authoritative fixed pricing from the live catalog (browser
+    // amounts cannot reach this function — no price input exists).
+    // Unpublished or price-unconfigured products refuse new orders; an
+    // unreachable catalog also refuses (fail honestly, never a guessed
+    // price). The snapshot is immutable history: unit × quantity at
+    // submission; delivery/discount are operator adjustments later.
+    let catalogPriceMinor: number | null = null;
     try {
       const catalogState = await getOrderCatalogPrice(input.productType, createAdminClient());
-      if (catalogState && catalogState.published === false) return invalid();
-      if (catalogState && catalogState.priceMinor !== null) {
-        catalogPrice = {
-          pricingMode: catalogState.pricingMode,
-          priceMinor: catalogState.priceMinor,
-        };
-      }
+      if (!catalogState || catalogState.published === false) return invalid();
+      if (catalogState.priceMinor === null) return invalid();
+      catalogPriceMinor = catalogState.priceMinor;
     } catch {
-      catalogPrice = null;
+      return invalid();
     }
-    const pricing = priceOrder({
-      productType: input.productType,
-      quantity: input.quantity,
-      catalogPrice,
-    });
+    let pricing;
+    try {
+      pricing = priceOrder({
+        productType: input.productType,
+        quantity: input.quantity,
+        catalogPrice: { priceMinor: catalogPriceMinor, currency: "MAD" },
+      });
+    } catch {
+      return invalid();
+    }
 
     // Server-derived attribution from the first-party cookie.
     const cookieStore = await cookies();
@@ -305,13 +303,12 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
       p_product_type: input.productType,
       p_quantity: input.quantity,
       p_configuration: configuration,
-      p_unit_price_minor: pricing.unitPriceMinor ?? null,
-      p_line_total_minor: pricing.subtotalMinor ?? null,
-      p_subtotal_minor: pricing.subtotalMinor ?? null,
+      p_unit_price_minor: pricing.unitPriceMinor,
+      p_line_total_minor: pricing.subtotalMinor,
+      p_subtotal_minor: pricing.subtotalMinor,
       p_delivery_fee_minor: pricing.deliveryFeeMinor,
       p_discount_minor: pricing.discountMinor,
-      p_total_minor: pricing.totalMinor ?? null,
-      p_pricing_status: pricing.pricingStatus,
+      p_total_minor: pricing.totalMinor,
       p_locale: input.locale,
       p_customer_notes: null,
       p_first_touch_source: attribution.firstTouchSource,

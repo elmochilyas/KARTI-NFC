@@ -25,7 +25,7 @@ export function OrderPageView({
   initialProduct: ProductType | null;
   /** Unpublished products cannot start an order (null = all orderable). */
   publishedFlags?: Record<ProductType, boolean> | null;
-  /** Visible catalog price per product (absent = QUOTE, request-price note). */
+  /** Visible fixed catalog price per product (absent = price not configured). */
   priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
   // An unpublished preselection behaves as no preselection; the server

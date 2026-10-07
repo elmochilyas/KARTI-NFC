@@ -3,7 +3,7 @@
  *
  * A valid preselected product locks the selector; otherwise the visitor
  * picks from all eight. Quantity stepper (min 1) + per-product
- * configuration + QUOTE pricing note. No invented prices.
+ * configuration + fixed catalog price line. No invented prices.
  */
 
 import { Button } from "@/components/ui/Button";
@@ -39,7 +39,7 @@ export function ProductStep({
   onConfigChange: (patch: Record<string, unknown>) => void;
   /** Unpublished products are excluded from the selector (null = all listed). */
   publishedFlags?: Record<ProductType, boolean> | null;
-  /** Visible catalog price per product (absent = QUOTE, request-price note). */
+  /** Visible fixed catalog price per product (absent = price not configured). */
   priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
   const selectable = allProducts().filter((id) => publishedFlags?.[id] !== false);
@@ -152,9 +152,7 @@ export function ProductStep({
                 {dict.products[product].pricing}
               </>
             ) : (
-              <>
-                {dict.order.quoteNote} {dict.products[product].pricing}
-              </>
+              <>{dict.order.pricePending}</>
             )}
           </p>
         </>

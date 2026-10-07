@@ -5,6 +5,7 @@
  */
 
 import Link from "next/link";
+import type { ProductType } from "@/domain/orders/productTypes";
 import type { ArticleSlug, SolutionKey, VitrineDict, VitrineLocale } from "../i18n/dict";
 import { productSlugFromType } from "../products";
 import { articlePath, localePath, orderPath, solutionKeyToSlug, solutionPath } from "../site";
@@ -262,7 +263,25 @@ export function HowPage({ locale, dict }: { locale: VitrineLocale; dict: Vitrine
   );
 }
 
-export function PricingPage({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }) {
+export type PricingProductCard = {
+  product: ProductType;
+  name: string;
+  tagline: string;
+  href: string;
+  orderHref: string;
+  /** Fixed catalog price line, or null while "Price not configured". */
+  priceLine: string | null;
+};
+
+export function PricingPage({
+  locale,
+  dict,
+  products,
+}: {
+  locale: VitrineLocale;
+  dict: VitrineDict;
+  products: PricingProductCard[];
+}) {
   const copy = dict.pricingPage;
   return (
     <PageContainer>
@@ -275,11 +294,11 @@ export function PricingPage({ locale, dict }: { locale: VitrineLocale; dict: Vit
         ]}
       />
       <PageHero title={copy.title} subtitle={copy.subtitle} />
-      <Section title={copy.tiersTitle} eyebrow={dict.nav.pricing}>
+      <Section title={copy.productsTitle} eyebrow={dict.nav.pricing}>
         <ul className="grid gap-4 md:grid-cols-3">
-          {copy.tiers.map((tier, index) => (
+          {products.map((item, index) => (
             <li
-              key={tier.title}
+              key={item.product}
               className={`flex flex-col rounded-[1.75rem] bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] md:p-6 ${
                 index === 0
                   ? "border-accent/40 ring-1 ring-accent/20 border"
@@ -292,75 +311,58 @@ export function PricingPage({ locale, dict }: { locale: VitrineLocale; dict: Vit
                 </p>
               ) : null}
               <p className="font-display text-xl font-bold tracking-[-0.01em] text-balance text-text">
-                {tier.title}
+                {item.name}
               </p>
-              <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{tier.desc}</p>
-              <ul className="mt-4 flex flex-1 flex-col gap-2">
-                {tier.points.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm text-text">
-                    <span
-                      aria-hidden="true"
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-strong"
-                    >
-                      ✓
-                    </span>
-                    {point}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href={orderPath(locale)}
-                className={`mt-5 inline-flex min-h-11 items-center justify-center rounded-full px-5 text-[15px] font-bold transition-all ${
-                  index === 0
-                    ? "bg-ink text-white hover:bg-accent-strong"
-                    : "border border-border hover:border-muted"
-                }`}
-              >
-                {tier.cta}
-              </Link>
+              <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{item.tagline}</p>
+              {item.priceLine ? (
+                <p className="mt-3 text-2xl font-bold tracking-[-0.01em] text-text">
+                  {item.priceLine}
+                </p>
+              ) : (
+                <p className="mt-3 text-sm font-semibold text-muted">{dict.order.pricePending}</p>
+              )}
+              <div className="mt-5 flex flex-1 flex-col justify-end gap-2">
+                {item.priceLine ? (
+                  <Link
+                    href={item.orderHref}
+                    className={`inline-flex min-h-11 items-center justify-center rounded-full px-5 text-[15px] font-bold transition-all ${
+                      index === 0
+                        ? "bg-ink text-white hover:bg-accent-strong"
+                        : "border border-border hover:border-muted"
+                    }`}
+                  >
+                    {dict.common.orderNow}
+                  </Link>
+                ) : null}
+                <Link
+                  href={item.href}
+                  className="inline-flex min-h-11 items-center justify-center rounded-full px-5 text-[15px] font-semibold text-ink underline-offset-4 hover:underline"
+                >
+                  {dict.common.learnMore}
+                </Link>
+              </div>
             </li>
           ))}
         </ul>
       </Section>
-      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-        <Section title={copy.includedTitle}>
-          <ul className="flex flex-col gap-2.5">
-            {copy.included.map((item) => (
-              <li
-                key={item}
-                className="flex items-start gap-2.5 rounded-2xl border border-border/70 bg-surface px-4 py-3 text-[15px] text-text shadow-card"
+      <Section title={copy.includedTitle}>
+        <ul className="flex flex-col gap-2.5">
+          {copy.included.map((item) => (
+            <li
+              key={item}
+              className="flex items-start gap-2.5 rounded-2xl border border-border/70 bg-surface px-4 py-3 text-[15px] text-text shadow-card"
+            >
+              <span
+                aria-hidden="true"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-strong"
               >
-                <span
-                  aria-hidden="true"
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-strong"
-                >
-                  ✓
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </Section>
-        <Section title={copy.factorsTitle}>
-          <ul className="flex flex-col gap-2.5">
-            {copy.factors.map((item, index) => (
-              <li
-                key={item}
-                className="flex items-start gap-2.5 rounded-2xl bg-surface-muted/60 px-4 py-3 text-[15px] leading-relaxed text-muted"
-              >
-                <span
-                  aria-hidden="true"
-                  className="font-display flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-ink text-[13px] font-bold text-white tabular-nums"
-                >
-                  {index + 1}
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      </div>
-      <LabeledFlow title={copy.processTitle} steps={copy.processSteps} columns={3} />
+                ✓
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </Section>
       <Section id="pricing-faq" title={copy.faqTitle}>
         <FaqList items={copy.faq} idPrefix="pricing-faq" />
       </Section>
@@ -368,7 +370,7 @@ export function PricingPage({ locale, dict }: { locale: VitrineLocale; dict: Vit
         <CtaBlock
           title={copy.ctaTitle}
           subtitle={copy.ctaSubtitle}
-          primary={{ href: orderPath(locale), label: dict.common.requestPrice }}
+          primary={{ href: orderPath(locale), label: dict.common.orderNow }}
           secondary={{ href: localePath(locale, "contact"), label: dict.common.talkToUs }}
         />
       </div>

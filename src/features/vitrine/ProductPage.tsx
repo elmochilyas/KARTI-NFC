@@ -354,7 +354,7 @@ export function ProductPage({
   locale: VitrineLocale;
   dict: VitrineDict;
   slug: string;
-  /** Published CMS overlay, or null (unpublished/QUOTE-missing/unreachable → static fallback). */
+  /** Published CMS overlay, or null (unpublished/unpriced/unreachable → static fallback). */
   catalog?: PublicCatalogProduct | null;
   publishedFlags?: Record<ProductType, boolean> | null;
 }) {
