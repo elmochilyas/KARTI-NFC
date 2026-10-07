@@ -6,60 +6,38 @@ import {
 } from "./schema";
 
 describe("catalog product update validation", () => {
-  it("accepts FIXED with a decimal MAD price", () => {
+  it("accepts a decimal MAD price", () => {
     const parsed = catalogProductUpdateSchema.safeParse({
       published: true,
-      pricingMode: "FIXED",
       priceMad: "249.50",
       availability: null,
     });
     expect(parsed.success).toBe(true);
   });
 
-  it("accepts FROM with a price and QUOTE without one", () => {
-    expect(
-      catalogProductUpdateSchema.safeParse({
-        published: true,
-        pricingMode: "FROM",
-        priceMad: "199",
-        availability: "IN_STOCK",
-      }).success,
-    ).toBe(true);
+  it("accepts an empty price while the price is not configured", () => {
     expect(
       catalogProductUpdateSchema.safeParse({
         published: false,
-        pricingMode: "QUOTE",
         priceMad: null,
         availability: null,
       }).success,
     ).toBe(true);
-  });
-
-  it("rejects FIXED without a price and QUOTE with one (no ambiguous rows)", () => {
     expect(
       catalogProductUpdateSchema.safeParse({
         published: true,
-        pricingMode: "FIXED",
         priceMad: "",
-        availability: null,
+        availability: "IN_STOCK",
       }).success,
-    ).toBe(false);
-    expect(
-      catalogProductUpdateSchema.safeParse({
-        published: true,
-        pricingMode: "QUOTE",
-        priceMad: "199",
-        availability: null,
-      }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("rejects unknown pricing modes and product-type impersonation surface", () => {
+  it("rejects unknown fields such as pricing modes (single price model only)", () => {
     expect(
       catalogProductUpdateSchema.safeParse({
         published: true,
-        pricingMode: "FREE",
-        priceMad: null,
+        pricingMode: "FIXED", // pricing-guard-allow: pricingMode
+        priceMad: "199",
         availability: null,
       }).success,
     ).toBe(false);

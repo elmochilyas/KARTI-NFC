@@ -101,9 +101,9 @@ function AltForm({
 }
 
 /**
- * MEDIA section: upload (JPEG/PNG/WebP, ≤5 MB), primary + OG selection,
- * gallery ordering, localized alt text, removal. All mutations are
- * admin-gated server actions.
+ * MEDIA section: upload (JPEG/PNG/WebP, ≤5 MB, auto-optimized to 4:3
+ * WebP), primary + OG selection, gallery ordering, localized alt text,
+ * removal. All mutations are admin-gated server actions.
  */
 export function MediaManager({
   uploadAction,
@@ -144,6 +144,7 @@ export function MediaManager({
   );
   const uploadMessage =
     uploadState.ok === false && uploadState.error.message !== "" ? uploadState.error.message : null;
+  const uploadSaved = uploadState.ok === true;
   const ordered = [...media].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
@@ -157,10 +158,20 @@ export function MediaManager({
             {uploadMessage}
           </p>
         ) : null}
+        {uploadPending ? (
+          <p role="status" className="text-sm font-medium text-muted">
+            Uploading… Optimizing…
+          </p>
+        ) : null}
+        {!uploadPending && uploadSaved ? (
+          <p role="status" className="text-sm font-medium text-text">
+            Saved.
+          </p>
+        ) : null}
         <Field
           id="catalog-image-file"
-          label="Upload image"
-          hint="JPEG, PNG, or WebP, max 5 MB. PRIMARY uploads also become the product image."
+          label="Product image"
+          hint="4:3 · Recommended: 1600 × 1200 px · Minimum: 800 × 600 px · JPEG, PNG or WebP · Images are automatically optimized for the web."
         >
           <Input name="image" type="file" accept="image/jpeg,image/png,image/webp" required />
         </Field>
@@ -193,7 +204,7 @@ export function MediaManager({
                   <img
                     src={catalogAssetUrl(item.storage_path)}
                     alt=""
-                    className="h-20 w-20 shrink-0 rounded-lg border border-border object-cover"
+                    className="aspect-[4/3] w-24 shrink-0 rounded-lg border border-border object-cover"
                     loading="lazy"
                   />
                   <div className="min-w-0 flex-1">

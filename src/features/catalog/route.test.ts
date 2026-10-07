@@ -33,7 +33,6 @@ function fixedCatalog(): PublicCatalogProduct {
   return {
     productType: "PERSONAL_CARD",
     published: true,
-    pricingMode: "FIXED",
     priceMinor: 19900,
     currency: "MAD",
     availability: "IN_STOCK",
@@ -90,17 +89,17 @@ describe("product route loader", () => {
 describe("product JSON-LD route builder", () => {
   const dict = getDict("fr");
 
-  it("emits a bare Product for QUOTE (Search Console stays error-free by construction)", () => {
+  it("emits NO Product markup while the price is not configured (Search Console stays error-free by construction)", () => {
     const jsonLd = productRouteJsonLd(
       { product: "PERSONAL_CARD", catalog: null, published: true },
       dict,
       "personal-card",
       "fr",
     );
-    expect(JSON.stringify(jsonLd.product)).not.toContain("Offer");
+    expect(jsonLd.product).toBeNull();
   });
 
-  it("emits Product + Offer with matching price and real images for FIXED", () => {
+  it("emits Product + Offer with matching price and real images when priced", () => {
     const jsonLd = productRouteJsonLd(
       { product: "PERSONAL_CARD", catalog: fixedCatalog(), published: true },
       dict,
@@ -117,14 +116,14 @@ describe("product JSON-LD route builder", () => {
     ]);
   });
 
-  it("emits no Offer for unpublished products even with a configured price", () => {
+  it("emits no Product markup for unpublished products even with a configured price", () => {
     const jsonLd = productRouteJsonLd(
       { product: "PERSONAL_CARD", catalog: fixedCatalog(), published: false },
       dict,
       "personal-card",
       "fr",
     );
-    expect(JSON.stringify(jsonLd.product)).not.toContain("Offer");
+    expect(jsonLd.product).toBeNull();
   });
 });
 
@@ -135,7 +134,7 @@ describe("homepage catalog data", () => {
     vi.mocked(getCachedCatalogProduct).mockResolvedValue(null);
   });
 
-  it("returns no price lines when the catalog is quote-only", async () => {
+  it("returns no price lines while prices are not configured", async () => {
     const { flags, priceLines } = await getHomeCatalogData("fr");
     expect(flags.PERSONAL_CARD).toBe(true);
     expect(priceLines).toEqual({});

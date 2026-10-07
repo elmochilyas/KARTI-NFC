@@ -11,6 +11,7 @@ import {
   productTypeField,
 } from "./schema";
 import { catalogAssetPath, isManagedCatalogPath } from "./storagePaths";
+import { optimizeCatalogImage } from "./optimize";
 import type {
   CatalogAdminProduct,
   CatalogAvailability,
@@ -18,7 +19,6 @@ import type {
   CatalogFaqItem,
   CatalogLocalizationRow,
   CatalogMediaRow,
-  CatalogPricingMode,
   CatalogProductRow,
   CatalogResult,
 } from "./types";
@@ -50,10 +50,6 @@ function validationError(message: string): CatalogResult<never> {
   return { ok: false, error: { code: "VALIDATION_ERROR", message } };
 }
 
-function toPricingMode(value: string): CatalogPricingMode | null {
-  return value === "FIXED" || value === "FROM" || value === "QUOTE" ? value : null;
-}
-
 function toAvailability(value: string | null): CatalogAvailability | null {
   return value === "IN_STOCK" || value === "OUT_OF_STOCK" || value === "PREORDER" ? value : null;
 }
@@ -61,7 +57,6 @@ function toAvailability(value: string | null): CatalogAvailability | null {
 function toProductRow(row: {
   product_type: string;
   published: boolean;
-  pricing_mode: string;
   price_minor: number | null;
   currency: string;
   availability: string | null;
@@ -71,12 +66,9 @@ function toProductRow(row: {
   updated_at: string;
 }): CatalogProductRow | null {
   if (!isProductType(row.product_type)) return null;
-  const pricingMode = toPricingMode(row.pricing_mode);
-  if (!pricingMode) return null;
   return {
     product_type: row.product_type,
     published: row.published,
-    pricing_mode: pricingMode,
     price_minor: row.price_minor,
     currency: row.currency,
     availability: toAvailability(row.availability),
@@ -203,7 +195,7 @@ export async function listCatalogAdmin(
   const productsRes = await supabase
     .from("catalog_products")
     .select(
-      "product_type,published,pricing_mode,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
+      "product_type,published,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
     )
     .order("product_type");
   if (productsRes.error) return unknownError();
@@ -256,7 +248,7 @@ export async function getCatalogAdminProduct(
   const productRes = await supabase
     .from("catalog_products")
     .select(
-      "product_type,published,pricing_mode,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
+      "product_type,published,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
     )
     .eq("product_type", productType)
     .maybeSingle();
@@ -308,11 +300,15 @@ export async function updateCatalogProduct(
   if (!parsed.success) return validationError("Check the entered values and try again.");
   const input = parsed.data;
 
+  // Empty price = "Price not configured" (readiness state). Otherwise the
+  // decimal MAD string must parse to a positive minor-unit amount within
+  // a sensible bound (string/integer math only, never float).
   let priceMinor: number | null = null;
-  if (input.pricingMode === "FIXED" || input.pricingMode === "FROM") {
-    const converted = parseMadDecimalToMinor(input.priceMad ?? "");
-    if (converted === null || converted <= 0) {
-      return validationError("Enter a valid price greater than zero.");
+  const priceRaw = input.priceMad?.trim() ?? "";
+  if (priceRaw !== "") {
+    const converted = parseMadDecimalToMinor(priceRaw);
+    if (converted === null || converted <= 0 || converted > 99_999_999) {
+      return validationError("Enter a valid price greater than zero (max 999999.99 MAD).");
     }
     priceMinor = converted;
   }
@@ -324,13 +320,12 @@ export async function updateCatalogProduct(
     .from("catalog_products")
     .update({
       published: input.published,
-      pricing_mode: input.pricingMode,
       price_minor: priceMinor,
       availability,
     })
     .eq("product_type", productType)
     .select(
-      "product_type,published,pricing_mode,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
+      "product_type,published,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
     )
     .maybeSingle();
   if (updateRes.error) return unknownError();
@@ -396,8 +391,10 @@ const ALLOWED_UPLOAD_MIME = new Map([
 
 /**
  * Admin-only catalog image upload. Validates MIME + magic bytes + size,
- * writes to a server-generated path, and records the media row.
- * Never accepts SVG or caller-supplied paths.
+ * normalizes through the 4:3 WebP optimization pipeline, writes the
+ * optimized asset to a server-generated versioned path, and records the
+ * media row. Never accepts SVG, never stores caller paths, never serves
+ * the raw multi-megabyte original.
  */
 export async function uploadCatalogImage(
   supabase: CatalogDb,
@@ -419,7 +416,7 @@ export async function uploadCatalogImage(
     return validationError("Check the entered values and try again.");
   }
   const extension = ALLOWED_UPLOAD_MIME.get(args.mimeType);
-  if (!extension) return validationError("Only JPEG, PNG, or WebP images are allowed.");
+  if (!extension) return validationError("Unsupported format. Use JPEG, PNG or WebP.");
   if (args.bytes.length === 0 || args.bytes.length > MAX_CATALOG_UPLOAD_BYTES) {
     return validationError("Image must be non-empty and at most 5 MB.");
   }
@@ -436,10 +433,22 @@ export async function uploadCatalogImage(
   });
   if (!altParsed.success) return validationError("Check the entered values and try again.");
 
-  const path = catalogAssetPath(args.productType, args.role, extension as "jpg" | "png" | "webp");
+  // Web optimization: 4:3 center-crop, max 1600x1200 WebP, metadata
+  // stripped. Nothing is stored when processing fails — no partial
+  // DB/storage state, the current primary image is untouched.
+  const optimized = await optimizeCatalogImage(args.bytes, args.role);
+  if (!optimized.ok) return validationError(optimized.message);
+
+  const path = catalogAssetPath(args.productType, args.role, "webp");
   const uploadRes = await supabase.storage
     .from(CATALOG_ASSETS_BUCKET)
-    .upload(path, args.bytes, { contentType: args.mimeType, upsert: false });
+    .upload(path, optimized.bytes, {
+      contentType: optimized.contentType,
+      // Versioned paths are immutable: a replacement always mints a new
+      // path, so edge caches can hold the asset long-term.
+      cacheControl: "31536000",
+      upsert: false,
+    });
   if (uploadRes.error) return unknownError();
 
   // Next sort position within this product+role.
@@ -551,7 +560,7 @@ export async function setCatalogPrimaryImage(
     .update({ primary_image_path: mediaRes.data.storage_path })
     .eq("product_type", args.productType)
     .select(
-      "product_type,published,pricing_mode,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
+      "product_type,published,price_minor,currency,availability,primary_image_path,og_image_path,created_at,updated_at",
     )
     .maybeSingle();
   if (updateRes.error || !updateRes.data) return unknownError();

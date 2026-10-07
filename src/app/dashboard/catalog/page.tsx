@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { listCatalogAdmin } from "@/features/catalog/service";
 import { catalogPriceDisplay } from "@/features/catalog/price";
-import { formatMinorToMad } from "@/domain/orders/money";
 import { BackLink } from "@/components/dashboard/BackLink";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { Section } from "@/components/dashboard/Section";
@@ -63,13 +62,7 @@ export default async function CatalogListPage() {
       >
         <ul className="flex flex-col gap-3">
           {result.data.map((product) => {
-            const price =
-              product.pricing_mode === "QUOTE"
-                ? "Quote"
-                : (catalogPriceDisplay({
-                    pricingMode: product.pricing_mode,
-                    priceMinor: product.price_minor,
-                  }) ?? formatMinorToMad(product.price_minor));
+            const price = catalogPriceDisplay({ priceMinor: product.price_minor });
             return (
               <li
                 key={product.product_type}
@@ -83,10 +76,9 @@ export default async function CatalogListPage() {
                   <p className="mt-0.5 font-mono text-xs text-muted">{product.product_type}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                     {statusBadge(product.published)}
-                    <span className="rounded-full bg-surface-muted px-2.5 py-1 font-medium">
-                      {product.pricing_mode}
+                    <span className="font-semibold text-text">
+                      {price ?? "Price not configured"}
                     </span>
-                    <span className="font-semibold text-text">{price}</span>
                     <span>{product.primary_image_path ? "Image ✓" : "No image"}</span>
                   </div>
                 </div>

@@ -74,7 +74,6 @@ export async function updateCatalogProductAction(
   }
   const values: Record<string, string> = {
     published: String(formData.get("published") ?? ""),
-    pricingMode: String(formData.get("pricingMode") ?? ""),
     priceMad: String(formData.get("priceMad") ?? ""),
     availability: String(formData.get("availability") ?? ""),
   };
@@ -82,7 +81,6 @@ export async function updateCatalogProductAction(
   if (!supabase) return { ...FAILURE, values };
   const result = await updateCatalogProduct(supabase, productType, {
     published: formData.get("published") === "on",
-    pricingMode: String(formData.get("pricingMode") ?? "QUOTE"),
     priceMad:
       String(formData.get("priceMad") ?? "").trim() === ""
         ? null

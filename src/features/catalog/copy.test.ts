@@ -12,7 +12,6 @@ function pricedCatalog(overrides?: Partial<PublicCatalogProduct>): PublicCatalog
   return {
     productType: "PERSONAL_CARD",
     published: true,
-    pricingMode: "FIXED",
     priceMinor: 19900,
     currency: "MAD",
     availability: "IN_STOCK",
@@ -76,12 +75,12 @@ describe("catalog copy merge", () => {
 });
 
 describe("catalog price lines", () => {
-  it("returns null for QUOTE (request-price fallback applies)", () => {
-    expect(catalogPriceLine(pricedCatalog({ pricingMode: "QUOTE", priceMinor: null }))).toBeNull();
+  it("returns null while the price is not configured", () => {
+    expect(catalogPriceLine(pricedCatalog({ priceMinor: null }))).toBeNull();
     expect(catalogPriceLine(null)).toBeNull();
   });
 
-  it("matches the visible FIXED price exactly", () => {
+  it("matches the visible fixed price exactly", () => {
     expect(catalogPriceLine(pricedCatalog())).toBe("199.00 MAD");
   });
 });
@@ -89,10 +88,8 @@ describe("catalog price lines", () => {
 describe("catalog JSON-LD offer", () => {
   const url = "https://karti.pro/fr/products/personal-card";
 
-  it("emits no Offer without a real price (QUOTE stays a bare Product)", () => {
-    expect(
-      catalogOfferForJsonLd(pricedCatalog({ pricingMode: "QUOTE", priceMinor: null }), url),
-    ).toBeNull();
+  it("emits no Offer without a real price (no Product markup applies)", () => {
+    expect(catalogOfferForJsonLd(pricedCatalog({ priceMinor: null }), url)).toBeNull();
     expect(catalogOfferForJsonLd(null, url)).toBeNull();
   });
 
@@ -126,9 +123,7 @@ describe("catalog order unit lines", () => {
     expect(catalogOrderUnitLine(pricedCatalog(), 2)).toBe("199.00 MAD × 2 = 398.00 MAD");
   });
 
-  it("returns null for QUOTE (order stays quote-based)", () => {
-    expect(
-      catalogOrderUnitLine(pricedCatalog({ pricingMode: "QUOTE", priceMinor: null }), 1),
-    ).toBeNull();
+  it("returns null while unconfigured (ordering stays blocked)", () => {
+    expect(catalogOrderUnitLine(pricedCatalog({ priceMinor: null }), 1)).toBeNull();
   });
 });

@@ -5,14 +5,12 @@ import type { Database } from "@/types/database";
 
 export type CatalogDb = SupabaseClient<Database>;
 
-export type CatalogPricingMode = "FIXED" | "FROM" | "QUOTE";
-
 export type CatalogAvailability = "IN_STOCK" | "OUT_OF_STOCK" | "PREORDER";
 
 export type CatalogProductRow = {
   product_type: ProductType;
   published: boolean;
-  pricing_mode: CatalogPricingMode;
+  /** Fixed base price in minor units, or null while "Price not configured". */
   price_minor: number | null;
   currency: string;
   availability: CatalogAvailability | null;

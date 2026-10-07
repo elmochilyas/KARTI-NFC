@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+import sharp from "sharp";
 import {
   deleteCatalogMedia,
   getCatalogAdminProduct,
@@ -35,11 +39,10 @@ function signedOutDb(): CatalogDb {
  * select/eq/order/limit + maybeSingle, update/eq/select + maybeSingle,
  * upsert/select + maybeSingle. Anything else is out of scope.
  */
-function quoteProductRow(productType: string): Record<string, unknown> {
+function unpricedProductRow(productType: string): Record<string, unknown> {
   return {
     product_type: productType,
     published: true,
-    pricing_mode: "QUOTE",
     price_minor: null,
     currency: "MAD",
     availability: null,
@@ -133,16 +136,15 @@ function adminFakeDb(options: {
 describe("catalog empty/initial CMS state", () => {
   const locRows = ["fr", "en", "ar"].map((locale) => emptyLocRow("CUSTOM_LINK_CARD", locale));
 
-  it("loads QUOTE + null price + no image + empty media without crashing", async () => {
+  it("loads unpriced + no image + empty media without crashing", async () => {
     const db = adminFakeDb({
-      productRows: { CUSTOM_LINK_CARD: quoteProductRow("CUSTOM_LINK_CARD") },
+      productRows: { CUSTOM_LINK_CARD: unpricedProductRow("CUSTOM_LINK_CARD") },
       locRows,
       mediaRows: [],
     });
     const res = await getCatalogAdminProduct(db, "CUSTOM_LINK_CARD");
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.data.pricing_mode).toBe("QUOTE");
     expect(res.data.price_minor).toBeNull();
     expect(res.data.primary_image_path).toBeNull();
     expect(res.data.og_image_path).toBeNull();
@@ -152,7 +154,7 @@ describe("catalog empty/initial CMS state", () => {
 
   it("treats missing localization rows as valid empty state", async () => {
     const db = adminFakeDb({
-      productRows: { CUSTOM_LINK_CARD: quoteProductRow("CUSTOM_LINK_CARD") },
+      productRows: { CUSTOM_LINK_CARD: unpricedProductRow("CUSTOM_LINK_CARD") },
       locRows: [],
       mediaRows: [],
     });
@@ -170,7 +172,7 @@ describe("catalog empty/initial CMS state", () => {
       faqs: [{ q: " Actual question? ", a: " Actual answer. " }, "junk", { q: "", a: "" }],
     };
     const db = adminFakeDb({
-      productRows: { CUSTOM_LINK_CARD: quoteProductRow("CUSTOM_LINK_CARD") },
+      productRows: { CUSTOM_LINK_CARD: unpricedProductRow("CUSTOM_LINK_CARD") },
       locRows: [malformed],
       mediaRows: [],
     });
@@ -186,15 +188,15 @@ describe("catalog empty/initial CMS state", () => {
     ]);
   });
 
-  it("fails safely (NOT_FOUND) for unknown pricing mode or product type in the row", async () => {
-    const badMode = adminFakeDb({
+  it("fails safely (NOT_FOUND) for unknown product type in the row", async () => {
+    const badType = adminFakeDb({
       productRows: {
-        CUSTOM_LINK_CARD: { ...quoteProductRow("CUSTOM_LINK_CARD"), pricing_mode: "YEARLY" },
+        CUSTOM_LINK_CARD: { ...unpricedProductRow("CUSTOM_LINK_CARD"), product_type: "GOLD_CARD" },
       },
       locRows: [],
       mediaRows: [],
     });
-    await expect(getCatalogAdminProduct(badMode, "CUSTOM_LINK_CARD")).resolves.toMatchObject({
+    await expect(getCatalogAdminProduct(badType, "CUSTOM_LINK_CARD")).resolves.toMatchObject({
       ok: false,
       error: { code: "NOT_FOUND" },
     });
@@ -207,58 +209,54 @@ describe("catalog empty/initial CMS state", () => {
 });
 
 describe("catalog price save/reload", () => {
-  const base = quoteProductRow("CUSTOM_LINK_CARD");
+  const base = unpricedProductRow("CUSTOM_LINK_CARD");
 
-  it("maps FIXED + MAD decimal to integer minor units on save", async () => {
+  it("maps a MAD decimal to integer minor units on save", async () => {
     const captured: { update?: unknown } = {};
     const db = adminFakeDb({
       productRows: { CUSTOM_LINK_CARD: base },
       captured,
-      updatedProductRow: { ...base, pricing_mode: "FIXED", price_minor: 19950 },
+      updatedProductRow: { ...base, price_minor: 19950 },
     });
     const res = await updateCatalogProduct(db, "CUSTOM_LINK_CARD", {
       published: true,
-      pricingMode: "FIXED",
       priceMad: "199.50",
       availability: null,
     });
     expect(res.ok).toBe(true);
-    expect(captured.update).toMatchObject({ pricing_mode: "FIXED", price_minor: 19950 });
+    expect(captured.update).toMatchObject({ price_minor: 19950 });
     if (res.ok) expect(res.data.price_minor).toBe(19950);
   });
 
-  it("clears the price when switching back to QUOTE", async () => {
+  it("clears the price back to Price-not-configured when emptied", async () => {
     const captured: { update?: unknown } = {};
     const db = adminFakeDb({
-      productRows: { CUSTOM_LINK_CARD: { ...base, pricing_mode: "FIXED", price_minor: 19950 } },
+      productRows: { CUSTOM_LINK_CARD: { ...base, price_minor: 19950 } },
       captured,
-      updatedProductRow: { ...base, pricing_mode: "QUOTE", price_minor: null },
+      updatedProductRow: { ...base, price_minor: null },
     });
     const res = await updateCatalogProduct(db, "CUSTOM_LINK_CARD", {
       published: true,
-      pricingMode: "QUOTE",
       priceMad: null,
       availability: null,
     });
     expect(res.ok).toBe(true);
-    expect(captured.update).toMatchObject({ pricing_mode: "QUOTE", price_minor: null });
+    expect(captured.update).toMatchObject({ price_minor: null });
   });
 
-  it("rejects FIXED without a price and QUOTE carrying a price", async () => {
+  it("rejects invalid decimal prices", async () => {
     const db = adminFakeDb({ productRows: { CUSTOM_LINK_CARD: base } });
     await expect(
       updateCatalogProduct(db, "CUSTOM_LINK_CARD", {
         published: true,
-        pricingMode: "FIXED",
-        priceMad: null,
+        priceMad: "12.345",
         availability: null,
       }),
     ).resolves.toMatchObject({ ok: false, error: { code: "VALIDATION_ERROR" } });
     await expect(
       updateCatalogProduct(db, "CUSTOM_LINK_CARD", {
         published: true,
-        pricingMode: "QUOTE",
-        priceMad: "199.50",
+        priceMad: "0",
         availability: null,
       }),
     ).resolves.toMatchObject({ ok: false, error: { code: "VALIDATION_ERROR" } });
@@ -309,7 +307,6 @@ describe("catalog authorization", () => {
     await expect(
       updateCatalogProduct(db, "PERSONAL_CARD", {
         published: true,
-        pricingMode: "QUOTE",
         priceMad: null,
         availability: null,
       }),
@@ -366,5 +363,150 @@ describe("catalog authorization", () => {
         mediaId: "123e4567-e89b-12d3-a456-426614174000",
       }),
     ).resolves.toMatchObject({ ok: false, error: { code: "UNAUTHORIZED" } });
+  });
+});
+
+describe("catalog image upload optimization", () => {
+  /** Storage + insert stub capturing the stored bytes, path, and options. */
+  function uploadFakeDb(captured: {
+    path?: string;
+    bytes?: Uint8Array;
+    options?: Record<string, unknown>;
+    removed?: string[];
+    inserted?: Record<string, unknown>;
+  }): CatalogDb {
+    const mediaRow = (storagePath: string) => ({
+      id: "123e4567-e89b-12d3-a456-426614174000",
+      product_type: "CUSTOM_LINK_CARD",
+      storage_path: storagePath,
+      media_role: "PRIMARY",
+      sort_order: 0,
+      alt_fr: null,
+      alt_en: null,
+      alt_ar: null,
+      created_at: "2026-10-08T00:00:00.000Z",
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chain: any = {
+      eq: () => chain,
+      order: () => chain,
+      limit: () => chain,
+      select: () => chain,
+      maybeSingle: async () => ({ data: mediaRow(captured.path ?? ""), error: null }),
+      then: (resolve: (value: { data: unknown[]; error: null }) => void) =>
+        resolve({ data: [], error: null }),
+    };
+    return {
+      auth: {
+        getClaims: async () => ({ data: { claims: { sub: "test-admin" } }, error: null }),
+      },
+      from: () => ({
+        select: () => chain,
+        update: () => chain,
+        insert: (payload: unknown) => {
+          captured.inserted = payload as Record<string, unknown>;
+          return chain;
+        },
+      }),
+      storage: {
+        from: () => ({
+          upload: async (path: string, bytes: Uint8Array, options: Record<string, unknown>) => {
+            captured.path = path;
+            captured.bytes = bytes;
+            captured.options = options;
+            return { data: { path }, error: null };
+          },
+          remove: async (paths: string[]) => {
+            captured.removed = [...(captured.removed ?? []), ...paths];
+            return { data: null, error: null };
+          },
+        }),
+      },
+    } as unknown as CatalogDb;
+  }
+
+  async function pngFixture(width: number, height: number): Promise<Buffer> {
+    return sharp({
+      create: { width, height, channels: 3, background: { r: 30, g: 140, b: 90 } },
+    })
+      .png()
+      .toBuffer();
+  }
+
+  it("stores an optimized WebP under a versioned path with a long cache header", async () => {
+    const captured: Record<string, unknown> = {};
+    const db = uploadFakeDb(captured as never);
+    const res = await uploadCatalogImage(db, {
+      productType: "CUSTOM_LINK_CARD",
+      role: "PRIMARY",
+      bytes: new Uint8Array(await pngFixture(1600, 900)),
+      mimeType: "image/png",
+    });
+    expect(res.ok).toBe(true);
+    // Versioned server-generated .webp path (never the raw filename).
+    expect(captured.path).toMatch(/^catalog\/CUSTOM_LINK_CARD\/primary\/[0-9a-f]{16}\.webp$/);
+    // Stored bytes are the optimized WebP, not the PNG original.
+    const stored = Buffer.from(captured.bytes as Uint8Array);
+    expect(stored.subarray(0, 4).toString()).toBe("RIFF");
+    expect(stored.subarray(8, 12).toString()).toBe("WEBP");
+    const meta = await sharp(stored).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBe(1200);
+    expect(meta.height).toBe(900);
+    expect(captured.options).toMatchObject({
+      contentType: "image/webp",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+    expect(captured.inserted).toMatchObject({
+      product_type: "CUSTOM_LINK_CARD",
+      storage_path: captured.path,
+      media_role: "PRIMARY",
+    });
+  });
+
+  it("rejects SVG without touching storage or the media table", async () => {
+    const captured: Record<string, unknown> = {};
+    const db = uploadFakeDb(captured as never);
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const res = await uploadCatalogImage(db, {
+      productType: "CUSTOM_LINK_CARD",
+      role: "GALLERY",
+      bytes: new Uint8Array(svg),
+      mimeType: "image/svg+xml",
+    });
+    expect(res).toMatchObject({ ok: false, error: { code: "VALIDATION_ERROR" } });
+    expect(captured.path).toBeUndefined();
+    expect(captured.inserted).toBeUndefined();
+  });
+
+  it("rejects too-small images with a clear error and no partial state", async () => {
+    const captured: Record<string, unknown> = {};
+    const db = uploadFakeDb(captured as never);
+    const res = await uploadCatalogImage(db, {
+      productType: "CUSTOM_LINK_CARD",
+      role: "GALLERY",
+      bytes: new Uint8Array(await pngFixture(400, 300)),
+      mimeType: "image/png",
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.message).toBe("Image is too small. Minimum: 800 × 600 px.");
+    expect(captured.path).toBeUndefined();
+    expect(captured.inserted).toBeUndefined();
+  });
+
+  it("rejects forged MIME payloads before processing", async () => {
+    const captured: Record<string, unknown> = {};
+    const db = uploadFakeDb(captured as never);
+    const html = new TextEncoder().encode("<html><body>nope</body></html>");
+    const res = await uploadCatalogImage(db, {
+      productType: "CUSTOM_LINK_CARD",
+      role: "GALLERY",
+      bytes: new Uint8Array(html),
+      mimeType: "image/png",
+    });
+    expect(res.ok).toBe(false);
+    expect(captured.path).toBeUndefined();
   });
 });

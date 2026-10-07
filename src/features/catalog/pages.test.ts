@@ -9,7 +9,6 @@ function fixedCatalog(): PublicCatalogProduct {
   return {
     productType: "PERSONAL_CARD",
     published: true,
-    pricingMode: "FIXED",
     priceMinor: 19900,
     currency: "MAD",
     availability: null,
@@ -44,35 +43,37 @@ const ALL_PUBLISHED = {
 } as const;
 
 describe("catalog public pages", () => {
-  it("preserves the approved design when the catalog is unreachable (QUOTE fallback)", () => {
+  it("preserves the approved design when the catalog is unreachable (honest pending state)", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "personal-card" }));
-    expect(html).toContain(dict.common.requestPrice);
+    expect(html).toContain(dict.order.pricePending);
     expect(html).not.toContain("199.00 MAD");
     expect(html).not.toContain("undefined");
   });
 
-  it("shows the real configured price and CMS name when FIXED", () => {
+  it("shows the real configured price and CMS name when priced", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(
       ProductPage({ locale: "fr", dict, slug: "personal-card", catalog: fixedCatalog() }),
     );
     expect(html).toContain("199.00 MAD");
     expect(html).toContain("Carte Personnelle");
-    expect(html).toContain("https://cdn.example/primary.jpg");
+    // Served through the Next.js image pipeline (remote-optimized).
+    expect(html).toContain("/_next/image");
+    expect(html).toContain("cdn.example%2Fprimary.jpg");
   });
 
-  it("keeps the request-price fallback for QUOTE products", () => {
+  it("keeps the honest pending state while the price is not configured", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(
       ProductPage({
         locale: "fr",
         dict,
         slug: "personal-card",
-        catalog: { ...fixedCatalog(), pricingMode: "QUOTE", priceMinor: null },
+        catalog: { ...fixedCatalog(), priceMinor: null },
       }),
     );
-    expect(html).toContain(dict.common.requestPrice);
+    expect(html).toContain(dict.order.pricePending);
     expect(html).not.toContain("199.00 MAD");
   });
 
@@ -108,6 +109,19 @@ describe("catalog public pages", () => {
     );
     expect(html).toContain("199.00 MAD");
     expect(html).not.toContain("/fr/products/contact-card");
+  });
+
+  it("renders the primary image in a 4:3 frame with responsive delivery", () => {
+    const dict = getDict("fr");
+    const html = renderToStaticMarkup(
+      ProductPage({ locale: "fr", dict, slug: "personal-card", catalog: fixedCatalog() }),
+    );
+    // 4:3 container reserves layout space (no CLS), cover fit, lazy load.
+    expect(html).toContain("aspect-[4/3]");
+    expect(html).toContain("object-cover");
+    expect(html).toContain('width="1600"');
+    expect(html).toContain('height="1200"');
+    expect(html).toContain('loading="lazy"');
   });
 
   it("renders identically in RTL without breaking layout markers", () => {

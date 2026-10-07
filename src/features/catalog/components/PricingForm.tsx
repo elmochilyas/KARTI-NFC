@@ -14,15 +14,16 @@ const INITIAL_STATE: CatalogFormState = {
 
 export type PricingFormValues = {
   published: boolean;
-  pricingMode: string;
   priceMad: string;
   availability: string;
 };
 
 /**
- * GENERAL + PRICING editor section. Price is a decimal MAD string parsed
- * server-side into integer minor units (never float). FIXED/FROM require a
- * price; QUOTE forbids one. ProductType itself is not editable.
+ * GENERAL + PRICING editor section. Every product has exactly one fixed
+ * base price. Price is a decimal MAD string parsed server-side into
+ * integer minor units (never float). Empty = "Price not configured": the
+ * product cannot be ordered and emits no Offer until priced.
+ * ProductType itself is not editable.
  */
 export function PricingForm({
   action,
@@ -35,7 +36,6 @@ export function PricingForm({
   const preserved = state.values ?? null;
   const values: PricingFormValues = {
     published: preserved ? preserved.published === "on" : initialValues.published,
-    pricingMode: preserved?.pricingMode ?? initialValues.pricingMode,
     priceMad: preserved?.priceMad ?? initialValues.priceMad,
     availability: preserved?.availability ?? initialValues.availability,
   };
@@ -69,17 +69,10 @@ export function PricingForm({
         />
         Published (uncheck to hide from listings, sitemap, and new orders)
       </label>
-      <Field id="catalog-pricing-mode" label="Pricing mode" required>
-        <Select name="pricingMode" defaultValue={values.pricingMode} required>
-          <option value="QUOTE">QUOTE — request price / request quote</option>
-          <option value="FIXED">FIXED — exact configured price</option>
-          <option value="FROM">FROM — floor price, shown as “From X MAD”</option>
-        </Select>
-      </Field>
       <Field
         id="catalog-price-mad"
         label="Price in MAD"
-        hint="Decimal MAD, e.g. 199 or 249.50. Stored as integer minor units. Leave empty for QUOTE."
+        hint="Fixed base price, e.g. 199 or 249.50. Stored as integer minor units. Leave empty while the price is not configured."
       >
         <Input
           name="priceMad"

@@ -22,8 +22,9 @@ import type { PublicCatalogProduct } from "./public";
  *
  * - Published + reachable → CMS copy/price/image/SEO overrides apply.
  * - Unpublished → page still renders (stable URL) but metadata is
- *   `noindex, nofollow` and no Offer markup is emitted.
- * - Unreachable catalog → static fallback in QUOTE mode (never a wrong price).
+ *   `noindex, nofollow` and no Product markup is emitted.
+ * - Unreachable catalog → static fallback copy with no price (never a
+ *   guessed price, never Product markup).
  */
 
 export type ProductRouteData = {
@@ -75,12 +76,11 @@ export async function productRouteMetadata(
   });
 }
 
-const FROM_PREFIX: Record<VitrineLocale, string> = { fr: "Dès", en: "From", ar: "من" };
-
 /**
- * Homepage data: published flags + one visible price line per published
- * priced product (null for QUOTE/unpublished). Fail-safe: empty lines on
- * catalog errors — the homepage never shows a guessed price.
+ * Homepage data: published flags + one visible fixed price line per
+ * published priced product (absent while "Price not configured").
+ * Fail-safe: empty lines on catalog errors — the homepage never shows a
+ * guessed price.
  */
 export async function getHomeCatalogData(locale: VitrineLocale): Promise<{
   flags: Record<ProductType, boolean>;
@@ -93,19 +93,25 @@ export async function getHomeCatalogData(locale: VitrineLocale): Promise<{
     allProducts().map(async (productType) => {
       if (flags[productType] === false) return;
       const catalog = await getCachedCatalogProduct(productType, locale);
-      const line = catalogPriceLine(catalog, FROM_PREFIX[locale]);
+      const line = catalogPriceLine(catalog);
       if (line) priceLines[productType] = line;
     }),
   );
   return { flags, priceLines };
 }
 
+/**
+ * Product JSON-LD payloads. A configured fixed price emits Product +
+ * Offer; a product without a configured price emits NO Product markup at
+ * all (a priceless Product would trip the Search Console
+ * "offers/review/aggregateRating" error). Breadcrumb/FAQ stay valid.
+ */
 export function productRouteJsonLd(
   route: ProductRouteData,
   dict: VitrineDict,
   productSlug: string,
   locale: VitrineLocale,
-): { product: unknown; breadcrumb: unknown; faq: unknown } {
+): { product: unknown | null; breadcrumb: unknown; faq: unknown } {
   const appUrl = getAppUrl();
   const url = `${appUrl}${localePath(locale, "products", productSlug)}`;
   const copy = resolveProductCopy(dict.products[route.product], route.catalog);
@@ -115,14 +121,14 @@ export function productRouteJsonLd(
     images.push(route.catalog.ogImageUrl);
   }
   return {
-    product: productJsonLd({
-      name: copy.name,
-      description: copy.outcome,
-      url,
-      image: images,
-      brand: "Karti",
-      offer: offer
-        ? {
+    product: offer
+      ? productJsonLd({
+          name: copy.name,
+          description: copy.outcome,
+          url,
+          image: images,
+          brand: "Karti",
+          offer: {
             url: offer.url,
             price: offer.price,
             priceCurrency: offer.priceCurrency,
@@ -130,9 +136,9 @@ export function productRouteJsonLd(
               route.catalog?.availability != null
                 ? catalogAvailabilityToSchema(route.catalog.availability)
                 : undefined,
-          }
-        : null,
-    }),
+          },
+        })
+      : null,
     breadcrumb: breadcrumbJsonLd([
       { label: dict.common.home, url: `${appUrl}/${locale}` },
       { label: dict.common.products, url: `${appUrl}/${locale}#products` },
