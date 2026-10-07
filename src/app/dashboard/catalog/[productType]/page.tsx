@@ -106,14 +106,10 @@ export default async function CatalogEditorPage({
       >
         <MediaManager
           uploadAction={uploadCatalogImageAction.bind(null, product.product_type)}
-          altActionFor={(mediaId) =>
-            updateCatalogMediaAltAction.bind(null, product.product_type, mediaId)
-          }
+          updateAltAction={updateCatalogMediaAltAction.bind(null, product.product_type)}
           setPrimaryAction={setCatalogPrimaryImageAction.bind(null, product.product_type)}
           setOgAction={setCatalogOgImageAction.bind(null, product.product_type)}
-          moveAction={(mediaId, direction) =>
-            moveCatalogMediaAction(product.product_type, mediaId, direction)
-          }
+          moveAction={moveCatalogMediaAction.bind(null, product.product_type)}
           deleteAction={deleteCatalogMediaAction.bind(null, product.product_type)}
           media={product.media}
           primaryImagePath={product.primary_image_path}

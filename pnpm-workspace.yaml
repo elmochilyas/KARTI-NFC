@@ -1,2 +1,14 @@
 allowBuilds:
   unrs-resolver: true
+
+# Force the patched source-map-js everywhere (transitive via postcss chains).
+overrides:
+  source-map-js@<1.2.2: 1.2.2
+
+# TEMPORARY (remove once braces 3.0.4 is published): GHSA-vfj7-8cjw-p6xm
+# (braces stack exhaustion) has no published patch -- latest is 3.0.3.
+# Exposure here is lint/build-time glob matching on static repo patterns
+# only, never production user input. Re-run pnpm update braces then.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
