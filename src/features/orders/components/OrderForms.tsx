@@ -27,7 +27,7 @@ import {
   completeOrderAction,
   confirmOrderAction,
   markContactedAction,
-  setPriceAction,
+  updateAdjustmentsAction,
   updateCustomerNoteAction,
   updateFulfillmentAction,
   updateInquiryStatusAction,
@@ -228,7 +228,7 @@ function minorToDecimalInput(minor: number | null): string {
   return String(minor / 100);
 }
 
-export function QuoteForm({
+export function AdjustmentsForm({
   orderId,
   expectedUpdatedAt,
   current,
@@ -236,13 +236,11 @@ export function QuoteForm({
   orderId: string;
   expectedUpdatedAt: string;
   current: {
-    subtotalMinor: number | null;
     deliveryFeeMinor: number | null;
     discountMinor: number | null;
   };
 }) {
   const { pending, state, submit } = useOrderMutation();
-  const [subtotal, setSubtotal] = useState(minorToDecimalInput(current.subtotalMinor));
   const [delivery, setDelivery] = useState(minorToDecimalInput(current.deliveryFeeMinor));
   const [discount, setDiscount] = useState(minorToDecimalInput(current.discountMinor ?? 0));
 
@@ -250,23 +248,13 @@ export function QuoteForm({
     <form
       className="flex flex-col gap-3"
       action={() =>
-        submit(() => setPriceAction(orderId, expectedUpdatedAt, subtotal, delivery, discount))
+        submit(() => updateAdjustmentsAction(orderId, expectedUpdatedAt, delivery, discount))
       }
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Field id="quote-subtotal" label="Subtotal (MAD)">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field id="adjustments-delivery" label="Delivery (MAD)">
           <Input
-            id="quote-subtotal"
-            name="subtotal"
-            inputMode="decimal"
-            autoComplete="off"
-            value={subtotal}
-            onChange={(event) => setSubtotal(event.target.value)}
-          />
-        </Field>
-        <Field id="quote-delivery" label="Delivery (MAD)">
-          <Input
-            id="quote-delivery"
+            id="adjustments-delivery"
             name="delivery"
             inputMode="decimal"
             autoComplete="off"
@@ -274,9 +262,9 @@ export function QuoteForm({
             onChange={(event) => setDelivery(event.target.value)}
           />
         </Field>
-        <Field id="quote-discount" label="Discount (MAD)">
+        <Field id="adjustments-discount" label="Discount (MAD)">
           <Input
-            id="quote-discount"
+            id="adjustments-discount"
             name="discount"
             inputMode="decimal"
             autoComplete="off"
@@ -288,7 +276,7 @@ export function QuoteForm({
       <MutationFeedback state={state} />
       <div>
         <Button type="submit" variant="secondary" loading={pending}>
-          Save quote
+          Save adjustments
         </Button>
       </div>
     </form>

@@ -14,7 +14,6 @@ import {
   canTransitionInquiry,
   canTransitionPayment,
   cardReadiness,
-  computeQuoteTotal,
   FULFILLMENT_STATUSES,
   getProductDefinition,
   isConvertibleOrderStatus,
@@ -38,7 +37,6 @@ import type {
   OrderCancelReason,
   OrderStatus,
   PaymentStatus,
-  PricingStatus,
   ProductType,
 } from "@/domain/orders";
 import { ensureUniqueSlug, suggestSlug } from "@/features/profiles/service";
@@ -174,10 +172,6 @@ function narrowFulfillment(value: unknown): FulfillmentStatus | null {
     : null;
 }
 
-function narrowPricing(value: unknown): PricingStatus | null {
-  return value === "PRICED" || value === "QUOTE_REQUIRED" ? value : null;
-}
-
 type RawListRow = {
   id: string;
   order_number: string;
@@ -188,7 +182,6 @@ type RawListRow = {
   status: string;
   payment_status: string;
   fulfillment_status: string;
-  pricing_status: string;
   total_minor: number | null;
   currency: string;
   first_touch_source: string | null;
@@ -201,8 +194,7 @@ function toListItem(row: RawListRow): OrderListItem | null {
   const status = narrowStatus(row.status);
   const paymentStatus = narrowPayment(row.payment_status);
   const fulfillmentStatus = narrowFulfillment(row.fulfillment_status);
-  const pricingStatus = narrowPricing(row.pricing_status);
-  if (!status || !paymentStatus || !fulfillmentStatus || !pricingStatus) return null;
+  if (!status || !paymentStatus || !fulfillmentStatus) return null;
   const items = Array.isArray(row.order_items) ? row.order_items : [];
   const firstProduct = items.length > 0 ? items[0].product_type : null;
   return {
@@ -215,7 +207,6 @@ function toListItem(row: RawListRow): OrderListItem | null {
     status,
     paymentStatus,
     fulfillmentStatus,
-    pricingStatus,
     totalMinor: row.total_minor,
     currency: row.currency,
     source: row.first_touch_source,
@@ -620,7 +611,6 @@ function parseRpcEnvelope(raw: unknown): AdminRpcEnvelope | null {
     payment_status: typeof record.payment_status === "string" ? record.payment_status : undefined,
     fulfillment_status:
       typeof record.fulfillment_status === "string" ? record.fulfillment_status : undefined,
-    pricing_status: typeof record.pricing_status === "string" ? record.pricing_status : undefined,
     total_minor: typeof record.total_minor === "number" ? record.total_minor : undefined,
     converted: typeof record.converted === "boolean" ? record.converted : undefined,
     client_id: typeof record.client_id === "string" ? record.client_id : undefined,
@@ -686,7 +676,7 @@ type AdminFunctionName =
   | "admin_confirm_order"
   | "admin_complete_order"
   | "admin_cancel_order"
-  | "admin_set_order_price"
+  | "admin_update_order_adjustments"
   | "admin_update_payment_status"
   | "admin_update_fulfillment_status"
   | "admin_update_internal_note"
@@ -812,29 +802,28 @@ export async function cancelOrder(
   );
 }
 
-export async function setOrderPrice(
+/**
+ * Update an order's delivery fee and discount. The snapshotted base
+ * subtotal is immutable: the server recomputes
+ * total = subtotal + delivery − discount.
+ */
+export async function updateOrderAdjustments(
   id: string,
   expectedUpdatedAt: string,
-  amounts: { subtotalMinor: number; deliveryFeeMinor: number; discountMinor: number },
+  amounts: { deliveryFeeMinor: number; discountMinor: number },
   supabase: OrdersDb,
 ): Promise<OrderResult<AdminRpcEnvelope>> {
   if (!validOrderId(id)) {
     return { ok: false, error: { code: "NOT_FOUND", message: "Order not found." } };
   }
-  if (
-    !isNonNegativeMinor(amounts.subtotalMinor) ||
-    !isNonNegativeMinor(amounts.deliveryFeeMinor) ||
-    !isNonNegativeMinor(amounts.discountMinor) ||
-    computeQuoteTotal(amounts) === null
-  ) {
+  if (!isNonNegativeMinor(amounts.deliveryFeeMinor) || !isNonNegativeMinor(amounts.discountMinor)) {
     return mutationError("VALIDATION_ERROR") as OrderResult<AdminRpcEnvelope>;
   }
   return callAdminRpc(
-    "admin_set_order_price",
+    "admin_update_order_adjustments",
     {
       p_order_id: id,
       p_expected_updated_at: expectedUpdatedAt,
-      p_subtotal_minor: amounts.subtotalMinor,
       p_delivery_fee_minor: amounts.deliveryFeeMinor,
       p_discount_minor: amounts.discountMinor,
     },

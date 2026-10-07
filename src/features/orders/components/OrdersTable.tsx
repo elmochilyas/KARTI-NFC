@@ -11,9 +11,6 @@ function formatDate(value: string): string {
 }
 
 function TotalCell({ row }: { row: OrderListItem }) {
-  if (row.pricingStatus === "QUOTE_REQUIRED") {
-    return <span className="text-sm text-muted">Quote required</span>;
-  }
   return (
     <span className="text-sm font-semibold tabular-nums">{formatMinorToMad(row.totalMinor)}</span>
   );
@@ -22,7 +19,6 @@ function TotalCell({ row }: { row: OrderListItem }) {
 function StageCell({ row }: { row: OrderListItem }) {
   const attention = deriveOrderAttention({
     status: row.status,
-    pricingStatus: row.pricingStatus,
     fulfillmentStatus: row.fulfillmentStatus,
   });
   return (
@@ -114,10 +110,7 @@ export function OrdersTable({ rows }: { rows: OrderListItem[] }) {
                   {row.quantity > 0 ? ` ×${row.quantity}` : ""}
                 </span>
                 <span className="mt-1 block text-xs text-muted">
-                  {row.pricingStatus === "QUOTE_REQUIRED"
-                    ? "Quote required"
-                    : formatMinorToMad(row.totalMinor)}{" "}
-                  · {formatDate(row.createdAt)}
+                  {formatMinorToMad(row.totalMinor)} · {formatDate(row.createdAt)}
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">

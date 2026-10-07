@@ -14,7 +14,6 @@ import {
   isFulfillmentStatus,
   isOrderStatus,
   isPaymentStatus,
-  isPricingStatus,
   isProductType,
   orderEventActorLabel,
   orderEventLabel,
@@ -25,6 +24,7 @@ import type { OrderDetail } from "../types";
 import { productDisplayName } from "../productNames";
 import { ConvertClientDialog, ProvisionCardsPanel, ReviewUrlResolver } from "./ConversionForms";
 import {
+  AdjustmentsForm,
   CancelOrderDialog,
   CompleteOrderButton,
   ConfirmOrderButton,
@@ -32,7 +32,6 @@ import {
   MarkContactedButton,
   NoteForm,
   PaymentForm,
-  QuoteForm,
 } from "./OrderForms";
 
 function formatDateTime(value: string): string {
@@ -228,14 +227,8 @@ export function PaymentSection({ detail }: { detail: OrderDetail }) {
   const { order } = detail;
   const terminal = order.status === "COMPLETED" || order.status === "CANCELLED";
   return (
-    <Section title="Payment & quote">
+    <Section title="Payment & totals">
       <dl className="flex flex-col gap-2 text-sm">
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted">Pricing</dt>
-          <dd>
-            <StatusBadge status={order.pricing_status} />
-          </dd>
-        </div>
         <div className="flex justify-between gap-3">
           <dt className="text-muted">Subtotal</dt>
           <dd className="tabular-nums">{formatMinorToMad(order.subtotal_minor)}</dd>
@@ -250,11 +243,7 @@ export function PaymentSection({ detail }: { detail: OrderDetail }) {
         </div>
         <div className="flex justify-between gap-3 font-semibold">
           <dt>Total</dt>
-          <dd className="tabular-nums">
-            {order.pricing_status === "QUOTE_REQUIRED"
-              ? "Quote required"
-              : formatMinorToMad(order.total_minor)}
-          </dd>
+          <dd className="tabular-nums">{formatMinorToMad(order.total_minor)}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted">Payment</dt>
@@ -266,14 +255,14 @@ export function PaymentSection({ detail }: { detail: OrderDetail }) {
       {!terminal ? (
         <div className="mt-4 flex flex-col gap-5 border-t border-border pt-4">
           <div>
-            <h3 className="mb-2 text-sm font-semibold">
-              {order.pricing_status === "PRICED" ? "Revise quote" : "Set quote"}
-            </h3>
-            <QuoteForm
+            <h3 className="mb-2 text-sm font-semibold">Delivery / discount</h3>
+            <p className="mb-2 text-xs text-muted">
+              The product subtotal is snapshotted at order time and cannot be changed here.
+            </p>
+            <AdjustmentsForm
               orderId={order.id}
               expectedUpdatedAt={order.updated_at}
               current={{
-                subtotalMinor: order.subtotal_minor,
                 deliveryFeeMinor: order.delivery_fee_minor,
                 discountMinor: order.discount_minor,
               }}
@@ -300,7 +289,6 @@ export function FulfillmentSection({ detail }: { detail: OrderDetail }) {
   const { order } = detail;
   const terminal = order.status === "COMPLETED" || order.status === "CANCELLED";
   const attention =
-    isPricingStatus(order.pricing_status) &&
     isFulfillmentStatus(order.fulfillment_status) &&
     (order.status === "NEW" ||
       order.status === "CONTACTED" ||
@@ -310,7 +298,6 @@ export function FulfillmentSection({ detail }: { detail: OrderDetail }) {
       order.status === "CANCELLED")
       ? deriveOrderAttention({
           status: order.status,
-          pricingStatus: order.pricing_status,
           fulfillmentStatus: order.fulfillment_status,
         })
       : null;

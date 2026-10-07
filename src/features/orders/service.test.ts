@@ -14,11 +14,11 @@ import {
   markOrderContacted,
   provisionOrderCards,
   resolveReviewDestination,
-  setOrderPrice,
   updateCustomerNote,
   updateFulfillmentStatus,
   updateInquiryStatus,
   updateInternalNote,
+  updateOrderAdjustments,
   updatePaymentStatus,
   type OrdersDb,
 } from "./service";
@@ -106,8 +106,7 @@ const ORDER_ROW = {
   status: "NEW",
   payment_status: "PENDING",
   fulfillment_status: "NOT_STARTED",
-  pricing_status: "QUOTE_REQUIRED",
-  total_minor: null,
+  total_minor: 39800,
   currency: "MAD",
   first_touch_source: "DIRECT",
   created_at: "2026-09-28T10:00:00.000Z",
@@ -365,10 +364,10 @@ describe("orders service mutations", () => {
     expect((await cancelOrder(ORDER_ROW.id, "NEW", "NOPE" as never, null, fake.db)).ok).toBe(false);
     expect(
       (
-        await setOrderPrice(
+        await updateOrderAdjustments(
           ORDER_ROW.id,
           "2026-09-28T10:00:00.000Z",
-          { subtotalMinor: 1000, deliveryFeeMinor: 0, discountMinor: 1001 },
+          { deliveryFeeMinor: -1, discountMinor: 0 },
           fake.db,
         )
       ).ok,
@@ -399,19 +398,18 @@ describe("orders service mutations", () => {
     expect(fake.rpc).not.toHaveBeenCalled();
   });
 
-  it("passes minor-unit quote amounts to the price RPC", async () => {
-    const fake = adminDb({ rpcResult: rpcOk({ pricing_status: "PRICED", total_minor: 11500 }) });
-    const result = await setOrderPrice(
+  it("passes minor-unit delivery/discount adjustments to the adjustments RPC", async () => {
+    const fake = adminDb({ rpcResult: rpcOk({ total_minor: 11500 }) });
+    const result = await updateOrderAdjustments(
       ORDER_ROW.id,
       "2026-09-28T10:00:00.000Z",
-      { subtotalMinor: 10000, deliveryFeeMinor: 2000, discountMinor: 500 },
+      { deliveryFeeMinor: 2000, discountMinor: 500 },
       fake.db,
     );
     expect(result.ok).toBe(true);
-    expect(fake.rpc).toHaveBeenCalledWith("admin_set_order_price", {
+    expect(fake.rpc).toHaveBeenCalledWith("admin_update_order_adjustments", {
       p_order_id: ORDER_ROW.id,
       p_expected_updated_at: "2026-09-28T10:00:00.000Z",
-      p_subtotal_minor: 10000,
       p_delivery_fee_minor: 2000,
       p_discount_minor: 500,
     });
