@@ -4153,6 +4153,12 @@ Detail routes `/dashboard/catalog/[productType]` crashed in production
       states, preview hrefs, and the Server-Action-only prop contract.
 - [x] `typecheck`, `lint` (0 warnings), `test` (124 files / 1254 tests),
       `build`, `test:e2e` (18 passed) green.
+- [x] CI follow-ups on the PR: prettier + `any` fixes in the new tests;
+      `pnpm audit` highs fixed (sharp 0.35.5, source-map-js 1.2.2 via
+      override); braces GHSA-vfj7-8cjw-p6xm temporarily ignored in
+      `pnpm-workspace.yaml` (no 3.0.4 published yet — remove the ignore
+      after `pnpm update braces`). Pre-existing failure, unrelated to the
+      catalog fix (main last green 2026-10-01, advisories are newer).
 
 > 2026-10-01: implemented per plan. Not committed — left ready for review
 > alongside the working-tree Phase 38 changes (untouched).
