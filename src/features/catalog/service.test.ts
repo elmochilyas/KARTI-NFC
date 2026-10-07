@@ -181,7 +181,9 @@ describe("catalog empty/initial CMS state", () => {
     expect(res.data.localizations[0].audiences).toEqual([]);
     expect(res.data.localizations[0].benefits).toEqual([]);
     expect(res.data.localizations[0].use_cases).toEqual([]);
-    expect(res.data.localizations[0].faqs).toEqual([{ q: "Actual question?", a: "Actual answer." }]);
+    expect(res.data.localizations[0].faqs).toEqual([
+      { q: "Actual question?", a: "Actual answer." },
+    ]);
   });
 
   it("fails safely (NOT_FOUND) for unknown pricing mode or product type in the row", async () => {
@@ -289,7 +291,10 @@ describe("catalog price save/reload", () => {
       faqs: [],
     });
     expect(res.ok).toBe(true);
-    expect(captured.upsert).toMatchObject({ display_name: "Lien Custom", seo_title: "Custom Link — Karti" });
+    expect(captured.upsert).toMatchObject({
+      display_name: "Lien Custom",
+      seo_title: "Custom Link — Karti",
+    });
   });
 });
 

@@ -14,9 +14,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-vi.mock("next/link", () => ({ default: function LinkStub(props: any) {
-  return props;
-} }));
+vi.mock("next/link", () => ({
+  default: function LinkStub(props: any) {
+    return props;
+  },
+}));
 
 vi.mock("server-only", () => ({}));
 
@@ -104,8 +106,7 @@ function pageFakeDb(options: {
     const resolveAll = (): unknown[] => {
       if (table === "catalog_products")
         return Object.values(products).filter((row) => matches(row));
-      if (table === "catalog_product_localizations")
-        return locRows.filter((row) => matches(row));
+      if (table === "catalog_product_localizations") return locRows.filter((row) => matches(row));
       return mediaRows.filter((row) => matches(row));
     };
     return chain;
@@ -172,9 +173,9 @@ describe("catalog editor page", () => {
       expect(typeof mediaProps["updateAltAction"]).toBe("function");
       expect(typeof mediaProps["moveAction"]).toBe("function");
       expect("altActionFor" in (managers[0].props as object)).toBe(false);
-      expect(
-        (mediaProps["updateAltAction"] as { name?: string }).name,
-      ).toBe("bound updateCatalogMediaAltAction");
+      expect((mediaProps["updateAltAction"] as { name?: string }).name).toBe(
+        "bound updateCatalogMediaAltAction",
+      );
       expect((mediaProps["moveAction"] as { name?: string }).name).toBe(
         "bound moveCatalogMediaAction",
       );
@@ -241,8 +242,6 @@ describe("catalog editor page", () => {
 
   it("never exposes the editor to an authenticated non-admin (RLS returns no rows)", async () => {
     mockedCreateClient.mockResolvedValue(pageFakeDb({ types: [] }) as never);
-    await expect(CatalogEditorPage(propsOf("CUSTOM_LINK_CARD"))).rejects.toThrow(
-      "NEXT_NOT_FOUND",
-    );
+    await expect(CatalogEditorPage(propsOf("CUSTOM_LINK_CARD"))).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });
