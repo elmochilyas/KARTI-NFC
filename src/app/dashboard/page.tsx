@@ -113,7 +113,6 @@ function AttentionRow({ item }: { item: AttentionItem }) {
 function UrgentOrderRow({ order }: { order: OrderListItem }) {
   const attention = deriveOrderAttention({
     status: order.status,
-    pricingStatus: order.pricingStatus,
     fulfillmentStatus: order.fulfillmentStatus,
   });
   return (

@@ -32,8 +32,6 @@ function optionalTextField(max: number) {
 
 export const productTypeField = z.enum(PRODUCT_TYPES);
 
-export const pricingModeField = z.enum(["FIXED", "FROM", "QUOTE"]);
-
 export const availabilityField = z
   .union([z.enum(["IN_STOCK", "OUT_OF_STOCK", "PREORDER"]), z.literal(""), z.null(), z.undefined()])
   .transform((value) => {
@@ -61,23 +59,16 @@ const faqListField = z
     message: "Must not contain HTML.",
   });
 
-export const catalogProductUpdateSchema = z
-  .strictObject({
-    published: z.boolean(),
-    pricingMode: pricingModeField,
-    /** Decimal MAD string ("199", "249.50") — required for FIXED/FROM, absent for QUOTE. */
-    priceMad: z.string().trim().max(20).nullish(),
-    availability: availabilityField,
-  })
-  .refine(
-    (value) =>
-      (value.pricingMode === "QUOTE" &&
-        (value.priceMad === null || value.priceMad === undefined)) ||
-      ((value.pricingMode === "FIXED" || value.pricingMode === "FROM") &&
-        typeof value.priceMad === "string" &&
-        value.priceMad.trim() !== ""),
-    { message: "FIXED and FROM require a price; QUOTE forbids one." },
-  );
+export const catalogProductUpdateSchema = z.strictObject({
+  published: z.boolean(),
+  /**
+   * Decimal MAD string ("199", "249.50") or empty while "Price not
+   * configured". Empty is an admin readiness state, not a pricing mode:
+   * the product cannot be ordered and emits no Offer until priced.
+   */
+  priceMad: z.string().trim().max(20).nullish(),
+  availability: availabilityField,
+});
 
 export const catalogLocalizationSchema = z.strictObject({
   productType: productTypeField,

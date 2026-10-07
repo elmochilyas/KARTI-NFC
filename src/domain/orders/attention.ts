@@ -4,6 +4,10 @@
  * Centralized, deterministic, unit-tested. No `needs_action` boolean is
  * ever persisted — every consumer derives from status columns.
  *
+ * A normal order progresses NEW → CONTACTED → CONFIRMED → fulfillment
+ * without waiting for any product quote: every order snapshots its fixed
+ * base price at submission.
+ *
  * The same predicate is also serialized for PostgREST
  * (`needsActionOrFilter`) so the Needs-Action view and its counts stay
  * server-side without duplicating logic in SQL. Parity between the two
@@ -11,7 +15,6 @@
  */
 
 import type { FulfillmentStatus, OrderStatus } from "./lifecycle";
-import type { PricingStatus } from "./pricing";
 
 export const ATTENTION_STATES = [
   "NEEDS_OPERATOR_ACTION",
@@ -24,7 +27,6 @@ export type AttentionState = (typeof ATTENTION_STATES)[number];
 
 export const ATTENTION_REASONS = [
   "CONTACT_CUSTOMER",
-  "SET_PRICE",
   "START_FULFILLMENT",
   "REVISE_DESIGN",
   "SHIP_OR_DELIVER",
@@ -42,12 +44,11 @@ export type OrderAttention = {
 
 export type AttentionInput = {
   status: OrderStatus;
-  pricingStatus: PricingStatus;
   fulfillmentStatus: FulfillmentStatus;
 };
 
 export function deriveOrderAttention(input: AttentionInput): OrderAttention {
-  const { status, pricingStatus, fulfillmentStatus } = input;
+  const { status, fulfillmentStatus } = input;
 
   if (status === "COMPLETED" || status === "CANCELLED") {
     return { state: "DONE" };
@@ -67,9 +68,6 @@ export function deriveOrderAttention(input: AttentionInput): OrderAttention {
   }
 
   if (status === "CONTACTED") {
-    if (pricingStatus === "QUOTE_REQUIRED") {
-      return { state: "NEEDS_OPERATOR_ACTION", reason: "SET_PRICE" };
-    }
     return { state: "WAITING_CUSTOMER", reason: "AWAITING_CONFIRMATION" };
   }
 
@@ -104,7 +102,6 @@ export function isNeedsOrderAction(input: AttentionInput): boolean {
 export function needsActionOrFilter(): string {
   return [
     "and(status.eq.NEW,fulfillment_status.not.in.(CHANGES_REQUESTED,READY))",
-    "and(status.eq.CONTACTED,pricing_status.eq.QUOTE_REQUIRED,fulfillment_status.not.in.(CHANGES_REQUESTED,READY))",
     "and(status.eq.CONFIRMED,fulfillment_status.eq.NOT_STARTED)",
     "and(fulfillment_status.in.(CHANGES_REQUESTED,READY),status.not.in.(COMPLETED,CANCELLED))",
   ].join(",");
@@ -115,8 +112,6 @@ export function attentionLabel(attention: OrderAttention): string {
   switch (attention.reason) {
     case "CONTACT_CUSTOMER":
       return "Needs action · contact customer";
-    case "SET_PRICE":
-      return "Needs action · set price";
     case "START_FULFILLMENT":
       return "Needs action · start fulfillment";
     case "REVISE_DESIGN":

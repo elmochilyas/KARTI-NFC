@@ -38,7 +38,7 @@ export function HomePage({
   dict: VitrineDict;
   /** Unpublished products are excluded from marketing listings (null = all listed). */
   publishedFlags?: Record<ProductType, boolean> | null;
-  /** Visible catalog price per product (absent = QUOTE/unpublished, no price shown). */
+  /** Visible fixed catalog price per product (absent = price not configured, no price shown). */
   priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
   const m = dict.marketingHome;
@@ -484,7 +484,7 @@ export function HomePage({
         </Section>
       </PageContainer>
 
-      {/* 12 — Pricing preview */}
+      {/* 12 — Pricing preview: real fixed catalog prices for all 8 products */}
       <PageContainer>
         <Section
           id="pricing"
@@ -493,32 +493,58 @@ export function HomePage({
           eyebrow={dict.nav.pricing}
         >
           <ul className="grid gap-4 md:grid-cols-3">
-            {m.pricingTiers.map((tier, index) => (
-              <li
-                key={tier.title}
-                className={`flex flex-col rounded-[1.75rem] border bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] md:p-6 ${
-                  index === 0 ? "border-accent/40 ring-1 ring-accent/20" : "border-border"
-                }`}
-              >
-                {index === 0 ? (
-                  <p className="mb-2.5 inline-flex w-fit items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent-strong">
-                    ★ {dict.common.orderNow}
-                  </p>
-                ) : null}
-                <p className="font-display text-lg font-bold text-text">{tier.title}</p>
-                <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted">{tier.desc}</p>
-                <Link
-                  href={localePath(locale, "pricing")}
-                  className={`mt-5 inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold transition-all ${
-                    index === 0
-                      ? "bg-accent text-accent-contrast shadow-[0_8px_20px_-8px_rgb(14_124_91/0.6)] hover:bg-accent-strong"
-                      : "border border-border hover:border-muted"
-                  }`}
-                >
-                  {tier.cta}
-                </Link>
-              </li>
-            ))}
+            {allProducts()
+              .filter((product) => publishedFlags?.[product] !== false)
+              .map((product, index) => {
+                const copy = dict.products[product];
+                const slug = productSlugFromType(product);
+                const priceLine = priceLines?.[product] ?? null;
+                return (
+                  <li
+                    key={product}
+                    className={`flex flex-col rounded-[1.75rem] border bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] md:p-6 ${
+                      index === 0 ? "border-accent/40 ring-1 ring-accent/20" : "border-border"
+                    }`}
+                  >
+                    {index === 0 ? (
+                      <p className="mb-2.5 inline-flex w-fit items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-accent-strong">
+                        ★ {dict.common.orderNow}
+                      </p>
+                    ) : null}
+                    <p className="font-display text-lg font-bold text-text">{copy.name}</p>
+                    <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
+                      {copy.tagline}
+                    </p>
+                    {priceLine ? (
+                      <p className="mt-2 text-base font-bold text-text">{priceLine}</p>
+                    ) : (
+                      <p className="mt-2 text-sm font-semibold text-muted">
+                        {dict.order.pricePending}
+                      </p>
+                    )}
+                    <div className="mt-5 flex flex-col gap-2">
+                      <Link
+                        href={localePath(locale, "products", slug)}
+                        className={`mt-0 inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-[15px] font-semibold transition-all ${
+                          index === 0
+                            ? "bg-accent text-accent-contrast shadow-[0_8px_20px_-8px_rgb(14_124_91/0.6)] hover:bg-accent-strong"
+                            : "border border-border hover:border-muted"
+                        }`}
+                      >
+                        {dict.common.learnMore}
+                      </Link>
+                      {priceLine ? (
+                        <Link
+                          href={orderPath(locale, slug)}
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-[15px] font-bold text-ink underline-offset-4 hover:underline"
+                        >
+                          {dict.common.orderNow}
+                        </Link>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
           </ul>
         </Section>
       </PageContainer>

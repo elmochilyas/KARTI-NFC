@@ -5,7 +5,7 @@ import { isProductType, type ProductType } from "@/domain/orders/productTypes";
 import type { VitrineLocale } from "@/features/vitrine/i18n/dict";
 import type { Database } from "@/types/database";
 import { catalogAssetUrl } from "./storagePaths";
-import type { CatalogAvailability, CatalogPricingMode } from "./types";
+import type { CatalogAvailability } from "./types";
 
 type AdminDb = SupabaseClient<Database>;
 
@@ -14,7 +14,7 @@ type AdminDb = SupabaseClient<Database>;
  *
  * Reads through the server-only service-role client with an explicit
  * public-safe column list. Unpublished products resolve to null — the
- * caller falls back to static copy in QUOTE mode. No unpublished content
+ * caller falls back to static copy. No unpublished content
  * (copy, price, images) ever leaves this module.
  */
 
@@ -23,8 +23,7 @@ export type PublicCatalogFaq = { q: string; a: string };
 export type PublicCatalogProduct = {
   productType: ProductType;
   published: boolean;
-  pricingMode: CatalogPricingMode;
-  /** Truthful price in minor units, or null for QUOTE. */
+  /** Fixed base price in minor units, or null while "Price not configured". */
   priceMinor: number | null;
   currency: "MAD";
   availability: CatalogAvailability | null;
@@ -88,7 +87,6 @@ export async function getPublishedCatalogProduct(
 
   let productRow: {
     published: boolean;
-    pricing_mode: string;
     price_minor: number | null;
     currency: string;
     availability: string | null;
@@ -98,9 +96,7 @@ export async function getPublishedCatalogProduct(
   try {
     const res = await supabase
       .from("catalog_products")
-      .select(
-        "published,pricing_mode,price_minor,currency,availability,primary_image_path,og_image_path",
-      )
+      .select("published,price_minor,currency,availability,primary_image_path,og_image_path")
       .eq("product_type", productType)
       .maybeSingle();
     if (res.error || !res.data) return null;
@@ -109,18 +105,13 @@ export async function getPublishedCatalogProduct(
     return null;
   }
   if (!productRow.published) return null;
-  const pricingMode: CatalogPricingMode =
-    productRow.pricing_mode === "FIXED" || productRow.pricing_mode === "FROM"
-      ? productRow.pricing_mode
-      : "QUOTE";
-  // QUOTE must never carry a price; FIXED/FROM must carry a positive one.
+  // NULL price = "Price not configured" (readiness state, not a mode).
+  // The row is still returned so callers can render honest unpriced UI;
+  // price-gated callers (Offer, ordering) check priceMinor themselves.
   const priceMinor =
-    pricingMode === "QUOTE"
-      ? null
-      : typeof productRow.price_minor === "number" && productRow.price_minor > 0
-        ? productRow.price_minor
-        : null;
-  if (pricingMode !== "QUOTE" && priceMinor === null) return null;
+    typeof productRow.price_minor === "number" && productRow.price_minor > 0
+      ? productRow.price_minor
+      : null;
   const availability: CatalogAvailability | null =
     productRow.availability === "IN_STOCK" ||
     productRow.availability === "OUT_OF_STOCK" ||
@@ -161,7 +152,6 @@ export async function getPublishedCatalogProduct(
   return {
     productType,
     published: true,
-    pricingMode,
     priceMinor,
     currency: "MAD",
     availability,
@@ -218,18 +208,17 @@ export async function getPublishedFlags(supabase: AdminDb): Promise<Record<Produ
 export type OrderCatalogState = {
   /** False when the operator unpublished the product — new orders are blocked. */
   published: boolean;
-  pricingMode: CatalogPricingMode;
-  /** Truthful unit price minor, or null for QUOTE. */
+  /** Fixed base price in minor units, or null while "Price not configured". */
   priceMinor: number | null;
 };
 
 /**
  * Server-authoritative catalog state for order submission (never browser input).
  *
- * Returns null only when the catalog is unreachable — the caller falls back
- * to static QUOTE pricing (fail-safe, never a wrong price). A resolved row
- * with `published: false` means new orders for this product are blocked;
- * QUOTE rows keep the historical quote flow.
+ * Returns null only when the catalog is unreachable — the caller must
+ * refuse the order (fail honestly, never a guessed price). A resolved row
+ * with `published: false` or `priceMinor: null` means new orders for this
+ * product are blocked.
  */
 export async function getOrderCatalogPrice(
   productType: ProductType,
@@ -239,30 +228,21 @@ export async function getOrderCatalogPrice(
   try {
     const res = await supabase
       .from("catalog_products")
-      .select("published,pricing_mode,price_minor")
+      .select("published,price_minor")
       .eq("product_type", productType)
       .maybeSingle();
     if (res.error || !res.data) return null;
     if (res.data.published !== true) {
-      return { published: false, pricingMode: "QUOTE", priceMinor: null };
-    }
-    if (res.data.pricing_mode === "QUOTE") {
-      return { published: true, pricingMode: "QUOTE", priceMinor: null };
+      return { published: false, priceMinor: null };
     }
     if (
-      (res.data.pricing_mode === "FIXED" || res.data.pricing_mode === "FROM") &&
       typeof res.data.price_minor === "number" &&
       Number.isSafeInteger(res.data.price_minor) &&
       res.data.price_minor > 0
     ) {
-      return {
-        published: true,
-        pricingMode: res.data.pricing_mode,
-        priceMinor: res.data.price_minor,
-      };
+      return { published: true, priceMinor: res.data.price_minor };
     }
-    // Malformed priced row (e.g. positive CHECK bypassed) → quote-safe.
-    return { published: true, pricingMode: "QUOTE", priceMinor: null };
+    return { published: true, priceMinor: null };
   } catch {
     return null;
   }

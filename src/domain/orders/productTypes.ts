@@ -28,9 +28,6 @@ export type ProductProfileType = "PERSON" | "BUSINESS";
 /** Final card destination behind the permanent /t/{short_code} URL. */
 export type ProductCardDestination = "PROFILE" | "EXTERNAL_URL";
 
-/** Pricing modes. V1 uses QUOTE for every product (no approved prices exist). */
-export type PricingMode = "FIXED" | "FROM" | "QUOTE";
-
 export function isProductType(value: unknown): value is ProductType {
   return typeof value === "string" && (PRODUCT_TYPES as readonly string[]).includes(value);
 }

@@ -8,7 +8,6 @@ describe("order next actions", () => {
         status: "NEW",
         paymentStatus: "PENDING",
         fulfillmentStatus: "NOT_STARTED",
-        pricingStatus: "QUOTE_REQUIRED",
       }),
     ).toBe("MARK_CONTACTED");
     expect(
@@ -16,7 +15,6 @@ describe("order next actions", () => {
         status: "CONTACTED",
         paymentStatus: "PENDING",
         fulfillmentStatus: "NOT_STARTED",
-        pricingStatus: "QUOTE_REQUIRED",
       }),
     ).toBe("CONFIRM_ORDER");
   });
@@ -27,7 +25,6 @@ describe("order next actions", () => {
         status: "CONFIRMED",
         paymentStatus: "PENDING",
         fulfillmentStatus: "NOT_STARTED",
-        pricingStatus: "PRICED",
       }),
     ).toBe("ADVANCE_FULFILLMENT");
     expect(
@@ -35,7 +32,6 @@ describe("order next actions", () => {
         status: "IN_PROGRESS",
         paymentStatus: "PARTIALLY_PAID",
         fulfillmentStatus: "PRODUCTION",
-        pricingStatus: "PRICED",
       }),
     ).toBe("ADVANCE_FULFILLMENT");
   });
@@ -45,7 +41,6 @@ describe("order next actions", () => {
       status: "IN_PROGRESS",
       paymentStatus: "PAID",
       fulfillmentStatus: "READY",
-      pricingStatus: "PRICED",
     });
     expect(actions).toContain("COMPLETE_ORDER");
     expect(actions).toContain("CANCEL_ORDER");
@@ -54,9 +49,18 @@ describe("order next actions", () => {
         status: "COMPLETED",
         paymentStatus: "PAID",
         fulfillmentStatus: "DELIVERED",
-        pricingStatus: "PRICED",
       }),
     ).toBeNull();
+  });
+
+  it("always offers delivery/discount adjustments while operational", () => {
+    const actions = getOrderNextActions({
+      status: "CONTACTED",
+      paymentStatus: "PENDING",
+      fulfillmentStatus: "NOT_STARTED",
+    });
+    expect(actions).toContain("UPDATE_ADJUSTMENTS");
+    expect(actions).not.toContain("SET_PRICE"); // pricing-guard-allow: SET_PRICE
   });
 
   it("keeps terminal orders read-only except notes", () => {
@@ -65,7 +69,6 @@ describe("order next actions", () => {
         status: "COMPLETED",
         paymentStatus: "PAID",
         fulfillmentStatus: "DELIVERED",
-        pricingStatus: "PRICED",
       }),
     ).toEqual(["EDIT_INTERNAL_NOTE", "EDIT_CUSTOMER_NOTE"]);
     expect(
@@ -73,7 +76,6 @@ describe("order next actions", () => {
         status: "CANCELLED",
         paymentStatus: "PENDING",
         fulfillmentStatus: "NOT_STARTED",
-        pricingStatus: "QUOTE_REQUIRED",
       }),
     ).toEqual(["EDIT_INTERNAL_NOTE", "EDIT_CUSTOMER_NOTE"]);
   });

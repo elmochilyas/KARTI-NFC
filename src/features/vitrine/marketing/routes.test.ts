@@ -10,8 +10,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { getDict } from "../i18n";
 import { HomePage } from "../HomePage";
 import { ProductPage } from "../ProductPage";
-import { PRODUCT_PUBLIC_SLUGS } from "../products";
-import { SOLUTION_SLUGS } from "../site";
+import { allProducts, PRODUCT_PUBLIC_SLUGS, productSlugFromType } from "../products";
+import { localePath, orderPath, SOLUTION_SLUGS } from "../site";
 import { ExamplesHubPage, FaqHubPage, PricingPage, ResourcesPage, SolutionPage } from "./InfoPages";
 import { SiteFooter } from "./Footer";
 import { SiteHeader } from "./Header";
@@ -78,12 +78,23 @@ describe("marketing link integrity", () => {
 
   it("renders home, product, solution, and hub pages without dead links", () => {
     const dict = getDict("fr");
+    const pricingProducts = allProducts().map((product) => {
+      const slug = productSlugFromType(product);
+      return {
+        product,
+        name: dict.products[product].name,
+        tagline: dict.products[product].tagline,
+        href: localePath("fr", "products", slug),
+        orderHref: orderPath("fr", slug),
+        priceLine: "199.00 MAD",
+      };
+    });
     const pages = [
       renderToStaticMarkup(HomePage({ locale: "fr", dict })),
       renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "google-review-card" })),
       renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "career-card" })),
       renderToStaticMarkup(SolutionPage({ locale: "fr", dict, solution: "businesses" })),
-      renderToStaticMarkup(PricingPage({ locale: "fr", dict })),
+      renderToStaticMarkup(PricingPage({ locale: "fr", dict, products: pricingProducts })),
       renderToStaticMarkup(ExamplesHubPage({ locale: "fr", dict })),
       renderToStaticMarkup(FaqHubPage({ locale: "fr", dict })),
       renderToStaticMarkup(ResourcesPage({ locale: "fr", dict })),

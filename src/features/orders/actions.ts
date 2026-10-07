@@ -25,11 +25,11 @@ import {
   markOrderContacted,
   provisionOrderCards,
   resolveReviewDestination,
-  setOrderPrice,
   updateCustomerNote,
   updateFulfillmentStatus,
   updateInquiryStatus,
   updateInternalNote,
+  updateOrderAdjustments,
   updatePaymentStatus,
 } from "./service";
 import type { ClientCandidate, ConversionMode } from "./types";
@@ -149,33 +149,31 @@ export async function cancelOrderAction(
   return toState(result, "Order cancelled.");
 }
 
-export async function setPriceAction(
+export async function updateAdjustmentsAction(
   orderId: string,
   expectedUpdatedAt: string,
-  subtotalRaw: string,
   deliveryRaw: string,
   discountRaw: string,
 ): Promise<OrderActionState> {
   const supabase = await getServerClient();
   if (!supabase) return NOT_CONFIGURED;
-  const subtotalMinor = parseMadDecimalToMinor(subtotalRaw);
   const deliveryFeeMinor = parseMadDecimalToMinor(deliveryRaw);
   const discountMinor = parseMadDecimalToMinor(discountRaw);
-  if (subtotalMinor === null || deliveryFeeMinor === null || discountMinor === null) {
+  if (deliveryFeeMinor === null || discountMinor === null) {
     return {
       ok: false,
       message: "Enter valid non-negative MAD amounts (up to 2 decimals).",
       code: "VALIDATION_ERROR",
     };
   }
-  const result = await setOrderPrice(
+  const result = await updateOrderAdjustments(
     orderId,
     expectedUpdatedAt,
-    { subtotalMinor, deliveryFeeMinor, discountMinor },
+    { deliveryFeeMinor, discountMinor },
     supabase,
   );
   if (result.ok) revalidateOrder(orderId);
-  return toState(result, "Quote saved.");
+  return toState(result, "Delivery / discount updated.");
 }
 
 export async function updatePaymentAction(

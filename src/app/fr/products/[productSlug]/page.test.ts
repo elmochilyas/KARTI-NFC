@@ -16,7 +16,7 @@ vi.mock("next/cache", () => ({
 }));
 
 // The catalog overlay is unreachable in unit tests: products render from
-// static copy in QUOTE mode with every product published.
+// static copy with no price and every product published.
 vi.mock("@/features/catalog/cache", () => ({
   getCachedCatalogProduct: vi.fn(async () => null),
   getCachedPublishedFlags: vi.fn(async () => ({

@@ -1,6 +1,6 @@
 /**
- * Shared contact-page shell (server): task-focused hero, three clearly
- * separated paths (order / quote / message), then the inquiry form.
+ * Shared contact-page shell (server): task-focused hero, clearly
+ * separated paths (order / message), then the inquiry form.
  * The form creates inquiries only — order logic is untouched.
  */
 

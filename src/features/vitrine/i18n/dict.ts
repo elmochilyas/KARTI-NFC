@@ -101,7 +101,6 @@ export type VitrineDict = {
     howSteps: { title: string; desc: string }[];
     pricingTitle: string;
     pricingDesc: string;
-    pricingCta: string;
     faqTitle: string;
     faqItems: { q: string; a: string }[];
     finalTitle: string;
@@ -139,7 +138,8 @@ export type VitrineDict = {
     selectProductHint: string;
     quantity: string;
     configTitle: string;
-    quoteNote: string;
+    /** Shown while a product has no configured fixed price yet. */
+    pricePending: string;
     fields: {
       fullName: string;
       professionalTitle: string;
@@ -187,7 +187,6 @@ export type VitrineDict = {
       pricing: string;
       edit: string;
       sendRequest: string;
-      quotePending: string;
       submitting: string;
     };
     errors: {
@@ -249,13 +248,10 @@ export type VitrineDict = {
     products: string;
     learnMore: string;
     orderNow: string;
-    requestPrice: string;
     talkToUs: string;
     helpMeChoose: string;
     viewExamples: string;
     demoExample: string;
-    stickyOrder: string;
-    stickyRequest: string;
   };
   meta: {
     home: { title: string; description: string };
@@ -298,7 +294,6 @@ export type VitrineDict = {
     sameCardLabel: string;
     examplesTitle: string;
     examplesSubtitle: string;
-    pricingTiers: { title: string; desc: string; cta: string }[];
     processTitle: string;
     processSteps: { title: string; desc: string }[];
     finalHelpTitle: string;
@@ -341,14 +336,9 @@ export type VitrineDict = {
   pricingPage: {
     title: string;
     subtitle: string;
-    tiersTitle: string;
-    tiers: { title: string; desc: string; points: string[]; cta: string }[];
+    productsTitle: string;
     includedTitle: string;
     included: string[];
-    factorsTitle: string;
-    factors: string[];
-    processTitle: string;
-    processSteps: { title: string; desc: string }[];
     faqTitle: string;
     faq: FaqItem[];
     ctaTitle: string;

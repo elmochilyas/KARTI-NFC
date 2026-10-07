@@ -39,23 +39,16 @@ export function resolveProductCopy(
   };
 }
 
-/** Visible price line for a product card / pricing section, or null for QUOTE. */
-export function catalogPriceLine(
-  catalog: PublicCatalogProduct | null,
-  fromPrefix = "From",
-): string | null {
+/** Visible fixed price line for a product card / pricing section, or null when unconfigured. */
+export function catalogPriceLine(catalog: PublicCatalogProduct | null): string | null {
   if (!catalog) return null;
-  return catalogPriceDisplay({
-    pricingMode: catalog.pricingMode,
-    priceMinor: catalog.priceMinor,
-    fromPrefix,
-  });
+  return catalogPriceDisplay({ priceMinor: catalog.priceMinor });
 }
 
 /**
  * JSON-LD Offer payload for a catalog product, or null when no truthful
- * Offer exists (QUOTE, unpublished, malformed). The price decimal comes
- * from the same `priceMinor` as the visible line, so schema and page match.
+ * Offer exists (price not configured). The price decimal comes from the
+ * same `priceMinor` as the visible line, so schema and page match.
  */
 export function catalogOfferForJsonLd(
   catalog: PublicCatalogProduct | null,
@@ -70,7 +63,6 @@ export function catalogOfferForJsonLd(
   if (!catalog || catalog.priceMinor === null) return null;
   const price = catalogPriceDecimal(catalog.priceMinor);
   if (price === null) return null;
-  if (catalog.pricingMode !== "FIXED" && catalog.pricingMode !== "FROM") return null;
   const availability =
     catalog.availability === "IN_STOCK"
       ? ("https://schema.org/InStock" as const)
@@ -87,21 +79,16 @@ export function catalogOfferForJsonLd(
   };
 }
 
-/** Order-wizard unit line: "199.00 MAD × 2" snapshot, or null for QUOTE. */
+/** Order-wizard unit line: "199.00 MAD × 2 = 398.00 MAD" snapshot, or null when unconfigured. */
 export function catalogOrderUnitLine(
-  catalog:
-    | PublicCatalogProduct
-    | { pricingMode: "FIXED" | "FROM" | "QUOTE"; priceMinor: number | null }
-    | null,
+  catalog: PublicCatalogProduct | { priceMinor: number | null } | null,
   quantity: number,
 ): string | null {
   if (!catalog || catalog.priceMinor === null) return null;
-  if (catalog.pricingMode !== "FIXED" && catalog.pricingMode !== "FROM") return null;
   const unit = formatMinorToMad(catalog.priceMinor);
   if (unit === "—") return null;
-  const prefix = catalog.pricingMode === "FROM" ? "From " : "";
   const subtotal = catalog.priceMinor * quantity;
   const subtotalText = formatMinorToMad(subtotal);
   if (subtotalText === "—") return null;
-  return `${prefix}${unit} × ${quantity} = ${subtotalText}`;
+  return `${unit} × ${quantity} = ${subtotalText}`;
 }

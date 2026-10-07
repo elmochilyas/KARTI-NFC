@@ -15,6 +15,20 @@ const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
 vi.mock("@/lib/supabase/orderWriter", () => ({
   createOrderWriterClient: () => ({ rpc: rpcMock }),
 }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: { published: true, price_minor: 19900 },
+            error: null,
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
 
 import { cookies } from "next/headers";
 import { ATTRIBUTION_COOKIE } from "../attribution";

@@ -1,34 +1,23 @@
 import { formatMinorToMad, isNonNegativeMinor } from "@/domain/orders/money";
-import type { CatalogPricingMode } from "./types";
 
 /**
  * Catalog price display helpers (pure, unit-tested).
  *
- * - FIXED → "199.00 MAD" (exact visible price).
- * - FROM  → "From 199.00 MAD" (floor price, always prefixed — the JSON-LD
- *   Offer price equals this floor value so visible and schema prices match).
- * - QUOTE → null (caller renders the Request-price fallback; never a 0).
+ * Every product has exactly one fixed base price. A null/invalid
+ * priceMinor means "Price not configured" (admin readiness state, never
+ * shown publicly as a price) → display helpers return null.
  */
 
-export function catalogPriceDisplay(args: {
-  pricingMode: CatalogPricingMode;
-  priceMinor: number | null;
-  fromPrefix?: string;
-}): string | null {
-  const prefix = args.fromPrefix ?? "From";
-  if (args.pricingMode === "QUOTE" || args.priceMinor === null) return null;
+export function catalogPriceDisplay(args: { priceMinor: number | null }): string | null {
+  if (args.priceMinor === null) return null;
   if (!isNonNegativeMinor(args.priceMinor) || args.priceMinor <= 0) return null;
   const formatted = formatMinorToMad(args.priceMinor);
   if (formatted === "—") return null;
-  if (args.pricingMode === "FROM") return `${prefix} ${formatted}`;
   return formatted;
 }
 
 /** True only when the catalog row carries a truthful displayable price. */
-export function hasCatalogPrice(args: {
-  pricingMode: CatalogPricingMode;
-  priceMinor: number | null;
-}): boolean {
+export function hasCatalogPrice(args: { priceMinor: number | null }): boolean {
   return catalogPriceDisplay(args) !== null;
 }
 

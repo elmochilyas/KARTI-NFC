@@ -35,7 +35,7 @@ export default async function ArProductPage({
   const flags = await getCachedPublishedFlags();
   return (
     <>
-      <JsonLd id="karti-jsonld-product" data={jsonLd.product} />
+      {jsonLd.product ? <JsonLd id="karti-jsonld-product" data={jsonLd.product} /> : null}
       <JsonLd id="karti-jsonld-breadcrumb" data={jsonLd.breadcrumb} />
       <JsonLd id="karti-jsonld-faq" data={jsonLd.faq} />
       <ProductPage

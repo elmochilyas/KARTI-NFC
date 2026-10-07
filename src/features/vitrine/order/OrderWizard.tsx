@@ -65,7 +65,7 @@ export function OrderWizard({
   initialProduct: ProductType | null;
   /** Unpublished products are excluded from the selector (null = all listed). */
   publishedFlags?: Record<ProductType, boolean> | null;
-  /** Visible catalog price per product (absent = QUOTE, request-price note). */
+  /** Visible fixed catalog price per product (absent = price not configured). */
   priceLines?: Partial<Record<ProductType, string>> | null;
 }) {
   const [step, setStep] = useState(0);

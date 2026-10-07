@@ -33,9 +33,9 @@ export const enMarketing: VitrineMarketingDict = {
         "Tap NFC, backup QR, permanent redirect: understand how a Karti card shares your profile or link, with no app.",
     },
     pricing: {
-      title: "Karti pricing — Request a price per product",
+      title: "Karti pricing — Fixed price per product",
       description:
-        "Karti cards are quoted on request based on product, quantity and customization. Describe your need and receive a confirmed price.",
+        "Every Karti card has a displayed fixed price based on product and quantity. Choose your card and order.",
     },
     examples: {
       title: "Karti card examples — Use cases per product",
@@ -72,7 +72,7 @@ export const enMarketing: VitrineMarketingDict = {
     },
     legalTerms: {
       title: "Order terms — Karti",
-      description: "Quote request, confirmation, production: how Karti card orders work.",
+      description: "Order, confirmation, production: how Karti card orders work.",
     },
     legalDelivery: {
       title: "Delivery — Karti",
@@ -255,23 +255,6 @@ export const enMarketing: VitrineMarketingDict = {
     ],
     examplesTitle: "What it looks like",
     examplesSubtitle: "Demo examples, not customers.",
-    pricingTiers: [
-      {
-        title: "Profile cards",
-        desc: "Personal, Career, Business: digital profile included.",
-        cta: "Request a price",
-      },
-      {
-        title: "Action cards",
-        desc: "Google Review, WhatsApp, Instagram, Contact, Link: one destination, one tap.",
-        cta: "Request a price",
-      },
-      {
-        title: "Bulk & business",
-        desc: "Multiple cards or specific needs: dedicated quote.",
-        cta: "Request a quote",
-      },
-    ],
     processTitle: "Ordering, simply",
     processSteps: [
       {
@@ -403,7 +386,7 @@ export const enMarketing: VitrineMarketingDict = {
         },
         {
           q: "Can I order several cards?",
-          a: "Yes, quantity is chosen at order time and the quote accounts for it.",
+          a: "Yes, quantity is chosen at order time and the total is computed automatically.",
         },
       ],
     },
@@ -470,28 +453,8 @@ export const enMarketing: VitrineMarketingDict = {
   },
   pricingPage: {
     title: "Pricing",
-    subtitle: "Every need is quoted on request. Here is how it works.",
-    tiersTitle: "By card type",
-    tiers: [
-      {
-        title: "Profile cards",
-        desc: "Personal, Career, Business: digital profile included and editable.",
-        points: ["Profile created with you", "Editable destination", "Backup QR included"],
-        cta: "Request a price",
-      },
-      {
-        title: "Action cards",
-        desc: "Google Review, WhatsApp, Instagram, Contact, Link: one destination, one tap.",
-        points: ["Configured destination", "Editable without reprinting", "Backup QR included"],
-        cta: "Request a price",
-      },
-      {
-        title: "Bulk & business",
-        desc: "Multiple cards, multiple locations, specific needs.",
-        points: ["Quantity of your choice", "Dedicated quote", "Guided ordering"],
-        cta: "Request a quote",
-      },
-    ],
+    subtitle: "Every Karti card has a fixed price listed below.",
+    productsTitle: "Our cards",
     includedTitle: "Always included",
     included: [
       "Physically configured card",
@@ -499,33 +462,11 @@ export const enMarketing: VitrineMarketingDict = {
       "Detail confirmation with you before production",
       "Editable destination after delivery",
     ],
-    factorsTitle: "What affects the price",
-    factors: [
-      "The chosen product",
-      "The ordered quantity",
-      "The requested customization",
-      "Delivery",
-    ],
-    processTitle: "How to get your price",
-    processSteps: [
-      {
-        title: "Describe",
-        desc: "Product, configuration and delivery in four steps.",
-      },
-      {
-        title: "Receive",
-        desc: "Karti contacts you with a confirmed price.",
-      },
-      {
-        title: "Approve",
-        desc: "Nothing is produced or charged before your approval.",
-      },
-    ],
     faqTitle: "Frequently asked questions",
     faq: [
       {
-        q: "Why are no prices displayed?",
-        a: "Each card combines product, quantity and customization: the price is confirmed by quote, with no surprises.",
+        q: "Are the displayed prices fixed?",
+        a: "Yes. Every product has a fixed price: your order total is computed automatically from the quantity.",
       },
       {
         q: "Is payment taken online?",
@@ -533,10 +474,10 @@ export const enMarketing: VitrineMarketingDict = {
       },
       {
         q: "Can I order several cards?",
-        a: "Yes, quantity is chosen at order time and the quote reflects it.",
+        a: "Yes, quantity is chosen at order time and the total adjusts automatically.",
       },
     ],
-    ctaTitle: "Describe your need",
+    ctaTitle: "Choose your card",
     ctaSubtitle: "Four steps, no account, no online payment.",
   },
   examplesPage: {
@@ -653,7 +594,7 @@ export const enMarketing: VitrineMarketingDict = {
         items: [
           {
             q: "How is the price set?",
-            a: "By quote, based on product, quantity, customization and delivery. Nothing is charged online.",
+            a: "Every product has a displayed fixed price. The total depends only on quantity. Nothing is charged online.",
           },
           {
             q: "Can I order several cards?",
@@ -858,16 +799,16 @@ export const enMarketing: VitrineMarketingDict = {
     ],
     terms: [
       {
-        heading: "Quote request",
+        heading: "Ordering",
         paragraphs: [
-          "Ordering on the website sends a quote request, not a purchase: nothing is charged online and nothing is produced automatically.",
-          "Each request is reviewed by product, quantity, customization and delivery.",
+          "Ordering on the website records an order at the displayed fixed price: nothing is charged online and nothing is produced automatically.",
+          "Each order specifies the product, quantity and delivery.",
         ],
       },
       {
         heading: "Confirmation before production",
         paragraphs: [
-          "Karti contacts you to confirm details and price before any production. Production only starts after your explicit approval.",
+          "Karti contacts you to confirm details and delivery before any production. Production only starts after your explicit approval.",
         ],
       },
       {
@@ -881,7 +822,7 @@ export const enMarketing: VitrineMarketingDict = {
       {
         heading: "Current process",
         paragraphs: [
-          "After your request, Karti confirms details, price and handover arrangements with you before production. City and address are collected at order time to prepare this step.",
+          "After your order, Karti confirms details and handover arrangements with you before production. City and address are collected at order time to prepare this step.",
         ],
       },
       {

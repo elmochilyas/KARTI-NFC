@@ -68,8 +68,7 @@ export const enDict: VitrineBaseDict = {
     ],
     pricingTitle: "How much does it cost?",
     pricingDesc:
-      "Every request is reviewed individually: describe your need and get a confirmed price before production. Nothing is charged online.",
-    pricingCta: "Request a price",
+      "Every card has a displayed fixed price. Choose your product and quantity, then order. Nothing is charged online.",
     faqTitle: "Frequently asked questions",
     faqItems: [
       {
@@ -78,7 +77,7 @@ export const enDict: VitrineBaseDict = {
       },
       {
         q: "How are price and delivery confirmed?",
-        a: "After your request, Karti contacts you to confirm details, price and delivery before production.",
+        a: "The price is fixed and displayed on each product. After your order, Karti contacts you to confirm details and delivery before production.",
       },
       {
         q: "Can I change my card after receiving it?",
@@ -114,7 +113,7 @@ export const enDict: VitrineBaseDict = {
         "We create your profile with your details",
         "Present the card: your profile opens",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "Does the visitor need an app to see my profile?",
@@ -167,7 +166,7 @@ export const enDict: VitrineBaseDict = {
         "We create your profile with your details",
         "Present the card: your career profile opens",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "Must I provide my final CV when ordering?",
@@ -220,7 +219,7 @@ export const enDict: VitrineBaseDict = {
         "We create your business profile",
         "Present the card: your customers act",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "What can my customers do?",
@@ -277,7 +276,7 @@ export const enDict: VitrineBaseDict = {
         "We configure the card to your review page",
         "Present the card to happy customers",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "I cannot find my Google review link. Can I still order?",
@@ -330,7 +329,7 @@ export const enDict: VitrineBaseDict = {
         "We configure the card to your conversation",
         "Your customers scan and chat",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "Can I add a pre-filled message?",
@@ -383,7 +382,7 @@ export const enDict: VitrineBaseDict = {
         "We configure the card to your profile",
         "Your visitors scan and follow you",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "What should I provide: handle or link?",
@@ -436,7 +435,7 @@ export const enDict: VitrineBaseDict = {
         "We create your contact sheet",
         "Present the card: people save you",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "How is it different from the Personal Card?",
@@ -489,7 +488,7 @@ export const enDict: VitrineBaseDict = {
         "We validate and configure the destination",
         "Present the card: your page opens",
       ],
-      pricing: "Price confirmed after reviewing your request.",
+      pricing: "Fixed price. Delivery arranged with our team.",
       faq: [
         {
           q: "Which links are accepted?",
@@ -558,7 +557,7 @@ export const enDict: VitrineBaseDict = {
     selectProductHint: "Select the card that matches your need.",
     quantity: "Quantity",
     configTitle: "Your configuration",
-    quoteNote: "Price confirmed after reviewing your request.",
+    pricePending: "Price coming soon.",
     fields: {
       fullName: "Full name",
       professionalTitle: "Professional title",
@@ -594,8 +593,7 @@ export const enDict: VitrineBaseDict = {
       destinationUrl: "Destination link",
       purpose: "Intended use (optional)",
     },
-    deliveryNote:
-      "Delivery and final price will be confirmed by Karti after reviewing your request.",
+    deliveryNote: "Delivery will be confirmed by Karti after your order.",
     review: {
       title: "Review your request",
       product: "Product",
@@ -607,7 +605,6 @@ export const enDict: VitrineBaseDict = {
       pricing: "Pricing",
       edit: "Edit",
       sendRequest: "Send request",
-      quotePending: "Quote to confirm",
       submitting: "Sending…",
     },
     errors: {
@@ -671,12 +668,9 @@ export const enDict: VitrineBaseDict = {
     products: "Products",
     learnMore: "Learn more",
     orderNow: "Order",
-    requestPrice: "Request a price",
     talkToUs: "Talk to us",
     helpMeChoose: "Help me choose",
     viewExamples: "View examples",
     demoExample: "Demo example",
-    stickyOrder: "Order",
-    stickyRequest: "Request",
   },
 };

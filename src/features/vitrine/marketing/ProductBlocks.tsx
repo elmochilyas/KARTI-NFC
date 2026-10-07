@@ -6,6 +6,7 @@
  */
 
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { LuCheck } from "react-icons/lu";
 import { getProductDefinition } from "@/domain/orders/catalog";
@@ -332,11 +333,11 @@ export function IncludedBlock({
 }
 
 /**
- * Catalog-aware pricing section: same card language as QuoteBlock.
- * FIXED/FROM with a real price shows the exact visible price (+ "From"
- * prefix for floor prices, CMS image thumb, pricing note); QUOTE renders
- * the honest request-price fallback. Visible price and JSON-LD Offer price
- * derive from the same minor units, so they always match.
+ * Catalog-aware pricing section. A configured fixed price shows the exact
+ * visible price (CMS image thumb, pricing note); a product without a
+ * configured price shows an honest pending state with no order CTA.
+ * Visible price and JSON-LD Offer price derive from the same minor units,
+ * so they always match.
  */
 export function PriceBlock({
   locale,
@@ -360,12 +361,14 @@ export function PriceBlock({
     <Section title={dict.productPage.pricingTitle}>
       <div className="rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card md:p-6">
         {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={imageUrl}
             alt={imageAlt ?? ""}
-            className="mb-4 h-40 w-full rounded-2xl border border-border object-cover"
+            width={1600}
+            height={1200}
+            sizes="(max-width: 768px) 100vw, 800px"
             loading="lazy"
+            className="mb-4 aspect-[4/3] w-full rounded-2xl border border-border object-cover"
           />
         ) : null}
         {priceLine ? (
@@ -380,7 +383,7 @@ export function PriceBlock({
         ) : (
           <>
             <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
-              {dict.common.requestPrice} —
+              {dict.order.pricePending}
             </p>
             <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
               {note}
@@ -388,53 +391,14 @@ export function PriceBlock({
           </>
         )}
         <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-          <Link
-            href={orderPath(locale)}
-            className="font-display inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-bold text-white hover:bg-accent-strong"
-          >
-            {priceLine ? dict.common.orderNow : dict.common.requestPrice}
-          </Link>
-          <Link
-            href={localePath(locale, "pricing")}
-            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full px-6 text-[15px] font-semibold text-ink underline-offset-4 hover:underline"
-          >
-            {dict.common.learnMore}
-            <span aria-hidden="true" className="karti-flip-rtl">
-              →
-            </span>
-          </Link>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-/** Honest quote state: product pricing line + pricing page path. */
-export function QuoteBlock({
-  locale,
-  dict,
-  pricing,
-}: {
-  locale: VitrineLocale;
-  dict: VitrineDict;
-  pricing: string;
-}) {
-  return (
-    <Section title={dict.productPage.pricingTitle}>
-      <div className="rounded-[1.75rem] border border-ink/10 bg-surface p-5 shadow-card md:p-6">
-        <p className="font-display text-xs font-bold tracking-[0.2em] text-accent-strong uppercase">
-          {dict.common.requestPrice} —
-        </p>
-        <p className="mt-2.5 max-w-2xl text-lg leading-relaxed font-medium text-pretty text-text">
-          {pricing}
-        </p>
-        <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-          <Link
-            href={orderPath(locale)}
-            className="font-display inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-bold text-white hover:bg-accent-strong"
-          >
-            {dict.common.requestPrice}
-          </Link>
+          {priceLine ? (
+            <Link
+              href={orderPath(locale)}
+              className="font-display inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-bold text-white hover:bg-accent-strong"
+            >
+              {dict.common.orderNow}
+            </Link>
+          ) : null}
           <Link
             href={localePath(locale, "pricing")}
             className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full px-6 text-[15px] font-semibold text-ink underline-offset-4 hover:underline"

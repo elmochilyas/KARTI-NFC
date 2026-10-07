@@ -6,9 +6,26 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(async () => ({ get: () => null })),
 }));
 
-const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
+const { rpcMock, catalogRow } = vi.hoisted(() => ({
+  rpcMock: vi.fn(),
+  catalogRow: { value: { published: true, price_minor: 19900 } as unknown },
+}));
 vi.mock("@/lib/supabase/orderWriter", () => ({
   createOrderWriterClient: () => ({ rpc: rpcMock }),
+}));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => {
+            if (catalogRow.value instanceof Error) throw catalogRow.value;
+            return { data: catalogRow.value, error: null };
+          },
+        }),
+      }),
+    }),
+  }),
 }));
 
 import { createPublicInquiryAction, createPublicOrderAction } from "./actions";
@@ -57,6 +74,7 @@ function createCalls(fn: string): Record<string, unknown>[] {
 
 beforeEach(() => {
   rpcMock.mockReset();
+  catalogRow.value = { published: true, price_minor: 19900 };
 });
 
 describe("createPublicOrderAction", () => {
@@ -79,11 +97,47 @@ describe("createPublicOrderAction", () => {
     const orderCalls = createCalls("create_public_order");
     expect(orderCalls).toHaveLength(1);
     const args = orderCalls[0];
-    expect(args.p_pricing_status).toBe("QUOTE_REQUIRED");
-    expect(args.p_total_minor).toBeNull();
+    // Server snapshots the live catalog price: unit 19900 × qty 1.
+    expect(args.p_unit_price_minor).toBe(19900);
+    expect(args.p_line_total_minor).toBe(19900);
+    expect(args.p_subtotal_minor).toBe(19900);
+    expect(args.p_delivery_fee_minor).toBe(0);
+    expect(args.p_discount_minor).toBe(0);
+    expect(args.p_total_minor).toBe(19900);
+    expect("p_pricing_status" in args).toBe(false); // pricing-guard-allow: pricing_status
     expect(args.p_configuration).toEqual({ fullName: "Younes Barrag" });
     expect(args.p_phone_normalized).toBe("+212612345678");
     expect(args.p_receipt_token_hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("ignores browser-supplied prices (strict input, server snapshot wins)", async () => {
+    orderSuccess();
+    const result = await createPublicOrderAction({
+      ...BASE_ORDER,
+      quantity: 2,
+      unitPriceMinor: 1,
+      totalMinor: 1,
+    } as unknown as typeof BASE_ORDER);
+    // Unknown fields are rejected by the strict schema; the snapshot path
+    // never reads browser amounts.
+    expect(result).toEqual({ ok: false, error: { code: "VALIDATION" } });
+    expect(createCalls("create_public_order")).toHaveLength(0);
+  });
+
+  it("refuses orders while the product price is not configured", async () => {
+    orderSuccess();
+    catalogRow.value = { published: true, price_minor: null };
+    const result = await createPublicOrderAction(BASE_ORDER);
+    expect(result).toEqual({ ok: false, error: { code: "VALIDATION" } });
+    expect(createCalls("create_public_order")).toHaveLength(0);
+  });
+
+  it("fails honestly when the catalog is unreachable", async () => {
+    orderSuccess();
+    catalogRow.value = new Error("db down");
+    const result = await createPublicOrderAction(BASE_ORDER);
+    expect(result).toEqual({ ok: false, error: { code: "VALIDATION" } });
+    expect(createCalls("create_public_order")).toHaveLength(0);
   });
 
   it("rejects malformed input without touching the order RPC", async () => {

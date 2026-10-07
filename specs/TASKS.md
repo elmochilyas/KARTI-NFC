@@ -4257,6 +4257,46 @@ Detail routes `/dashboard/catalog/[productType]` crashed in production
 
 ---
 
+# Phase: Fixed-Price-Only Simplification (2026-10-07)
+
+- [x] DB migration `20261008000000_fixed_price_only.sql`: drop
+      `catalog_products.pricing_mode`, drop `orders.pricing_status`,
+      money columns NOT NULL, `create_public_order` without
+      `p_pricing_status` + snapshot gates, `admin_set_order_price`
+      replaced by `admin_update_order_adjustments`
+      (delivery/discount only, base subtotal immutable).
+- [x] Domain: no `PricingMode`/`PricingStatus`, fixed `priceOrder()`
+      snapshot (unit x qty, total = subtotal + delivery - discount),
+      attention without `SET_PRICE`, `PRICE_ADJUSTED` event.
+- [x] Catalog/dashboard: price-only editor ("Price not configured"
+      readiness), no mode selector/badges.
+- [x] Public: real fixed prices on homepage/product/pricing/order
+      wizard from the same catalog source; unpriced = honest pending,
+      no order, no Product JSON-LD (Search Console rule).
+- [x] i18n FR/EN/AR: quote/from-price copy removed.
+- [x] Types regenerated; ADR-078 recorded (supersedes ADR-070/077
+      quote architecture).
+- [x] Tests incl. `src/pricing-guard.test.ts` static guard.
+- [ ] Operator enters all 8 real prices, then hardening migration:
+      `price_minor` SET NOT NULL.
+
+# Phase: Catalog media 4:3 + WebP pipeline (2026-10-08)
+
+- [x] `src/features/catalog/optimize.ts`: sharp pipeline (EXIF
+      auto-orient, 4:3 center cover-crop, max 1600x1200 WebP q83,
+      min 800x600, metadata stripped, alpha preserved; OG uncropped
+      inside 1200x630).
+- [x] `uploadCatalogImage` stores optimized WebP only (versioned path,
+      `cacheControl: 31536000`); clear validation errors; no partial
+      state on failure.
+- [x] MediaManager copy/states (Uploading… Optimizing… / Saved) + 4:3
+      thumbnails; public PriceBlock via `next/image` in `aspect-[4/3]`.
+- [x] Pipeline + upload + display tests; ADR-079 recorded.
+- [x] `typecheck`, `lint`, `test` (126 files / 1278 tests), `build`,
+      `test:e2e` (18) green.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

@@ -79,7 +79,7 @@ export const frMarketing: VitrineMarketingDict = {
     legalTerms: {
       title: "Conditions de commande — Karti",
       description:
-        "Demande de devis, confirmation, production : comment fonctionnent les commandes de cartes Karti.",
+        "Commande, confirmation, production : comment fonctionnent les commandes de cartes Karti.",
     },
     legalDelivery: {
       title: "Livraison — Karti",
@@ -262,23 +262,6 @@ export const frMarketing: VitrineMarketingDict = {
     ],
     examplesTitle: "À quoi ça ressemble",
     examplesSubtitle: "Des exemples de démonstration, pas des clients.",
-    pricingTiers: [
-      {
-        title: "Cartes de profil",
-        desc: "Personnelle, Carrière, Business : profil numérique inclus.",
-        cta: "Demander un prix",
-      },
-      {
-        title: "Cartes d'action",
-        desc: "Avis Google, WhatsApp, Instagram, Contact, Lien : une destination, un geste.",
-        cta: "Demander un prix",
-      },
-      {
-        title: "Volume et entreprises",
-        desc: "Plusieurs cartes ou besoin spécifique : devis dédié.",
-        cta: "Demander un devis",
-      },
-    ],
     processTitle: "Commander, simplement",
     processSteps: [
       {
@@ -410,7 +393,7 @@ export const frMarketing: VitrineMarketingDict = {
         },
         {
           q: "Puis-je commander plusieurs cartes ?",
-          a: "Oui, la quantité se choisit à la commande et le prix se confirme par devis.",
+          a: "Oui, la quantité se choisit à la commande et le total est calculé automatiquement.",
         },
       ],
     },
@@ -477,28 +460,8 @@ export const frMarketing: VitrineMarketingDict = {
   },
   pricingPage: {
     title: "Tarifs",
-    subtitle: "Chaque besoin est chiffré sur demande. Voici comment ça fonctionne.",
-    tiersTitle: "Par type de carte",
-    tiers: [
-      {
-        title: "Cartes de profil",
-        desc: "Personnelle, Carrière, Business : profil numérique inclus et modifiable.",
-        points: ["Profil créé avec vous", "Destination modifiable", "QR de secours inclus"],
-        cta: "Demander un prix",
-      },
-      {
-        title: "Cartes d'action",
-        desc: "Avis Google, WhatsApp, Instagram, Contact, Lien : une destination, un geste.",
-        points: ["Destination configurée", "Modifiable sans réimprimer", "QR de secours inclus"],
-        cta: "Demander un prix",
-      },
-      {
-        title: "Volume et entreprises",
-        desc: "Plusieurs cartes, lieux multiples, besoin spécifique.",
-        points: ["Quantité au choix", "Devis dédié", "Accompagnement à la commande"],
-        cta: "Demander un devis",
-      },
-    ],
+    subtitle: "Chaque carte Karti a un prix fixe affiché ci-dessous.",
+    productsTitle: "Nos cartes",
     includedTitle: "Ce qui est toujours inclus",
     included: [
       "Carte physique configurée",
@@ -506,33 +469,11 @@ export const frMarketing: VitrineMarketingDict = {
       "Confirmation des détails avec vous avant production",
       "Destination modifiable après réception",
     ],
-    factorsTitle: "Ce qui fait varier le prix",
-    factors: [
-      "Le produit choisi",
-      "La quantité commandée",
-      "La personnalisation demandée",
-      "La livraison",
-    ],
-    processTitle: "Comment obtenir votre prix",
-    processSteps: [
-      {
-        title: "Décrivez",
-        desc: "Produit, configuration et livraison en quatre étapes.",
-      },
-      {
-        title: "Recevez",
-        desc: "Karti vous contacte avec un prix confirmé.",
-      },
-      {
-        title: "Validez",
-        desc: "Rien n'est produit ni débité avant votre accord.",
-      },
-    ],
     faqTitle: "Questions fréquentes",
     faq: [
       {
-        q: "Pourquoi n'y a-t-il pas de prix affichés ?",
-        a: "Chaque carte combine produit, quantité et personnalisation : le prix se confirme par devis, sans surprise.",
+        q: "Les prix affichés sont-ils fixes ?",
+        a: "Oui. Chaque produit a un prix fixe : le total de votre commande est calculé automatiquement selon la quantité.",
       },
       {
         q: "Le paiement se fait-il en ligne ?",
@@ -540,10 +481,10 @@ export const frMarketing: VitrineMarketingDict = {
       },
       {
         q: "Puis-je commander plusieurs cartes ?",
-        a: "Oui, la quantité se choisit à la commande et le devis en tient compte.",
+        a: "Oui, la quantité se choisit à la commande et le total s'ajuste automatiquement.",
       },
     ],
-    ctaTitle: "Décrivez votre besoin",
+    ctaTitle: "Choisissez votre carte",
     ctaSubtitle: "Quatre étapes, sans compte, sans paiement en ligne.",
   },
   examplesPage: {
@@ -660,7 +601,7 @@ export const frMarketing: VitrineMarketingDict = {
         items: [
           {
             q: "Comment le prix est-il fixé ?",
-            a: "Par devis, selon produit, quantité, personnalisation et livraison. Rien n'est débité en ligne.",
+            a: "Chaque produit a un prix fixe affiché sur sa page. Le total dépend uniquement de la quantité. Rien n'est débité en ligne.",
           },
           {
             q: "Puis-je commander plusieurs cartes ?",
@@ -866,16 +807,16 @@ export const frMarketing: VitrineMarketingDict = {
     ],
     terms: [
       {
-        heading: "Demande de devis",
+        heading: "Commande",
         paragraphs: [
-          "Passer commande sur le site envoie une demande de devis, pas un achat : aucun montant n'est débité en ligne et rien n'est produit automatiquement.",
-          "Chaque demande est étudiée selon le produit, la quantité, la personnalisation et la livraison.",
+          "Passer commande sur le site enregistre une commande au prix fixe affiché : aucun montant n'est débité en ligne et rien n'est produit automatiquement.",
+          "Chaque commande précise le produit, la quantité et la livraison.",
         ],
       },
       {
         heading: "Confirmation avant production",
         paragraphs: [
-          "Karti vous contacte pour confirmer les détails et le prix avant toute production. La production ne démarre qu'après votre accord explicite.",
+          "Karti vous contacte pour confirmer les détails et la livraison avant toute production. La production ne démarre qu'après votre accord explicite.",
         ],
       },
       {
@@ -889,7 +830,7 @@ export const frMarketing: VitrineMarketingDict = {
       {
         heading: "Processus actuel",
         paragraphs: [
-          "Après votre demande, Karti confirme avec vous les détails, le prix et les modalités de remise avant production. Ville et adresse sont collectées dès la commande pour préparer cette étape.",
+          "Après votre commande, Karti confirme avec vous les détails et les modalités de remise avant production. Ville et adresse sont collectées dès la commande pour préparer cette étape.",
         ],
       },
       {

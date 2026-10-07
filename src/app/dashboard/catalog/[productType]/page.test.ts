@@ -36,11 +36,10 @@ import CatalogEditorPage from "./page";
 
 const mockedCreateClient = vi.mocked(createClient);
 
-function quoteProductRow(productType: string): Record<string, unknown> {
+function unpricedProductRow(productType: string): Record<string, unknown> {
   return {
     product_type: productType,
     published: true,
-    pricing_mode: "QUOTE",
     price_minor: null,
     currency: "MAD",
     availability: null,
@@ -73,7 +72,7 @@ function emptyLocRow(productType: string, locale: string): Record<string, unknow
   };
 }
 
-/** Production-shaped stub: QUOTE + null price, no image, empty media. */
+/** Production-shaped stub: unpriced, no image, empty media. */
 function pageFakeDb(options: {
   types?: ProductType[];
   locRows?: Record<string, unknown>[];
@@ -82,7 +81,7 @@ function pageFakeDb(options: {
 }): CatalogDb {
   const types = options.types ?? [...PRODUCT_TYPES];
   const products: Record<string, Record<string, unknown>> = {};
-  for (const t of types) products[t] = quoteProductRow(t);
+  for (const t of types) products[t] = unpricedProductRow(t);
   const locRows =
     options.locRows ??
     types.flatMap((t) => ["fr", "en", "ar"].map((locale) => emptyLocRow(t, locale)));
@@ -178,7 +177,7 @@ describe("catalog editor page", () => {
       expect((mediaProps["moveAction"] as { name?: string }).name).toBe(
         "bound moveCatalogMediaAction",
       );
-      // QUOTE + null price + no image renders as empty editor state.
+      // Unpriced + no image renders as empty editor state.
       expect(mediaProps["media"]).toEqual([]);
       expect(mediaProps["primaryImagePath"]).toBeNull();
       expect(mediaProps["ogImagePath"]).toBeNull();
@@ -186,7 +185,6 @@ describe("catalog editor page", () => {
       expect(pricing).toHaveLength(1);
       expect(pricing[0].props?.["initialValues"]).toMatchObject({
         published: true,
-        pricingMode: "QUOTE",
         priceMad: "",
         availability: "",
       });

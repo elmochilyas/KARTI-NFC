@@ -81,13 +81,12 @@ export default async function CatalogEditorPage({
 
       <Section
         title="General + pricing"
-        description="Visibility, pricing mode, and price. Technical behavior (profile rules, destinations) stays in code and cannot be changed here."
+        description="Visibility and fixed base price. Technical behavior (profile rules, destinations) stays in code and cannot be changed here."
       >
         <PricingForm
           action={updateCatalogProductAction.bind(null, product.product_type)}
           initialValues={{
             published: product.published,
-            pricingMode: product.pricing_mode,
             priceMad: product.price_minor !== null ? (product.price_minor / 100).toFixed(2) : "",
             availability: product.availability ?? "",
           }}
@@ -96,7 +95,7 @@ export default async function CatalogEditorPage({
           Stored:{" "}
           {product.price_minor !== null
             ? formatMinorToMad(product.price_minor)
-            : "no price (QUOTE)"}
+            : "Price not configured"}
         </p>
       </Section>
 
