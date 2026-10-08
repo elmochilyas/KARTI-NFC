@@ -2794,3 +2794,169 @@ fails the build if alternate pricing concepts return.
 
 No multi-megabyte originals reach the public site; JSON-LD/OG image
 URLs are unchanged in shape (now pointing at optimized assets).
+
+---
+
+## ADR-080 — Google Sheets delivery mirror (Sheet subordinate, Karti authoritative)
+
+**Status:** Accepted
+**Date:** 2026-10-08
+
+### Context
+
+Every valid order must appear in the delivery company's Google Sheet, and
+selected delivery/status edits must sync back safely. The Sheet must never
+become the primary database. No queue/worker infrastructure exists.
+
+### Decision
+
+- Mirror architecture: server-side service-account sync (Sheets v4 REST via
+  `google-auth-library` + fetch — the `googleapis` mega-package, ~245MB,
+  broke the build disk budget and was removed); Sheet edits return through
+  an HMAC-signed Apps Script webhook calling service_role-only
+  `sheets_apply_*` RPCs. `src/features/integrations/google-sheets/` owns
+  the single mapping (`buildDeliverySheetRow`), the single sync funnel
+  (`syncOrderToDeliverySheet`), and idempotent setup.
+- Identity is `order.id` (column B), re-resolved before important updates;
+  `order_delivery_sheet_sync` carries payload hashes (equal ⇒ no-op) and
+  PENDING/SYNCED/FAILED + backoff state. Public creation writes PENDING
+  synchronously, attempts Google in `after()`, and the CRON_SECRET cron
+  sweeps due rows. Manual Resync stays behind the admin session — two
+  separate auth boundaries.
+- Replay protection is durable PostgreSQL nonces (unique per request, TTL
+  cleanup), never in-memory — Vercel runs many serverless instances.
+  Timestamp skew ≤ 5 min, constant-time HMAC compare.
+- Webhook scope is allowlisted: order CONFIRMED/CANCELLED, payment
+  PAID/REFUNDED, fulfillment READY/PICKED_UP/OUT_FOR_DELIVERY/DELIVERED/
+  FAILED/RETURNED — each re-validated against the domain transition maps
+  and applied through expected-state-guarded RPCs with SYSTEM actor +
+  `source: GOOGLE_SHEETS` audit events. Money/identity/address/notes and
+  CONTACTED/IN_PROGRESS/COMPLETED can never be written from the Sheet.
+- Fulfillment gains PICKED_UP/OUT_FOR_DELIVERY/FAILED/RETURNED (one CHECK
+  migration + shared `fulfillment_transition_allowed()` SQL map mirroring
+  `lifecycle.ts`); SHIPPED stays compatibility-only and is never writable
+  from the Sheet. Delivery flow never requires
+  OUT_FOR_DELIVERY → SHIPPED → DELIVERED.
+
+### Consequences
+
+- Google outages never lose authoritative orders; failures are visible
+  (order badge, Settings counts) and retryable (cron + Resync + bulk).
+- Narrow `createDeliverySyncClient` (service-role, RPC + sync-state tables
+  + projected reads only) joins the order-writer as the second justified
+  privileged client; raw order writes through it are forbidden.
+- `pnpm db:types` re-run absorbs the manual `database.ts` backport (same
+  precedent as ADR-046). Migration + live Sheet proof remain operator steps
+  (no prod credentials in this environment).
+
+---
+
+## ADR-081 — Delivery transport via Apps Script Web App (no service account)
+
+**Status:** Accepted
+**Date:** 2026-10-08
+
+### Context
+
+ADR-080 specified a service-account JWT + Sheets REST transport. Google
+Cloud now blocks service-account key creation, and the single-sheet
+workflow is simpler as a bound Apps Script Web App. The service-account
+code was never configured against a real account and its migration was
+never applied, so replacement (not cleanup) is safe.
+
+### Decision
+
+- Karti → Sheet: signed JSON envelopes POSTed to the Web App `/exec` URL
+  (timestamp + nonce + canonical STRING payload + HMAC-SHA256; ≈5-min
+  skew). Apps Script cannot read custom headers reliably, so auth rides in
+  the body. Apps Script validates (timestamp → HMAC → best-effort
+  CacheService nonce → operation) and upserts by Order ID under
+  `LockService` (CREATED/UPDATED/UNCHANGED); replays can never duplicate.
+- Sheet → Karti is unchanged (UrlFetchApp CAN send headers): HMAC +
+  durable PostgreSQL nonces + allowlist + domain transitions +
+  `sheets_apply_*` RPCs. `setupDeliverySheet()` and the installable edit
+  trigger (`installDeliveryEditTrigger()`, installable — simple triggers
+  cannot UrlFetchApp) live in the one `DeliverySheet.gs` module, using
+  `openById` (no active-spreadsheet dependence).
+- `order_delivery_sheet_sync` drops spreadsheet/row coordinates (nothing in
+  Karti resolves rows anymore); hash skip + forced manual resync stay.
+  Fulfillment states, webhook scope, retry/cron model, and audit behavior
+  are untouched. `google-auth-library` removed; no Google API client
+  remains in the runtime.
+
+### Consequences
+
+- Zero Google Cloud setup, zero private keys in Vercel; the Web App `/exec`
+  URL is externally callable but HMAC-gated. Setup/formatting ownership
+  moves to Apps Script (Karti's setup button sends a signed `SETUP_SHEET`
+  op). Apps Script runtime is not executed in CI — the envelope protocol
+  is pinned by a mirrored verifier plus contract tests.
+
+---
+
+## ADR-082 — Dashboard-managed delivery connection + committed cron
+
+**Status:** Accepted
+**Date:** 2026-10-08
+
+### Context
+
+The operator should not do project/database/config work: no migrations, no
+env files, no hand-invented secrets, no manual cron wiring.
+
+### Decision
+
+- `delivery_sheet_connection` (single row, admin RLS) holds the Web App
+  URL + both HMAC secrets, minted server-side (`randomBytes`) on Generate
+  and shown once in a copy panel; full env override remains for local dev.
+  Webhook secret resolves env → row; the retry cron accepts `CRON_SECRET`
+  (Vercel auto-header, zero wiring) and `DELIVERY_SHEETS_CRON_SECRET`.
+- Settings → Delivery Sheet is a wizard: Generate → copy one block →
+  paste `/exec` (`/dev` rejected) → Test (`PING`, no fake order) →
+  Connected ✓ → Setup/Resync; Reveal/Regenerate/Pause on demand.
+- Apps Script ships `KARTI_CONFIG` (blank in repo) + `configureKartiDelivery()`
+  + one-time `setupKartiDelivery()` (auto-binds spreadsheet ID, stores
+  pasted values, formats, installs deduped trigger).
+- Retry cadence is committed (`vercel.json`, every 5 minutes).
+
+### Consequences
+
+- Operator flow is Sheet → paste → paste block → run setup → deploy →
+  paste URL → Test → test order. Plaintext HMAC secrets in the DB are
+  scoped to admin/service_role and rotatable; acceptable under the
+  single-admin model. Migration apply + `db:types` remain blocked on
+  missing platform access.
+
+---
+
+## ADR-083 — Env-only delivery config, operational dashboard
+
+**Status:** Accepted
+**Date:** 2026-10-08
+
+### Context
+
+ADR-082 put credential management in the dashboard (DB-backed secrets,
+generate/reveal/rotate UI). Rejected on review: the dashboard must not be
+responsible for integration credentials — too much security surface in UI
+code, and secrets do not belong in application tables.
+
+### Decision
+
+- SOLE source is server env (`DELIVERY_SHEETS_*`, validated centrally in
+  `env-server.ts`: `ENABLED=true` + HTTPS/script.google.com/`/exec` URL +
+  secret minima, else fail-safe disabled). `delivery_sheet_connection`
+  was removed from the still-unapplied migration; no applied DB changed.
+- Settings → Delivery Sheet is status (Not configured/Configured/Error)
+  + last sync + failed count + Test connection (live PING → Connected ✓)
+  + Setup Sheet + Sync unsynced. No inputs, no secrets, no URLs rendered
+  (pinned by isolation tests). Webhook route 503s unless enabled.
+- `.gs` keeps a fill-once `KARTI_CONFIG` example (blankable after setup);
+  runbook lists server env + Google steps only.
+
+### Consequences
+
+- Credential rotation = Vercel env + Script Properties (operator-owned,
+  auditable deploys). Sync architecture, HMAC both directions, PENDING/
+  SYNCED/FAILED, nonces, cron, and allowlists are untouched. Migration
+  apply + `db:types` remain blocked on missing platform access.
