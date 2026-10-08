@@ -102,11 +102,15 @@ syncs out → clean test data per project conventions.
   failures (bad config, signature mismatch, malformed responses) are marked
   `FAILED` (`terminal:` prefix) and wait for an operator.
 - Cron (machine auth, no browser session): committed in `vercel.json`
-  (`GET /api/integrations/google-sheets/retry?limit=25` every 5 minutes).
-  Vercel sends `Authorization: Bearer $CRON_SECRET` automatically — set
+  (`GET /api/integrations/google-sheets/retry?limit=100` daily at 05:00
+  UTC). Vercel Hobby allows daily crons only — a sub-daily schedule fails
+  the deployment — so the committed cadence is daily; Pro (or any external
+  scheduler calling the same endpoint with the bearer) restores a tighter
+  loop. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically — set
   `CRON_SECRET` in Vercel once and scheduled retries need no further
   wiring. Dashboard manual **Resync** (order detail, forces transmission)
-  and **Sync unsynced orders** (Settings) stay behind the admin session.
+  and **Sync unsynced orders** (Settings) stay behind the admin session
+  and cover urgent cases between sweeps.
 - Cancelled orders keep their Sheet row (`Order Status = CANCELLED`) for
   audit — rows are never deleted.
 - Expired webhook nonces are deleted opportunistically on each webhook

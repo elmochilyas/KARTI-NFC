@@ -4533,6 +4533,11 @@ Cron env standardized; secrets generated; platform access re-verified.
       be pasted from `.tmp/karti-delivery-vercel-env.txt`.
 - [x] Gates re-run: typecheck, lint, test (133/1344), build (both routes),
       e2e (21) — all green.
+- [x] Vercel Hobby cron fix (2026-10-08): PR GitHub CI green but preview
+      deployment failed — Hobby allows daily crons only, so `vercel.json`
+      moved from every-5-min to daily 05:00 UTC (`retry?limit=100`, route
+      max) + runbook §3 / ADR-084 notes. Tighter loop needs Pro or an
+      external scheduler.
 
 ---
 

@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/integrations/google-sheets/retry?limit=25",
-      "schedule": "*/5 * * * *"
+      "path": "/api/integrations/google-sheets/retry?limit=100",
+      "schedule": "0 5 * * *"
     }
   ]
 }

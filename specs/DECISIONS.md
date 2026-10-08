@@ -2960,3 +2960,32 @@ code, and secrets do not belong in application tables.
   auditable deploys). Sync architecture, HMAC both directions, PENDING/
   SYNCED/FAILED, nonces, cron, and allowlists are untouched. Migration
   apply + `db:types` remain blocked on missing platform access.
+
+---
+
+## ADR-084 — Daily delivery retry cron (Vercel Hobby limit)
+
+**Status:** Accepted
+**Date:** 2026-10-08
+
+### Context
+
+ADR-082 committed a 5-minute retry cron in `vercel.json`. The project
+deploys on Vercel Hobby, which allows daily crons only — any sub-daily
+schedule fails the whole deployment (PR CI was green, preview deployment
+failed). No Pro upgrade is in scope.
+
+### Decision
+
+- Committed cadence is daily at 05:00 UTC (`0 5 * * *`) with
+  `retry?limit=100` (the route maximum) so the single sweep covers all
+  due rows. Sync architecture, backoff, manual Resync/Setup, and audit
+  behavior are untouched.
+- A tighter loop (5-minute or otherwise) needs Vercel Pro or any external
+  scheduler calling the same bearer-authenticated endpoint; the runbook
+  says so instead of the repo pretending Hobby can do it.
+
+### Consequences
+
+- Deployments succeed on Hobby; worst-case automatic retry lag is ~24h,
+  with manual Resync/Sync-unsynced covering urgent cases in between.
