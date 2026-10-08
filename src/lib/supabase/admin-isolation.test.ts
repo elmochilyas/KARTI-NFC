@@ -176,6 +176,98 @@ describe("service-role isolation", () => {
     expect(bootstrap).toContain("setAnalyticsTransport(null)");
   });
 
+  it("delivery-Sheet secrets never reach client components", () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles(SRC_ROOT)) {
+      const content = fs.readFileSync(file, "utf8");
+      if (!content.includes('"use client"')) continue;
+      if (
+        content.includes("lib/supabase/deliverySync") ||
+        content.includes("integrations/google-sheets") ||
+        content.includes("DELIVERY_SHEETS_WEBHOOK_SECRET") ||
+        content.includes("DELIVERY_SHEETS_APPS_SCRIPT_SECRET") ||
+        content.includes("CRON_SECRET")
+      ) {
+        offenders.push(path.relative(SRC_ROOT, file));
+      }
+    }
+    expect(offenders).toEqual([]);
+    // Integration server modules stay behind the server-only guard.
+    for (const mod of [
+      ["lib", "supabase", "deliverySync.ts"],
+      ["features", "integrations", "google-sheets", "appsScript.ts"],
+      ["features", "integrations", "google-sheets", "sync.ts"],
+      ["features", "integrations", "google-sheets", "webhook.ts"],
+    ]) {
+      const content = fs.readFileSync(path.join(SRC_ROOT, ...mod), "utf8");
+      expect(content).toContain('import "server-only"');
+    }
+    // Configuration is env-only: no database-backed credentials anywhere.
+    const noDbConfig: string[] = [];
+    for (const file of sourceFiles(SRC_ROOT)) {
+      const content = fs.readFileSync(file, "utf8");
+      if (content.includes("delivery_sheet_connection")) {
+        noDbConfig.push(path.relative(SRC_ROOT, file));
+      }
+    }
+    expect(noDbConfig).toEqual([]);
+    // Dashboard actions never generate, accept, or return secrets.
+    const actions = fs.readFileSync(
+      path.join(SRC_ROOT, "features", "integrations", "google-sheets", "actions.ts"),
+      "utf8",
+    );
+    for (const marker of [
+      "ingestSecret",
+      "webhookSecret",
+      "ingest_secret",
+      "webhook_secret",
+      "CopyValues",
+      "egenerate",
+      "eveal",
+    ]) {
+      expect(actions).not.toContain(marker);
+    }
+    // The Settings panel renders no credential fields, secrets, or URLs.
+    const panel = fs.readFileSync(
+      path.join(
+        SRC_ROOT,
+        "features",
+        "integrations",
+        "google-sheets",
+        "components",
+        "DeliverySettingsActions.tsx",
+      ),
+      "utf8",
+    );
+    for (const marker of [
+      "<input",
+      "<textarea",
+      "ingestSecret",
+      "webhookSecret",
+      "webAppUrl",
+      "CopyButton",
+      "script.google.com",
+      "navigator.clipboard",
+    ]) {
+      expect(panel).not.toContain(marker);
+    }
+    const envServer = fs.readFileSync(path.join(SRC_ROOT, "lib", "env-server.ts"), "utf8");
+    expect(envServer).toContain("DELIVERY_SHEETS_APPS_SCRIPT_URL");
+    expect(envServer).toContain("DELIVERY_SHEETS_APPS_SCRIPT_SECRET");
+    expect(envServer).toContain("DELIVERY_SHEETS_WEBHOOK_SECRET");
+    expect(envServer).toContain("CRON_SECRET");
+    expect(envServer).not.toContain("GOOGLE_SHEETS_PRIVATE_KEY");
+    expect(envServer).not.toContain("NEXT_PUBLIC_GOOGLE_SHEETS");
+    // No service-account remnants in the integration surface.
+    const appsScript = fs.readFileSync(
+      path.join(SRC_ROOT, "features", "integrations", "google-sheets", "appsScript.ts"),
+      "utf8",
+    );
+    expect(appsScript).not.toContain("google-auth-library");
+    expect(appsScript).not.toContain("privateKey");
+    expect(appsScript).not.toContain("service-account");
+  });
+
   it("exactly one module wires the analytics transport (no scattered vendor calls)", () => {
     const wirers: string[] = [];
     for (const file of sourceFiles(SRC_ROOT)) {
