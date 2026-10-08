@@ -37,8 +37,15 @@ export const FULFILLMENT_STATUSES = [
   "PRODUCTION",
   "NFC_CONFIGURATION",
   "READY",
+  "PICKED_UP",
+  "OUT_FOR_DELIVERY",
+  // SHIPPED is compatibility only: existing rows/code keep working, but the
+  // delivery-company flow (READY → PICKED_UP → OUT_FOR_DELIVERY → DELIVERED)
+  // never requires it.
   "SHIPPED",
   "DELIVERED",
+  "FAILED",
+  "RETURNED",
 ] as const;
 
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
@@ -98,9 +105,17 @@ export const FULFILLMENT_TRANSITIONS: Record<FulfillmentStatus, readonly Fulfill
   APPROVED: ["AWAITING_CUSTOMER_INFO", "PRODUCTION", "NFC_CONFIGURATION", "READY"],
   PRODUCTION: ["AWAITING_CUSTOMER_INFO", "NFC_CONFIGURATION", "READY", "SHIPPED"],
   NFC_CONFIGURATION: ["AWAITING_CUSTOMER_INFO", "READY", "SHIPPED", "DELIVERED"],
-  READY: ["SHIPPED", "DELIVERED"],
-  SHIPPED: ["DELIVERED"],
+  // Delivery flow: READY → PICKED_UP → OUT_FOR_DELIVERY → DELIVERED.
+  // OUT_FOR_DELIVERY → SHIPPED → DELIVERED is NOT required; SHIPPED edges
+  // below are compatibility only. Exception flow: READY / PICKED_UP /
+  // OUT_FOR_DELIVERY → FAILED → RETURNED.
+  READY: ["PICKED_UP", "OUT_FOR_DELIVERY", "SHIPPED", "DELIVERED", "FAILED"],
+  PICKED_UP: ["OUT_FOR_DELIVERY", "SHIPPED", "DELIVERED", "FAILED"],
+  OUT_FOR_DELIVERY: ["DELIVERED", "SHIPPED", "FAILED"],
+  SHIPPED: ["OUT_FOR_DELIVERY", "DELIVERED"],
   DELIVERED: [],
+  FAILED: ["RETURNED"],
+  RETURNED: [],
 };
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
