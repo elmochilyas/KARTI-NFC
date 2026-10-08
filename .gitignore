@@ -33,3 +33,6 @@ supabase/.temp/
 .DS_Store
 Thumbs.db
 *.log
+
+# Local one-time operator secrets (e.g. delivery KARTI_CONFIG) — never commit
+.tmp/

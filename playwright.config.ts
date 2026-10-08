@@ -30,5 +30,16 @@ export default defineConfig({
         port: 3100,
         reuseExistingServer: false,
         timeout: 180_000,
+        // Shape-only dummy so the delivery-Sheet webhook auth paths are
+        // exercisable hermetically (no Google, no real secret, no Sheet).
+        env: {
+          DELIVERY_SHEETS_ENABLED: "true",
+          DELIVERY_SHEETS_APPS_SCRIPT_URL: "https://script.google.com/macros/s/e2e/exec",
+          DELIVERY_SHEETS_APPS_SCRIPT_SECRET:
+            "e2e-dummy-apps-secret-0123456789abcdef0123456789abcdef",
+          DELIVERY_SHEETS_WEBHOOK_SECRET:
+            "e2e-dummy-webhook-secret-0123456789abcdef0123456789abcdef",
+          CRON_SECRET: "e2e-dummy-cron-secret",
+        },
       },
 });
