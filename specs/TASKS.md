@@ -4297,6 +4297,250 @@ Detail routes `/dashboard/catalog/[productType]` crashed in production
 
 ---
 
+# Phase: Google Sheets Delivery Integration (2026-10-08)
+
+Every valid order mirrors to the delivery company's Sheet (operational
+mirror; Supabase stays authoritative) with controlled Sheet → Karti status
+sync. NFC/QR, provisioning, fixed-price rules, catalog media, GTM/Consent,
+SEO untouched.
+
+- [x] Migration `20261008120000_delivery_sheet_sync.sql` (renamed from the
+      unapplied `20261009000000` draft during the Apps Script refactor):
+      `order_delivery_sheet_sync` (PENDING/SYNCED/FAILED, retry metadata, RLS
+      admin-only; NO spreadsheet/row coordinates — Apps Script resolves Order ID) +
+      `delivery_sheet_webhook_nonces` (durable replay protection, closed RLS) +
+      fulfillment CHECK widened (PICKED_UP/OUT_FOR_DELIVERY/FAILED/RETURNED;
+      SHIPPED kept compat) + `fulfillment_transition_allowed()` single SQL map +
+      `admin_update_fulfillment_status` re-pointed (behavior preserved) +
+      `sheets_apply_*` RPCs (service_role ONLY, SYSTEM actor, GOOGLE_SHEETS audit).
+      File-only here — operator applies via MCP/`supabase db push`, then re-runs
+      `pnpm db:types` to absorb the `database.ts` backport.
+- [x] Domain: `FULFILLMENT_STATUSES` + `FULFILLMENT_TRANSITIONS` gain the delivery flow
+      (READY → PICKED_UP → OUT_FOR_DELIVERY → DELIVERED, FAILED → RETURNED) +
+      explicit transition tests (no SHIPPED requirement).
+- [x] Server modules `src/features/integrations/google-sheets/` (Apps Script
+      transport — see follow-up phase below; service-account client removed):
+      types (21-col contract) / mapping (pure snapshot → row, minor-unit money,
+      text phones) / signatures (HMAC + skew + bearer + signed envelopes) /
+      appsScript (signed-envelope POST, response validation, retry/terminal
+      classification) / sync (central `syncOrderToDeliverySheet`, durable
+      PENDING, after(), backoff, cron sweep, forced manual resync) / webhook
+      (whitelist + transition pre-check + guarded RPC + sync-back).
+- [x] Routes: `POST /api/integrations/google-sheets/order-status` (HMAC + DB nonce
+      + rate-limit + strict schema, no session) and `GET|POST .../retry`
+      (Bearer CRON_SECRET, separate boundary from admin session).
+- [x] Wiring: public creation ensures PENDING synchronously then `after()` sync;
+      dashboard confirm/contact/complete/cancel/adjust/payment/fulfillment/
+      customer-note actions sync via `after()` (never blocking, never throwing).
+- [x] Dashboard: order-detail Delivery Sheet badge (Synced/Pending/Failed +
+      Resync) + Settings Delivery section (configured/masked ID/last success/
+      failed count + setup + bulk sync). No nav/redesign changes.
+- [x] `integrations/google-sheets/DeliverySheet.gs` (complete bound-script module:
+      doPost envelope auth, LockService Order-ID upsert, idempotent setup,
+      installable trigger + status webhook; secrets via Script Properties only) +
+      `docs/google-sheets-delivery.md` runbook (Web App deploy, cron, privacy,
+      troubleshooting). No service account, no private keys, no Google Cloud.
+- [x] Tests (mocked Google, zero live calls): mapping (21 cols, +212 text, zero
+      amounts, Arabic/French, snapshot-vs-catalog, hash no-op) / signatures /
+      sync idempotency (create → no-op → update same row → re-sort resolve) /
+      failure (429/500/timeout → PENDING; 403 → terminal FAILED) / webhook
+      security+domain (whitelist, transitions, mismatch, replay shape) / route
+      auth matrix / setup requests / lifecycle delivery flow / admin-isolation
+      extension (Sheet secrets server-only).
+- [x] Quality: `typecheck`, `lint`, `test` (132 files / 1324 tests), `build`
+      (both integration routes dynamic ✓), `test:e2e` (21 incl. new hermetic
+      `delivery-sheets.spec.ts`) green. Repo-wide `format:check` stays at its
+      pre-existing CRLF baseline failure; all touched/new files are
+      prettier-clean individually.
+- [ ] Operator follow-ups (blocked on access, NOT done here): apply migration
+      live → verify RLS/nonce tables → create Sheet + paste/deploy
+      DeliverySheet.gs → set Script Properties → run setup + trigger install →
+      set Vercel env (prod `/exec` + separate preview/test deployment) →
+      dashboard Setup → disposable-order live proof both directions
+      (runbook §2.11) → schedule retry cron → clean test data.
+
+---
+
+# Phase: Google Sheets via Apps Script ONLY (2026-10-08 refactor)
+
+Google Cloud blocks service-account key creation: the service-account JWT +
+Sheets REST transport (coded, never configured/applied) is replaced by a
+bound Apps Script Web App. Webhook direction, status model, sync table
+semantics, and audit behavior are preserved; only the Karti → Sheet
+transport changes.
+
+- [x] Unapplied migration replaced + renamed to `20261008120000` (valid
+      2026-10-08; no applied migration touched): sync table simplified
+      (order_id PK, hash, status, retry/next_retry, error, timestamps —
+      spreadsheet/row columns removed); fulfillment CHECK/transitions, nonce
+      table, and `sheets_apply_*` RPCs kept.
+- [x] Env: `DELIVERY_SHEETS_APPS_SCRIPT_URL` (+ `/exec`-only rule),
+      `DELIVERY_SHEETS_APPS_SCRIPT_SECRET` (≥32), kept
+      `DELIVERY_SHEETS_WEBHOOK_SECRET` / `DELIVERY_SHEETS_CRON_SECRET`,
+      optional `DELIVERY_SHEETS_ENABLED` kill switch. Service-account vars,
+      key parsing, and Cloud setup docs removed. No private key in Vercel.
+- [x] Karti → script signed envelope (timestamp/nonce/STRING payload/HMAC,
+      ≈5-min skew; §3 header limitation honored) + `appsScript.ts` client
+      (timeout, structured-response validation, retryable/terminal
+      classification). `client.ts` (JWT/REST) and `setup.ts` deleted.
+- [x] `sync.ts` rewritten around the Web App (hash skip, forced manual
+      resync, backoff, cron sweep); order creation + admin mutations wiring
+      unchanged in shape (`PENDING` → `after()` → retry).
+- [x] `DeliverySheet.gs`: doPost, HMAC validation, `LockService` Order-ID
+      upsert (CREATED/UPDATED/UNCHANGED), idempotent setup, formatting,
+      validations, warning-only protections, `installDeliveryEditTrigger()`
+      (no duplicates), installable Q/R/S handler with safe cell-note UX,
+      `openById` (no active-spreadsheet dependence).
+- [x] Settings UI drops service-account diagnostics (no secrets/URLs/IDs);
+      setup button now sends signed `SETUP_SHEET`.
+- [x] Deps: `google-auth-library` removed (unused elsewhere);
+      `googleapis` never returned. Runtime has zero Google API clients.
+- [x] Tests updated: envelope sign/verify/tamper/nonce, classification
+      matrix, Apps Script-transport idempotency/retry/force, preserved
+      webhook/mapping/lifecycle/isolation coverage, mocked failure paths.
+      No Google calls in CI (Apps Script runtime itself not executed —
+      protocol pinned by the mirrored verifier, honestly labeled).
+- [x] Quality gates (see report below).
+- [ ] Same operator blockers as above (Apps Script variant): deploy Web App,
+      `/exec` URL into Vercel, 15-step live proof on a test Sheet (spec §39),
+      then production.
+
+---
+
+# Phase: Delivery connection wizard + committed cron (2026-10-08)
+
+> SUPERSEDED by the env-only simplification below (dashboard no longer
+> handles credentials; `delivery_sheet_connection` removed from the
+> unapplied migration before ever applying). Kept for history.
+
+- [x] Migration extended (still unapplied): `delivery_sheet_connection`
+      single-row table (URL + both HMAC secrets + enabled, RLS admin-only,
+      service_role mutate, anon denied) + `database.ts` backport entry.
+- [x] Async DB-backed config (`connection.ts` loader, `randomBytes`
+      secrets, canonical webhook URL): dashboard row primary, full env
+      override for local dev, `DELIVERY_SHEETS_ENABLED=false` kill switch.
+      Webhook secret: env → row. Cron: `CRON_SECRET` (Vercel auto-header)
+      and `DELIVERY_SHEETS_CRON_SECRET` both accepted.
+- [x] Dashboard wizard (Settings → Delivery Sheet): status
+      (Not connected/Connected ✓/Paused/Error), Generate (server-minted
+      secrets + one-block copy panel with copy buttons), /exec URL
+      connect (rejects `/dev` + non-Apps-Script hosts), Test connection
+      (signed `PING`, no fake order), Setup Sheet, Sync unsynced, Reveal,
+      Regenerate, Pause/Resume. No secrets/URLs rendered unprompted.
+- [x] `PING` operation both sides (`{ok:true,operation:"PING",result:"PONG"}`).
+- [x] `.gs`: `KARTI_CONFIG` block, `configureKartiDelivery()`,
+      one-time `setupKartiDelivery()` (binds spreadsheet ID automatically,
+      stores pasted values, formats, installs trigger, reports missing).
+- [x] `vercel.json` cron committed (`retry?limit=25` every 5 min).
+- [x] Runbook rewritten to the 9-step operator flow.
+- [x] Tests: secret minting shape, webhook-URL builder, PING
+      classification; full suite 133 files / 1337 tests green; typecheck,
+      lint, build, e2e (21) green; touched files prettier-clean.
+- [ ] BLOCKED (only remaining technical step, needs access absent here):
+      apply migration (`supabase db push` / MCP, no CLI/token in this env),
+      then `pnpm db:types` (needs `SUPABASE_ACCESS_TOKEN`), typecheck/tests
+      after regeneration. No Supabase CLI, access token, SQL-exec RPC, or
+      Vercel access exists in this environment — nothing else outstanding.
+- [ ] Operator Google-side only: Sheet → paste script → paste KARTI_CONFIG
+      → run setupKartiDelivery() → deploy Web App → paste /exec URL →
+      Test → one test order.
+
+---
+
+# Phase: Env-only delivery config, operational dashboard (2026-10-08)
+
+Dashboard MUST NOT handle integration credentials: all Karti-side config
+comes from server env vars; Settings is status + Test/Setup/Resync only.
+
+- [x] Migration: `delivery_sheet_connection` section deleted from the still
+      unapplied file (operational tables kept: sync state, nonces, RPCs).
+      `database.ts` backport entry removed.
+- [x] `env-server.ts`: sync central validation — `ENABLED=true` required;
+      URL must be HTTPS + script.google.com + `/exec` (rejects `/dev`);
+      ingest/webhook secrets ≥32, cron secret ≥16 (either `CRON_SECRET`
+      or `DELIVERY_SHEETS_CRON_SECRET`); anything else = fail-safe
+      disabled. Local disabled by default; public flows never crash.
+- [x] Dead code removed: `connection.ts` (+ test), generate/connect/reveal/
+      regenerate/enable actions, secret-bearing types, credential UI
+      (URL input, copy panels, copy buttons in Settings).
+- [x] Settings panel: Status (Not configured/Configured/Error) + last
+      sync + failed count + [Test connection] (live PING → Connected ✓
+      in-session) + [Setup Sheet] + [Sync unsynced orders]. No inputs, no
+      secrets, no URLs rendered.
+- [x] Webhook route requires enabled config (503 otherwise); secrets stay
+      server-only (isolation tests assert no credential markers in client
+      code or actions).
+- [x] `.gs` KARTI_CONFIG simplified to the pasted-secrets example
+      (karti.pro webhook URL default, blank-after-setup noted).
+- [x] Docs rewritten to KARTI SERVER env + 9-step GOOGLE flow.
+- [x] Tests: env matrix (default-off, /dev + host + length rejections,
+      cron-secret preference), disabled-webhook 503, no-secrets-in-HTML
+      assertions; full suite 133 files / 1344 tests green; typecheck, lint,
+      build, e2e (21) green; touched files prettier-clean.
+- [x] Live Web App proof (2026-10-08): operator-supplied `/exec` URL first
+      returned a Google sign-in page (deployment access restricted) →
+      operator set access to Anyone → signed `PING` now returns
+      `{ok:true, operation:"PING", result:"PONG"}`. Proves URL, anonymous
+      access, envelope validation, and ingest-secret match. No rows touched.
+- [x] Migration APPLIED live (2026-10-08, additive, zero data loss):
+      tables `order_delivery_sheet_sync` + `delivery_sheet_webhook_nonces`
+      present with RLS on; fulfillment CHECK widened (live-verified def
+      includes PICKED_UP/OUT_FOR_DELIVERY/FAILED/RETURNED); all 5 RPCs
+      present (`fulfillment_transition_allowed`, 3× `sheets_apply_*`,
+      re-pointed `admin_update_fulfillment_status`); sheets_apply EXECUTE =
+      postgres + service_role only; sync-table admin policy present, nonces
+      table closed. Data intact (2 orders / 2 items / 2 events, new tables
+      empty); transition map probed live (READY→PICKED_UP→…→DELIVERED,
+      FAILED→RETURNED true; DELIVERED→READY false).
+- [x] Types regenerated from live schema (new tables + RPCs verified
+      present in output); handwritten backport markers removed — entries
+      are now genuine generated content. Full-file generator restyle
+      (helper-types format) deferred to next token-based `pnpm db:types`.
+- [x] Gates post-migration: typecheck, lint, test (133/1344), build,
+      e2e (21) — all green.
+- [ ] BLOCKED (access absent here): Vercel env + redeploy, token-based
+      `pnpm db:types` restyle.
+- [ ] Operator Google-side only: Sheet edit → webhook → test order (needs
+      deployed Karti env first; see runbook §2).
+
+---
+
+# Phase: Delivery deployment handoff (2026-10-08)
+
+Cron env standardized; secrets generated; platform access re-verified.
+
+- [x] Cron env is `CRON_SECRET` only (`DELIVERY_SHEETS_CRON_SECRET` alias
+      removed from env-server, retry route (already list-based), tests,
+      docs, `.env.example`, e2e env). Vercel sends it automatically.
+- [x] Migration status probed read-only via PostgREST (service_role):
+      `orders` reachable, `order_delivery_sheet_sync` +
+      `delivery_sheet_webhook_nonces` absent → NOT applied. No DDL path
+      exists here (no CLI, no access token, no DB password, no SQL-exec
+      RPC) — apply remains operator-side.
+- [x] Production secrets generated (secure randomness: 2× 64-hex HMAC,
+      1× 48-hex cron) into gitignored `.tmp/` only:
+      `.tmp/karti-delivery-google-config.txt` (KARTI_CONFIG block) and
+      `.tmp/karti-delivery-vercel-env.txt` (Vercel env values). `.gitignore`
+      covers `.tmp/`. Nothing committed, nothing printed.
+- [x] `pnpm db:types` attempted → fails as expected ("Access token not
+      provided"); the failed shell redirect truncated `database.ts` to 0
+      bytes and it was restored from git + backport re-applied byte-identical
+      (95 insertions), typecheck green after. Lesson recorded: never redirect
+      `db:types` output without a token.
+- [x] Vercel env/cron/deploy NOT performed: no CLI, no token, no project
+      auth in this environment (verified). `vercel.json` cron is committed
+      and activates on the next operator-triggered deploy; Vercel env must
+      be pasted from `.tmp/karti-delivery-vercel-env.txt`.
+- [x] Gates re-run: typecheck, lint, test (133/1344), build (both routes),
+      e2e (21) — all green.
+- [x] Vercel Hobby cron fix (2026-10-08): PR GitHub CI green but preview
+      deployment failed — Hobby allows daily crons only, so `vercel.json`
+      moved from every-5-min to daily 05:00 UTC (`retry?limit=100`, route
+      max) + runbook §3 / ADR-084 notes. Tighter loop needs Pro or an
+      external scheduler.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

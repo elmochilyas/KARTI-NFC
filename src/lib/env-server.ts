@@ -56,3 +56,92 @@ export function getRateLimitSecret(): string {
   }
   return secret;
 }
+
+export type DeliverySheetsConfig = {
+  enabled: boolean;
+  /** Apps Script Web App `/exec` URL (never the `/dev` test URL in prod). */
+  webAppUrl: string;
+  /** HMAC secret for Karti → Apps Script signed envelopes. */
+  webAppSecret: string;
+};
+
+export const DELIVERY_APPS_SCRIPT_SECRET_MIN = 32;
+export const DELIVERY_WEBHOOK_SECRET_MIN = 32;
+export const DELIVERY_CRON_SECRET_MIN = 16;
+
+/**
+ * Central Apps Script URL validation (HTTPS + script.google.com + /exec;
+ * rejects /dev). Pure — unit-tested.
+ */
+export function isValidDeliveryWebAppUrl(raw: string): boolean {
+  const trimmed = (raw ?? "").trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.hostname !== "script.google.com" && !parsed.hostname.endsWith(".script.google.com")) {
+    return false;
+  }
+  const path = `${parsed.pathname}${parsed.search}`;
+  if (/\/dev(\?|$)/.test(path)) return false;
+  return /\/exec(\?|$)/.test(path);
+}
+
+/**
+ * Delivery-mirror configuration (server-only, Apps Script transport).
+ *
+ * SOLE source: server environment variables. The dashboard never writes
+ * configuration — it is operational only. Enabled only when
+ * `DELIVERY_SHEETS_ENABLED=true` AND the URL validates AND every secret
+ * meets its minimum length; anything else degrades to disabled so public
+ * pages and order flows never crash. Local is disabled by default (no env
+ * = no-op PENDING rows, retried later). Never expose to the browser.
+ */
+export function getDeliverySheetsConfig(): DeliverySheetsConfig {
+  if (process.env.DELIVERY_SHEETS_ENABLED?.trim().toLowerCase() !== "true") {
+    return { enabled: false, webAppUrl: "", webAppSecret: "" };
+  }
+  const webAppUrl = process.env.DELIVERY_SHEETS_APPS_SCRIPT_URL?.trim() ?? "";
+  const webAppSecret = process.env.DELIVERY_SHEETS_APPS_SCRIPT_SECRET?.trim() ?? "";
+  const webhookSecret = process.env.DELIVERY_SHEETS_WEBHOOK_SECRET?.trim() ?? "";
+  const cronSecrets = getDeliveryCronSecrets();
+  if (
+    !isValidDeliveryWebAppUrl(webAppUrl) ||
+    webAppSecret.length < DELIVERY_APPS_SCRIPT_SECRET_MIN ||
+    webhookSecret.length < DELIVERY_WEBHOOK_SECRET_MIN ||
+    cronSecrets.length === 0
+  ) {
+    return { enabled: false, webAppUrl: "", webAppSecret: "" };
+  }
+  return { enabled: true, webAppUrl, webAppSecret };
+}
+
+/**
+ * Dedicated signing secret for the delivery-Sheet → Karti webhook
+ * (HMAC-SHA256 over timestamp + "." + raw body). Env-only; throws when
+ * absent so verification fails closed. Never expose to the browser, never
+ * log, never send to Google Sheets cells/code — it lives in Apps Script
+ * Properties only.
+ */
+export function getSheetsWebhookSecret(): string {
+  const secret = process.env.DELIVERY_SHEETS_WEBHOOK_SECRET?.trim() ?? "";
+  if (secret.length < DELIVERY_WEBHOOK_SECRET_MIN) {
+    throw new Error("DELIVERY_SHEETS_WEBHOOK_SECRET is not set (min 32 chars, see .env.example).");
+  }
+  return secret;
+}
+
+/**
+ * Machine secret for the Sheets retry cron (`Authorization: Bearer
+ * <CRON_SECRET>`). Single name only: Vercel cron sends `CRON_SECRET`
+ * automatically, so scheduled retries need zero operator wiring.
+ * Separate boundary from the dashboard admin session: the cron has no
+ * browser session, and manual Resync stays behind requireAdmin().
+ */
+export function getDeliveryCronSecrets(): string[] {
+  const value = process.env.CRON_SECRET?.trim() ?? "";
+  return value.length >= DELIVERY_CRON_SECRET_MIN ? [value] : [];
+}

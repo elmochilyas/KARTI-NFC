@@ -41,6 +41,14 @@ const STYLES: Record<string, string> = {
   DELIVERED: "border-success/30 bg-success-muted text-success",
   SPAM: "border-danger/30 bg-danger-muted text-danger",
   CLOSED: "border-border bg-neutral-muted text-muted",
+  // Delivery flow (Google Sheets mirror): same text-first language.
+  PICKED_UP: "border-border bg-neutral-muted text-muted",
+  OUT_FOR_DELIVERY: "border-warning/40 bg-warning-muted text-warning",
+  FAILED: "border-danger/30 bg-danger-muted text-danger",
+  RETURNED: "border-border bg-neutral-muted text-muted",
+  // Delivery-Sheet sync state (order detail badge).
+  SYNCED: "border-success/30 bg-success-muted text-success",
+  NOT_TRACKED: "border-border bg-neutral-muted text-muted",
 };
 
 const LABELS: Record<string, string> = {
@@ -81,6 +89,12 @@ const LABELS: Record<string, string> = {
   DELIVERED: "Delivered",
   SPAM: "Spam",
   CLOSED: "Closed",
+  PICKED_UP: "Picked up",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  FAILED: "Failed",
+  RETURNED: "Returned",
+  SYNCED: "Synced",
+  NOT_TRACKED: "Not tracked",
 };
 
 export function StatusBadge({ status }: { status: string }) {

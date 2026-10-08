@@ -607,6 +607,68 @@ export type Database = {
           },
         ]
       }
+      order_delivery_sheet_sync: {
+        Row: {
+          created_at: string
+          last_error: string | null
+          last_payload_hash: string | null
+          last_synced_at: string | null
+          next_retry_at: string | null
+          order_id: string
+          retry_count: number
+          sync_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_error?: string | null
+          last_payload_hash?: string | null
+          last_synced_at?: string | null
+          next_retry_at?: string | null
+          order_id: string
+          retry_count?: number
+          sync_status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_error?: string | null
+          last_payload_hash?: string | null
+          last_synced_at?: string | null
+          next_retry_at?: string | null
+          order_id?: string
+          retry_count?: number
+          sync_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_delivery_sheet_sync_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_sheet_webhook_nonces: {
+        Row: {
+          expires_at: string
+          nonce: string
+          received_at: string
+        }
+        Insert: {
+          expires_at: string
+          nonce: string
+          received_at?: string
+        }
+        Update: {
+          expires_at?: string
+          nonce?: string
+          received_at?: string
+        }
+        Relationships: []
+      }
       profile_links: {
         Row: {
           created_at: string
@@ -985,6 +1047,33 @@ export type Database = {
         }[]
       }
       generate_profile_public_code: { Args: never; Returns: string }
+      sheets_apply_order_status: {
+        Args: {
+          p_changed_at: string
+          p_expected_status: string
+          p_order_id: string
+          p_target_status: string
+        }
+        Returns: Json
+      }
+      sheets_apply_payment_status: {
+        Args: {
+          p_changed_at: string
+          p_expected_payment: string
+          p_order_id: string
+          p_target_payment: string
+        }
+        Returns: Json
+      }
+      sheets_apply_fulfillment_status: {
+        Args: {
+          p_changed_at: string
+          p_expected_fulfillment: string
+          p_order_id: string
+          p_target_fulfillment: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

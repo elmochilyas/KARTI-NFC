@@ -88,6 +88,28 @@ describe("fulfillment lifecycle (explicit map, no ordinal jumps)", () => {
     // Approval loop misuse.
     expect(canTransitionFulfillment("CHANGES_REQUESTED", "APPROVED")).toBe(false);
   });
+
+  it("supports the delivery-company flow without requiring SHIPPED", () => {
+    expect(canTransitionFulfillment("NOT_STARTED", "READY")).toBe(true);
+    expect(canTransitionFulfillment("READY", "PICKED_UP")).toBe(true);
+    expect(canTransitionFulfillment("PICKED_UP", "OUT_FOR_DELIVERY")).toBe(true);
+    expect(canTransitionFulfillment("OUT_FOR_DELIVERY", "DELIVERED")).toBe(true);
+    // SHIPPED stays reachable for compatibility but is never required.
+    expect(canTransitionFulfillment("READY", "DELIVERED")).toBe(true);
+    expect(canTransitionFulfillment("READY", "SHIPPED")).toBe(true);
+    expect(canTransitionFulfillment("SHIPPED", "DELIVERED")).toBe(true);
+  });
+
+  it("supports the FAILED → RETURNED exception flow", () => {
+    expect(canTransitionFulfillment("READY", "FAILED")).toBe(true);
+    expect(canTransitionFulfillment("PICKED_UP", "FAILED")).toBe(true);
+    expect(canTransitionFulfillment("OUT_FOR_DELIVERY", "FAILED")).toBe(true);
+    expect(canTransitionFulfillment("FAILED", "RETURNED")).toBe(true);
+    // Terminal: no reopening from failure states.
+    expect(canTransitionFulfillment("FAILED", "READY")).toBe(false);
+    expect(canTransitionFulfillment("RETURNED", "READY")).toBe(false);
+    expect(canTransitionFulfillment("FAILED", "DELIVERED")).toBe(false);
+  });
 });
 
 describe("fulfillment → order auto-synchronization", () => {

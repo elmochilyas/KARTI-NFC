@@ -6,8 +6,50 @@ import { Section } from "@/components/dashboard/Section";
 import { ErrorState } from "@/components/ui/states";
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getDeliverySettingsSummary } from "@/features/integrations/google-sheets/actions";
+import { DeliverySettingsActions } from "@/features/integrations/google-sheets/components/DeliverySettingsActions";
 
 export const metadata: Metadata = { title: "Settings" };
+
+/** Delivery-Sheet operational status (env-configured; dashboard never handles credentials). */
+async function DeliverySheetSettingsSection() {
+  const delivery = await getDeliverySettingsSummary();
+  const statusLabel =
+    delivery.status === "CONFIGURED"
+      ? "Configured"
+      : delivery.status === "ERROR"
+        ? "Error"
+        : delivery.status === "CONNECTED"
+          ? "Connected ✓"
+          : "Not configured";
+  return (
+    <Section
+      title="Delivery Sheet"
+      description="Google Sheet synchronization for the delivery company."
+    >
+      <dl className="flex flex-col gap-3 text-sm">
+        <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+          <dt className="shrink-0 text-muted">Status</dt>
+          <dd className="font-medium text-text">{statusLabel}</dd>
+        </div>
+        {delivery.status === "NOT_CONFIGURED" ? (
+          <p className="text-sm text-muted">
+            Configure the delivery integration in the server environment.
+          </p>
+        ) : null}
+        <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+          <dt className="shrink-0 text-muted">Last successful sync</dt>
+          <dd className="text-text">{delivery.lastSuccessfulSyncAt ?? "—"}</dd>
+        </div>
+        <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+          <dt className="shrink-0 text-muted">Failed syncs</dt>
+          <dd className="text-text">{delivery.failedCount ?? "—"}</dd>
+        </div>
+      </dl>
+      <DeliverySettingsActions />
+    </Section>
+  );
+}
 
 /** Minimal operational settings: identity, environment, app info. No billing/teams (future scope). */
 export default async function SettingsPage() {
@@ -76,6 +118,8 @@ export default async function SettingsPage() {
           The permanent link lives on every card and QR — changing a destination never changes it.
         </p>
       </Section>
+
+      <DeliverySheetSettingsSection />
 
       <Section title="About" description="What this workspace is.">
         <p className="text-sm text-muted">
