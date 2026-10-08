@@ -18,6 +18,8 @@ import {
   TimelineSection,
 } from "@/features/orders/components/OrderSections";
 import { getOrderDetail } from "@/features/orders/service";
+import { getOrderDeliverySyncState } from "@/features/integrations/google-sheets/actions";
+import { DeliverySheetSection } from "@/features/integrations/google-sheets/components/DeliverySheetSection";
 import { productDisplayName } from "@/features/orders/productNames";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -84,6 +86,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <CustomerSection detail={result.data} />
       <ProductSection detail={result.data} />
       <DeliverySection detail={result.data} />
+      <DeliverySheetSection
+        orderId={order.id}
+        initial={await getOrderDeliverySyncState(order.id)}
+      />
       <PaymentSection detail={result.data} />
       <FulfillmentSection detail={result.data} />
       <NotesSection detail={result.data} />

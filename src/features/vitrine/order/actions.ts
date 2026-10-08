@@ -10,6 +10,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { z } from "zod";
 import { classifyAcquisitionSource } from "@/domain/orders/attribution";
 import { getProductDefinition } from "@/domain/orders/catalog";
@@ -26,6 +27,10 @@ import { orderProductConfigurationSchema } from "@/domain/orders/schemas";
 import { getOrderCatalogPrice } from "@/features/catalog/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createOrderWriterClient } from "@/lib/supabase/orderWriter";
+import {
+  ensurePendingSyncRow,
+  syncOrderToDeliverySheet,
+} from "@/features/integrations/google-sheets/sync";
 import { getClientIp, isHoneypotFilled, isTooFast } from "../antispam";
 import { checkPublicRateLimit } from "../rateLimitServer";
 import { ATTRIBUTION_COOKIE, parseAttributionCookie, type TouchContext } from "../attribution";
@@ -332,9 +337,37 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
     } as never);
 
     if (error || !data || data.length === 0 || !data[0].order_number) return unavailable();
+
+    // Delivery-Sheet mirror (durable, never customer-blocking): the
+    // authoritative order already exists at this point. First persist the
+    // PENDING work item synchronously so the sync survives the runtime
+    // ending early, then attempt Google in after() (cron retries the rest).
+    const createdOrderNumber = data[0].order_number as string;
+    try {
+      // Projected service-role read (id only — same justification as the
+      // other anonymous-path reads; the writer client stays RPC-only).
+      const { data: orderRow } = await createAdminClient()
+        .from("orders")
+        .select("id")
+        .eq("order_number", createdOrderNumber)
+        .maybeSingle();
+      const createdOrderId =
+        orderRow && typeof (orderRow as { id: unknown }).id === "string"
+          ? (orderRow as { id: string }).id
+          : null;
+      if (createdOrderId) {
+        await ensurePendingSyncRow(createdOrderId);
+        after(() => {
+          void syncOrderToDeliverySheet(createdOrderId);
+        });
+      }
+    } catch {
+      // Mirror bookkeeping must never break the customer response.
+    }
+
     return {
       ok: true,
-      data: { orderNumber: data[0].order_number, receiptToken },
+      data: { orderNumber: createdOrderNumber, receiptToken },
     };
   } catch {
     return unavailable();

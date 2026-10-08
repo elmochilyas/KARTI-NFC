@@ -6,6 +6,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   isFulfillmentStatus,
   isInquiryStatus,
@@ -16,6 +17,7 @@ import {
 } from "@/domain/orders";
 import type { OrderErrorCode } from "./types";
 import { createClient } from "@/lib/supabase/server";
+import { syncOrderToDeliverySheet } from "@/features/integrations/google-sheets/sync";
 import {
   cancelOrder,
   completeOrder,
@@ -75,6 +77,21 @@ function revalidateOrder(orderId: string) {
   revalidatePath("/dashboard");
 }
 
+/**
+ * Mirror a successful dashboard mutation to the delivery Sheet. Runs in
+ * after() so Google latency/outages never slow the admin response; sync
+ * never throws (failures land in PENDING/FAILED for cron + manual resync).
+ */
+function syncSheetSoon(orderId: string) {
+  try {
+    after(() => {
+      void syncOrderToDeliverySheet(orderId);
+    });
+  } catch {
+    // Mirror bookkeeping must never break the admin response.
+  }
+}
+
 export async function markContactedAction(
   orderId: string,
   expectedStatus: string,
@@ -89,7 +106,10 @@ export async function markContactedAction(
     };
   }
   const result = await markOrderContacted(orderId, expectedStatus, supabase);
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Order marked as contacted.");
 }
 
@@ -107,7 +127,10 @@ export async function confirmOrderAction(
     };
   }
   const result = await confirmOrder(orderId, expectedStatus, supabase);
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Order confirmed.");
 }
 
@@ -125,7 +148,10 @@ export async function completeOrderAction(
     };
   }
   const result = await completeOrder(orderId, expectedStatus, supabase);
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Order completed.");
 }
 
@@ -145,7 +171,10 @@ export async function cancelOrderAction(
     };
   }
   const result = await cancelOrder(orderId, expectedStatus, reason, note, supabase);
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Order cancelled.");
 }
 
@@ -172,7 +201,10 @@ export async function updateAdjustmentsAction(
     { deliveryFeeMinor, discountMinor },
     supabase,
   );
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Delivery / discount updated.");
 }
 
@@ -191,7 +223,10 @@ export async function updatePaymentAction(
     };
   }
   const result = await updatePaymentStatus(orderId, expectedPayment, targetPayment, supabase);
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Payment status updated.");
 }
 
@@ -215,7 +250,10 @@ export async function updateFulfillmentAction(
     targetFulfillment,
     supabase,
   );
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Fulfillment status updated.");
 }
 
@@ -239,7 +277,10 @@ export async function updateCustomerNoteAction(
   const supabase = await getServerClient();
   if (!supabase) return NOT_CONFIGURED;
   const result = await updateCustomerNote(orderId, expectedUpdatedAt, note, supabase);
-  if (result.ok) revalidateOrder(orderId);
+  if (result.ok) {
+    revalidateOrder(orderId);
+    syncSheetSoon(orderId);
+  }
   return toState(result, "Customer note saved.");
 }
 
