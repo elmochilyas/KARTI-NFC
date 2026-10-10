@@ -2989,3 +2989,52 @@ failed). No Pro upgrade is in scope.
 
 - Deployments succeed on Hobby; worst-case automatic retry lag is ~24h,
   with manual Resync/Sync-unsynced covering urgent cases in between.
+
+---
+
+## ADR-085 — Fail-closed public submission must be server-observable (no silent UNAVAILABLE)
+
+**Status:** Accepted
+**Date:** 2026-10-09
+
+### Context
+
+A 2026-10-09 karti.pro order (PERSONAL_CARD x 1, Agadir) failed with the
+generic French submitFailed message, zero order rows, zero Postgres log
+signal, and zero Vercel log signal. Investigation proved the immediate
+cause was environmental, not code: `RATE_LIMIT_SECRET` was never set, so
+`deriveRateLimitKeyHash` threw inside `checkPublicRateLimit` before
+pricing/RPC, and `createPublicOrderAction` mapped it to UNAVAILABLE via
+the outer catch with no server-side trace. A second latent blocker was
+proven in the same session: all 8 `catalog_products.price_minor` are NULL
+(prices never configured), which refuses every order at pricing with
+VALIDATION once the secret exists. The RPC signature (40-arg fixed-price
+form, no `p_pricing_status`), the call site, and the generated
+`database.ts` types were all verified matching live `pg_proc` — no drift,
+no migration needed.
+
+### Decision
+
+- Keep fail-closed semantics exactly: missing secrets, limiter outages,
+  receipt errors, and RPC failures all still return generic UNAVAILABLE
+  customer-side. The rate limiter is never bypassed or weakened.
+- Add message-only `console.error` traces (repo `[actionName]` convention,
+  OBSERVABILITY.md §2–3) on every UNAVAILABLE path of both public
+  actions: rate-limiter failure, receipt derivation failure, RPC error,
+  and the outer catch. Never logged: form input, IPs, receipt material,
+  secret values. PostgREST error logging is limited to its message.
+- Operational fixes live outside the repo: set `RATE_LIMIT_SECRET`
+  (>=16 chars) in Vercel prod (+ local `.env.local`) and enter the 8 real
+  fixed MAD prices via `/dashboard/catalog`. `pnpm db:types` was
+  deliberately not re-run (no access token here; a prior session proved a
+  tokenless run truncates `database.ts`).
+
+### Consequences
+
+- The next misconfiguration surfaces in Vercel logs as
+  `[createPublicOrderAction] rate limiter unavailable:` /
+  `receipt unavailable:` / `create_public_order RPC failed:` instead of
+  silence. Customer-facing codes are byte-identical to before.
+- Regression tests pin: fail-closed on either missing secret (no RPC, log
+  asserted), quantity snapshot math, the reported Agadir payload shape,
+  and Sheets-mirror gating (PENDING + `after()` only post-commit).

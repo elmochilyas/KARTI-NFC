@@ -4541,6 +4541,54 @@ Cron env standardized; secrets generated; platform access re-verified.
 
 ---
 
+# Phase 39.7 — Production order-failure diagnosis (2026-10-09, karti.pro)
+
+Reported: `createPublicOrderAction` returned generic French submitFailed,
+no order row in Dashboard → Orders. No speculative fix applied; root
+causes proven against production before changing code.
+
+- [x] Live RPC signature checked via `pg_proc`: 40-arg fixed-price
+      `create_public_order` (no `p_pricing_status`) — matches the call
+      site in `src/features/vitrine/order/actions.ts` exactly. No drift,
+      no migration needed.
+- [x] Generated `src/types/database.ts` matches the live signature (no
+      `p_pricing_status`); `pnpm db:types` NOT re-run (no
+      `SUPABASE_ACCESS_TOKEN` here; tokenless run truncates the file —
+      prior lesson). `as never` on the RPC call left as-is (generated
+      Args mark optional fields non-nullable).
+- [x] Catalog state: all 8 `catalog_products` rows `published=true`,
+      `price_minor=NULL` (prices never configured). Live storefront
+      confirms ("Prix à venir" ×8). Latent blocker #2: refuses every
+      order at pricing with VALIDATION once blocker #1 is fixed.
+      Owner: operator enters the 8 real fixed MAD prices via
+      `/dashboard/catalog` (operator chose self-entry).
+- [x] Root cause #1 (exact, matches every symptom incl. the submitFailed
+      string): `RATE_LIMIT_SECRET` missing in prod (operator-confirmed;
+      also absent from local `.env.local`). `deriveRateLimitKeyHash`
+      throws → `checkPublicRateLimit` throws → outer catch →
+      UNAVAILABLE, before pricing/RPC — hence no row, no Postgres log,
+      no Vercel log. Reported Agadir payload (PERSONAL_CARD ×1) itself
+      validates cleanly (regression-pinned).
+- [x] Minimal code fix (behavior-preserving): message-only
+      `console.error` traces on every UNAVAILABLE path of both public
+      actions (ADR-085). Customer codes unchanged; limiter never
+      bypassed; no PII/secrets logged. Sheets gating untouched
+      (PENDING + `after()` strictly post-commit, now test-pinned).
+- [x] Regression tests in `actions.test.ts` (+6): missing
+      RATE_LIMIT/RECEIPT secret fail-closed (no RPC, log asserted);
+      qty-2 snapshot math; reported Agadir payload accepted; Sheets
+      mirror only post-commit / never on failure. Sheets unit coverage
+      already existed in `sync.test.ts`.
+- [x] Gates: typecheck, lint, test (133 files / 1350 tests), build,
+      e2e (21) — all green.
+- [ ] DEPLOY + OPERATE (operator): set `RATE_LIMIT_SECRET` (≥16 chars,
+      `openssl rand -hex 32`) in Vercel prod env (+ `.env.local`),
+      redeploy; enter 8 catalog prices; retry ONE production order and
+      confirm it appears in Dashboard → Orders (single verification
+      order, no duplicates).
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.
