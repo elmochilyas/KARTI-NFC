@@ -379,7 +379,10 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
       // RPC/database failures stay generic customer-side; the
       // server-generated message carries no customer PII.
       if (error) {
-        console.error("[createPublicOrderAction] create_public_order RPC failed:", logMessage(error));
+        console.error(
+          "[createPublicOrderAction] create_public_order RPC failed:",
+          logMessage(error),
+        );
       }
       return unavailable();
     }
@@ -499,7 +502,10 @@ export async function createPublicInquiryAction(
 
     if (error || !data) {
       if (error) {
-        console.error("[createPublicInquiryAction] create_public_inquiry RPC failed:", logMessage(error));
+        console.error(
+          "[createPublicInquiryAction] create_public_inquiry RPC failed:",
+          logMessage(error),
+        );
       }
       return fail("UNAVAILABLE");
     }
