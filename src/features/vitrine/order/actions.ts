@@ -111,6 +111,24 @@ function unavailable(): CreatePublicOrderResult {
   return { ok: false, error: { code: "UNAVAILABLE" } };
 }
 
+/**
+ * Server-log-safe message extractor for fail-closed diagnostics.
+ * Logs the server-generated message only — never form input, IPs,
+ * receipt material, or secret values (OBSERVABILITY.md §3).
+ */
+function logMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as Record<string, unknown>).message === "string"
+  ) {
+    return (error as Record<string, string>).message;
+  }
+  return "unknown";
+}
+
 type AttributionColumns = {
   firstTouchSource: string | null;
   firstLandingPath: string | null;
@@ -200,9 +218,20 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
   try {
     // Durable rate limit first (Postgres fixed-window bucket keyed by an
     // HMAC of the IP; the raw IP is transient only, never stored).
+    // A misconfigured limiter (e.g. missing RATE_LIMIT_SECRET) or a
+    // database outage fails closed with the same customer-facing
+    // UNAVAILABLE as before — but is now logged server-side so Vercel
+    // logs show the cause instead of silent failures.
     const headerStore = await headers();
     const ip = getClientIp(headerStore.get("x-forwarded-for"));
-    if (!(await checkPublicRateLimit("order", ip)).allowed) return limited();
+    let rateLimit: { allowed: boolean };
+    try {
+      rateLimit = await checkPublicRateLimit("order", ip);
+    } catch (error) {
+      console.error("[createPublicOrderAction] rate limiter unavailable:", logMessage(error));
+      return unavailable();
+    }
+    if (!rateLimit.allowed) return limited();
 
     const parsed = orderInputSchema.safeParse(rawInput);
     if (!parsed.success) return invalid();
@@ -288,9 +317,19 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
     );
 
     // Deterministic per idempotency key: a lost-response retry re-derives
-    // the SAME token, so the returned receipt always resolves.
-    const receiptToken = deriveReceiptToken(input.idempotencyKey);
-    const receiptTokenHash = hashReceiptToken(receiptToken);
+    // the SAME token, so the returned receipt always resolves. A missing
+    // RECEIPT_TOKEN_SECRET fails closed here (same customer-facing
+    // UNAVAILABLE as before); only the variable name is logged, never
+    // the secret value.
+    let receiptToken: string;
+    let receiptTokenHash: string;
+    try {
+      receiptToken = deriveReceiptToken(input.idempotencyKey);
+      receiptTokenHash = hashReceiptToken(receiptToken);
+    } catch (error) {
+      console.error("[createPublicOrderAction] receipt unavailable:", logMessage(error));
+      return unavailable();
+    }
 
     const writer = createOrderWriterClient();
     const { data, error } = await writer.rpc("create_public_order", {
@@ -336,7 +375,14 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
       p_receipt_token_hash: receiptTokenHash,
     } as never);
 
-    if (error || !data || data.length === 0 || !data[0].order_number) return unavailable();
+    if (error || !data || data.length === 0 || !data[0].order_number) {
+      // RPC/database failures stay generic customer-side; the
+      // server-generated message carries no customer PII.
+      if (error) {
+        console.error("[createPublicOrderAction] create_public_order RPC failed:", logMessage(error));
+      }
+      return unavailable();
+    }
 
     // Delivery-Sheet mirror (durable, never customer-blocking): the
     // authoritative order already exists at this point. First persist the
@@ -369,7 +415,8 @@ export async function createPublicOrderAction(rawInput: unknown): Promise<Create
       ok: true,
       data: { orderNumber: createdOrderNumber, receiptToken },
     };
-  } catch {
+  } catch (error) {
+    console.error("[createPublicOrderAction] unexpected failure:", logMessage(error));
     return unavailable();
   }
 }
@@ -386,7 +433,14 @@ export async function createPublicInquiryAction(
   try {
     const headerStore = await headers();
     const ip = getClientIp(headerStore.get("x-forwarded-for"));
-    if (!(await checkPublicRateLimit("inquiry", ip)).allowed) return fail("RATE_LIMITED");
+    let rateLimit: { allowed: boolean };
+    try {
+      rateLimit = await checkPublicRateLimit("inquiry", ip);
+    } catch (error) {
+      console.error("[createPublicInquiryAction] rate limiter unavailable:", logMessage(error));
+      return fail("UNAVAILABLE");
+    }
+    if (!rateLimit.allowed) return fail("RATE_LIMITED");
 
     const parsed = inquiryInputSchema.safeParse(rawInput);
     if (!parsed.success) return fail("VALIDATION");
@@ -443,9 +497,15 @@ export async function createPublicInquiryAction(
       p_utm_term: attribution.lastUtmTerm,
     } as never);
 
-    if (error || !data) return fail("UNAVAILABLE");
+    if (error || !data) {
+      if (error) {
+        console.error("[createPublicInquiryAction] create_public_inquiry RPC failed:", logMessage(error));
+      }
+      return fail("UNAVAILABLE");
+    }
     return { ok: true, data: { inquiryId: String(data) } };
-  } catch {
+  } catch (error) {
+    console.error("[createPublicInquiryAction] unexpected failure:", logMessage(error));
     return fail("UNAVAILABLE");
   }
 }
