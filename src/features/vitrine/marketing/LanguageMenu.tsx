@@ -157,7 +157,9 @@ export function LanguageMenu({
                 aria-current={active ? "true" : undefined}
                 onClick={() => setOpen(false)}
                 className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong ${
-                  active ? "bg-surface-muted ring-1 ring-accent-strong/40" : "hover:bg-surface-muted"
+                  active
+                    ? "bg-surface-muted ring-1 ring-accent-strong/40"
+                    : "hover:bg-surface-muted"
                 }`}
               >
                 <Flag code={code} />

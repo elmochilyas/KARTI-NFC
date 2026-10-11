@@ -15,17 +15,11 @@ export type MobileNavState = {
 };
 
 export type MobileNavAction =
-  | { type: "toggle-open" }
-  | { type: "toggle-accordion" }
-  | { type: "close" }
-  | { type: "reset" };
+  { type: "toggle-open" } | { type: "toggle-accordion" } | { type: "close" } | { type: "reset" };
 
 export const MOBILE_NAV_INITIAL: MobileNavState = { open: false, accordionOpen: false };
 
-export function mobileNavReducer(
-  state: MobileNavState,
-  action: MobileNavAction,
-): MobileNavState {
+export function mobileNavReducer(state: MobileNavState, action: MobileNavAction): MobileNavState {
   switch (action.type) {
     case "toggle-open":
       // Opening always starts collapsed; toggling closed always resets.
