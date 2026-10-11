@@ -20,9 +20,11 @@ export const frDict: VitrineBaseDict = {
     faq: "FAQ",
     contact: "Contact",
     orderCta: "Commander votre carte",
+    orderCtaShort: "Commander",
     menu: "Menu",
     closeMenu: "Fermer le menu",
     language: "Langue",
+    changeLanguage: "Changer de langue",
     profileGroup: "Profils intelligents",
     directGroup: "Actions directes",
   },
@@ -31,8 +33,16 @@ export const frDict: VitrineBaseDict = {
     productsTitle: "Produits",
     solutionsTitle: "Solutions",
     learnTitle: "En savoir plus",
+    helpTitle: "Aide",
     companyTitle: "Karti",
     legalTitle: "Informations",
+    categories: {
+      personal: "Personnelle",
+      business: "Business",
+      googleReview: "Avis Google",
+      career: "Étudiant / CV",
+      customLink: "Social / Lien direct",
+    },
     contactLink: "Nous contacter",
     orderLink: "Commander",
     notice: "Les prix et délais sont confirmés après étude de votre demande.",
@@ -77,6 +87,14 @@ export const frDict: VitrineBaseDict = {
       {
         q: "Faut-il installer une application ?",
         a: "Non, ni pour commander, ni pour recevoir une carte. Tout fonctionne dans le navigateur.",
+      },
+      {
+        q: "Quels téléphones sont compatibles ?",
+        a: "La plupart des smartphones récents lisent le NFC. Les autres atteignent la même destination via le QR imprimé sur la carte.",
+      },
+      {
+        q: "Et si le NFC ne fonctionne pas ?",
+        a: "Chaque carte porte aussi un QR de secours qui mène exactement à la même destination : il suffit de le scanner.",
       },
       {
         q: "Comment sont confirmés le prix et la livraison ?",

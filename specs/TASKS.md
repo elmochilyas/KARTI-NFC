@@ -4587,6 +4587,313 @@ causes proven against production before changing code.
       confirm it appears in Dashboard → Orders (single verification
       order, no duplicates).
 
+# Phase: Marketing navbar + home product rail (2026-10-09)
+
+Vitrine rework for the marketing pages: solid desktop header with a
+"Produits" mega-panel, mobile hamburger + drawer with FR·AR·EN switch, and
+a new "Choisissez votre Karti" native product-discovery rail. Footer,
+taxonomy, `/products` hub, backend, and DB untouched (no push/merge/commit
+per task scope).
+
+- [x] LAN hydration probe: `/fr` HTML + first JS chunk both 200 with
+      identical bytes via `localhost:3000` and `192.168.100.15:3000` → dev
+      origin is NOT blocked; root cause of the stale mobile render was the old
+      inline menu, not `allowedDevOrigins` (`next.config.ts` untouched).
+- [x] i18n keys: `nav.orderCtaShort` (fr/en/ar) + `marketingHome.categories`
+      (5× `{title,usage}`) + `marketingHome.rail` (`{title,subtitle,
+      pricingNote,viewAll,discover,prev,next}`) in `dict.ts` + the 3 base +
+      3 marketing locale files. Full desktop CTA keeps `dict.nav.orderCta`
+      (AR "اطلب بطاقتك") so the `routes.test.ts` shell substring still holds.
+- [x] `ProductCategory.tsx` (new): 5-category mapping
+      (personal→PERSONAL_CARD … customLink→CUSTOM_LINK_CARD) with decorative
+      `CategoryMedia` wells.
+- [x] `Header.tsx` rewrite: sticky ink bar (`h-[60px]` mobile / `md:h-[72px]`),
+      desktop Produits mega-panel (aria-expanded/controls, hover 140ms grace
+      timer, ArrowDown opens+focuses first link, Escape / outside-click /
+      route-change close), language mini-switch (lg, deep-path suffix kept),
+      full + compact order CTA, mobile hamburger → fixed drawer (scroll lock,
+      44px targets, Produits accordion, FR·AR·EN bottom row).
+- [x] `ProductRail.tsx` (new client island): native snap scroller with hidden
+      scrollbar, RTL-safe (abs `scrollLeft` + `scrollIntoView`), 1px progress
+      hairline, prev/next 44px (md+), prices from `priceLines` or
+      `dict.order.pricePending`, page-gutter alignment via
+      `ps-[max(1rem,calc(50vw_-_36rem_+_2rem))]`, "Voir tous les produits" →
+      `${localePath(locale)}/#products` (no `/products` route exists; anchor
+      pattern already used by ProductPage breadcrumb).
+- [x] `HomePage.tsx`: old sections 6 (profile showcases) + 7 (direct actions)
+      replaced by a single `<ProductRail … />`; `id="products"` anchor kept;
+      unused react-icons imports/duplicated product listings removed.
+- [x] `globals.css`: `.karti-scrollbar-none`, `karti-fade-in` /
+      `karti-panel-in` keyframes+classes, `prefers-reduced-motion` overrides.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm vitest run
+      src/features/vitrine` (132/132 incl. routes integrity — header hrefs +
+      AR "اطلب بطاقتك" shell substring), `pnpm build` (92 static pages).
+- [x] Live DOM probe (`localhost:3000/fr`): rail `id="products"` renders once;
+      desktop + mobile "Voir tous les produits" → `/fr#products` present;
+      mega-panel/drawer markup absent from SSR HTML (client-only, correct);
+      LAN host serves identical HTML.
+
+Known limitations:
+- No NFC imagery yet (`public/` absent) → `CategoryMedia` renders a neutral
+  sand card well. `public/images/nfc/{personal,business,google-reviews,
+  student,social}` are the attach point once the 4:3 WebP assets land.
+- Physical-card photos are decorative CSS (aria-hidden); wire photo upload in
+  when assets exist.
+- Real-phone manual check not possible from this environment; LAN serves
+  identical bytes, so hydration is expected to work on phones.
+
+---
+
+# Phase: Mobile home navigation redesign (2026-10-10)
+
+Branch `feature/mobile-home-navigation-redesign` (no push/merge/commit).
+Focused public marketing UX: one light header at every breakpoint, a
+robust mobile menu, a simplified 6-section home, and a reworked product
+rail. Footer, routes/slugs, DB/Supabase/auth, admin, order logic, and the
+NFC/card/profile domain untouched.
+
+- [x] STEP 0 root cause CONFIRMED (not the old inline-menu theory): Next.js
+      16.4.0 blocks cross-origin dev resources (`/_next/*`, HMR) by default,
+      so a LAN phone gets the HTML but never hydrates → only the
+      JS-dependent hamburger appears "dead" while native `<details>` FAQ and
+      `<a>` language links work. Fix: `allowedDevOrigins`
+      (`192.168.*.*`, `10.*.*.*`, `172.*.*.*`) in `next.config.ts` —
+      dev-only, no production effect.
+- [x] i18n: `marketingHome.heroPrimary` + `marketingHome.rail.priceFrom`
+      (dict.ts + fr/en/ar + 3 marketing files); `heroSecondary` reworded to
+      "Comment ça marche"; 2 buyer FAQ items added to `home.faqItems`
+      (phone compatibility, QR backup) in fr/en/ar.
+- [x] `Header.tsx` rework: single LIGHT surface all breakpoints
+      (`bg-background/90` + backdrop-blur + hairline border, safe-area top
+      padding); compact deep-green Commander CTA (`orderCtaShort`) on mobile
+      + full `orderCta` on desktop; 44px hamburger
+      (`aria-expanded`/`aria-controls`); desktop Produits now toggles on
+      click/Enter *and* hover; mega-panel closes on outside-click,
+      focus-leave, Escape, and route change; mobile panel fixed below the
+      56px header with body scroll lock, Escape/backdrop/route/breakpoint
+      close, small Tab trap, and focus restore to the hamburger. Removed the
+      dead "Voir tous les produits" links (no `/products` index route).
+- [x] `ProductRail.tsx` rework: native `snap-x snap-mandatory` rail, mobile
+      card ~82vw/≤340px, desktop ~3 + peek (`lg:w-[30%]`); whole card is ONE
+      link (no nested controls); square 44px prev/next controls (md+) that
+      disable at both ends; ArrowLeft/ArrowRight steppers (RTL-aware via
+      computed `direction`); gold progress hairline using the logical
+      `inset-inline-start`; `motion-safe:` transforms. Price line uses the
+      real `priceLines` value or `dict.order.pricePending` (never invented).
+- [x] `HomePage.tsx` rewritten to 6 sections: HERO (primary CTA →
+      `#products`, secondary → `#how`, inline trust strip) → PRODUCTS
+      (ProductRail) → HOW IT WORKS (`#how`) → EXAMPLES → FAQ (`#faq`) →
+      FINAL CTA. The crawlable full-product index nav is retained (existing
+      `catalog/pages.test.ts` contract: all product names/links present,
+      unpublished excluded).
+- [x] `globals.css` `/` `Footer.tsx` / `specs/TASKS.md` carry the earlier
+      uncommitted work; Footer intentionally unmodified by this task.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm test` (1344 passed),
+      `pnpm build` (92 static pages) all green.
+
+Real-device bugfix pass (same day, after an on-phone screenshot):
+
+- [x] Duplicate "Commander" ROOT CAUSE: the desktop CTA reused a class
+      list containing BOTH unprefixed `inline-flex` and `hidden`; Tailwind
+      emits `.inline-flex` after `.hidden`, so `.inline-flex` won and the
+      desktop CTA never hid on mobile → two buttons. Fix: shared
+      `CTA_CLASS` in `Header.tsx` now carries NO display utility; each CTA
+      sets exactly one (`hidden … lg:inline-flex` vs `inline-flex …
+      lg:hidden`).
+- [x] Horizontal-overflow ROOT CAUSE: the header right cluster (duplicate
+      CTA + mobile CTA + hamburger) was wider than the viewport; flex
+      children default `min-width:auto` + nowrap text didn't shrink, so the
+      document gained horizontal scroll and the hamburger was pushed
+      off-screen. Fix: brand `min-w-0` (+ wordmark hidden <360px), right
+      cluster `shrink-0`, hamburger fixed 44px `shrink-0`; header is now
+      `h-14`/`lg:h-16` with `px-3 md:px-8`. No page-level overflow at
+      320–430px by construction.
+- [x] Mobile menu rebuilt product-first: light surface, fixed below the
+      56px header, body lock; expandable "Produits" accordion (open by
+      default) showing all 5 categories as ~68px rows (`NN + title + usage
+      + →`, 48px thumb), then compact ~52px rows (Comment/Exemples/FAQ/
+      Contact), then a compact `FR · AR · EN` row. No giant vertical gaps.
+- [x] Home trim: hero loses the "NFC + QR — …" tech line, the graph-paper
+      `.karti-hero-grid` background, the outlined secondary button and the
+      trust strip; now ONE primary CTA ("Voir les cartes") + a small inline
+      "Comment ça marche →" link. Section rhythm tightened
+      (`Section` `py-9 md:py-14`); product media slot switched to 4:3.
+- [x] Product copy: `marketingHome.categories[*].usage` enriched to the
+      buyer-facing lines in fr/en/ar (shared by rail, mega-panel and mobile
+      menu).
+- [x] Verified this pass (per directive: no Playwright/webServer/build):
+      `pnpm typecheck`, `pnpm lint`, `pnpm exec vitest run
+      src/features/vitrine src/features/catalog` (210 passed). Real-device
+      visual re-verification of the redesign remains UNVERIFIED.
+
+ConsentInit runtime-error fix (same day, real Android console):
+
+- [x] React 19 / Next 16 emits "Encountered a script tag while rendering
+      React component…" whenever a raw `<script>` is created during a fresh
+      CLIENT render. `ConsentInit` now renders the blocking script only via
+      the SERVER snapshot and `null` on every client snapshot, using
+      `useSyncExternalStore` (the pattern MUI shipped for
+      `InitColorSchemeScript`). The script still lands in the SSR HTML and
+      executes during parsing — before hydration and before gtm.js — so the
+      pre-container `gtag('consent','default',…)` ordering is preserved;
+      behavior, cookie format, FR/EN/AR and `ConsentPreferencesButton` are
+      unchanged. `dangerouslySetInnerHTML` retained (static, controlled
+      `buildConsentInitScript()` output; a real inline script is required
+      pre-hydration). Added `consentInit.test.ts` pinning the SSR contract.
+
+Cloudflare Quick Tunnel dev-origin fix (same day, remote tester):
+
+- [x] Remote tunnel served HTML but never hydrated (hamburger dead) because
+      Next 16 dev-origin protection blocks `/_next/*` + HMR when the request
+      `Origin`/`Referer` hostname is not in `allowedDevOrigins`. Added the
+      smallest dev-only rule `*.trycloudflare.com` (one-label wildcard; does
+      not match bare `trycloudflare.com`; ignored by production builds).
+      Requires a `next dev` restart to take effect.
+
+Mobile menu tweaks (same day):
+
+- [x] Moved the compact `FR · AR · EN` switch to the TOP of the mobile
+      drawer (first row, hairline-separated, inline-end aligned); removed
+      the old bottom copy so it appears exactly once. Same locale-switching
+      behavior + path preservation via `languageHref`.
+- [x] Removed the product thumbnails from the mobile Produits accordion
+      rows (no image slot / no empty column); rows are now
+      `NN · title · usage · →`. Desktop mega-panel imagery untouched.
+
+Globe language control (same day):
+
+- [x] Replaced the text `FR · AR · EN` switch with a single compact globe
+      button + flag popover, rendered once in the header right cluster for
+      BOTH mobile and desktop (`[Karti] [Commander] [Globe] [Menu]` on
+      mobile; `… [Commander] [Globe]` desktop). Flags (Morocco→AR,
+      France→FR, UK→EN) are inline local SVG (no network, no dependency);
+      choices are `<a>` with endonym `aria-label`s; current locale marked
+      with ring + tint + `aria-current`; closes on outside click/Escape
+      (focus restored) and on selection; path preserved via `languageHref`;
+      `end-0` anchoring mirrors under RTL. Added `nav.changeLanguage`
+      (fr/en/ar) for the localized trigger label.
+- [x] Removed the `FR · AR · EN` row from the mobile drawer entirely (no
+      duplicate selector); drawer now holds only Produits + the four links.
+
+Mobile drawer full-height fix (same day):
+
+- [x] The drawer used `top` + `max-height` with no `bottom`, so its height
+      was content-driven and it shrank when Produits was collapsed,
+      revealing the page below. Changed to a real full-height drawer:
+      added `bottom-0` + `height: calc(100dvh - 3.5rem - safe-area-top)` in
+      place of the `maxHeight`, plus safe-area bottom padding on the inner
+      container. Rows stay compact (surface fills, rows don't stretch);
+      internal scroll only when content exceeds the panel.
+
+Mobile drawer real-device regressions (2026-10-11, still on the phone):
+
+- [x] STEP 1 verified actual rendered component: exactly one `SiteHeader`
+      per locale (VitrineShell) and one `mobile-menu` drawer; no duplicate
+      Header. Root causes identified (A-E): the Produits accordion was
+      `useState(true)` AND auto-reopened by the hamburger
+      (`if (next) setAccordionOpen(true)`), so rows were visible by default
+      and never reset on any close path (backdrop/Escape/outside/route/
+      breakpoint); the drawer was a correct fixed `top+bottom-0+height`
+      panel but used an explicit `100dvh` height; the language popover was
+      `z-[80]` INSIDE the sticky `z-50` header (itself a stacking context),
+      so it could never beat the drawer `z-[70]` and painted behind it.
+- [x] STEP 2 accordion lifecycle: new `mobileNavReducer` in
+      `marketing/mobileNav.ts` — drawer opens with Produits always
+      collapsed, every close path (hamburger, backdrop, Escape, outside
+      pointerdown, route change, `lg` breakpoint, link tap) resets it to
+      collapsed; no `defaultOpen`, no auto-open handler, no opening effect.
+      `Header.tsx` now uses `useReducer(mobileNavReducer, MOBILE_NAV_INITIAL)`.
+- [x] STEP 3 drawer geometry: explicit fixed layout with NO content-driven
+      height — `fixed inset-inline-0` (RTL-safe) + style `top:
+      calc(3.5rem + env(safe-area-inset-top,0px))` + `bottom: 0`,
+      `overflow-y-auto overscroll-contain`, solid `bg-background`, rows do
+      not stretch. Exported as `MOBILE_DRAWER_CLASS`/`MOBILE_DRAWER_STYLE`.
+- [x] STEP 4 stacking architecture: shared `Z_CLASSES` scale (backdrop
+      `z-40` < drawer `z-[70]` < header `z-[80]` < popover `z-[100]`). The
+      sticky header now sits above the drawer, so the popover (inside the
+      header's stacking context) paints above the drawer; no parent
+      transform/filter/overflow traps found, portal not needed.
+- [x] STEP 5 language button works while the drawer is open: the globe
+      trigger stays in the header above the drawer and the popover now
+      renders above it (z-scale above).
+- [x] STEP 6 no visual redesign of the header/CTA/rows was made — only state
+      lifecycle, drawer geometry source, and z-order.
+- [x] STEP 7 regression tests, `mobileNav.test.ts` (node-only, no DOM):
+      Produits starts collapsed; hamburger opens with collapse; tap reveals
+      the 5 rows (PRODUCT_CATEGORIES = 5); tap hides; close+reopen resets;
+      Escape/backdrop/route reset; drawer uses top+bottom (no `max-h`);
+      strictly-increasing z scale; LanguageMenu trigger always mounts (SSR).
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm exec vitest run
+      src/features/vitrine` (21 files / 144 passed incl. 11 new). No
+      build/Playwright/server per directive. Real-device re-verification
+      remains UNVERIFIED.
+
+Mobile drawer width regression (same day, real-phone strip-on-the-right):
+
+- [x] ROOT CAUSE: the drawer's full width relied SOLELY on the logical
+      Tailwind utility `inset-inline-0` (`inset-inline: 0`); `top`/`bottom`
+      were already physical inline styles. On engines that drop or mis-handle
+      the logical `inset-inline` unit (older Android WebView/Samsung
+      Internet), a `position: fixed` element with only `top`+`bottom` and no
+      physical `left`/`right` and no width SHRINK-FITS to its content at the
+      static position → drawer hugs the left, page strip visible on the
+      right. No `max-w`, no width utility, no translate, no transformed/
+      filtered ancestor existed, so the logical inset was the sole restriction.
+- [x] FIX (physical + purge-proof, no overflow hiding): `MOBILE_DRAWER_STYLE`
+      now carries `left: 0; right: 0; width: 100%; max-width: none` as inline
+      styles (inline styles cannot be purged; `0`/`100%` are direction-
+      agnostic so RTL is unaffected) and the class utility switched from
+      logical `inset-inline-0` to physical `inset-x-0`. Surface now extends
+      edge-to-edge below the header; inner content keeps its own padding.
+- [x] Tests strengthened (`mobileNav.test.ts`, now 13 cases): style pins
+      `left/right: 0`, `width: "100%"`, `maxWidth: "none"`; class tokens
+      `fixed inset-x-0` + no `w-*`/`max-w-*`/`translate` width utilities.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm exec vitest run
+      src/features/vitrine` (21 files / 146 passed incl. 13 mobileNav).
+      No build/Playwright/server per directive; on-device re-verification
+      at 320/360/375/390/412/430 remains UNVERIFIED here.
+
+Mobile menu hierarchy (same day): the 4 secondary links used the same dark
+`text-text` and ~same size as the 5 product titles, so they read as co-equal.
+- [x] Product titles/descriptions unchanged (`text-[16px] font-bold
+      text-text` / `text-[13px] text-muted`); secondary links demoted to
+      `text-[15px] font-medium text-muted` (target 15-16px medium,
+      clearly subordinate). Row tap targets unchanged (products
+      `min-h-[68px]`, secondary `min-h-[52px]`); accordion chevron rotation
+      untouched. Verified: `pnpm typecheck`, `pnpm lint`, `pnpm exec vitest
+      run src/features/vitrine` (21 files / 146 passed). On-device
+      320/375/390/430 + RTL eyeball remains UNVERIFIED here.
+
+Mobile menu hierarchy — reversed (same day): top-level items (Produits +
+the 4 links) must read as PRIMARY and larger than the nested product items.
+- [x] Top-level: Produits accordion label + Comment/Exemples/FAQ/Contact all
+      `text-[18px] font-semibold text-text` (was 13px eyebrow / 15px muted).
+- [x] Nested products demoted: titles `text-[15px] font-semibold` (was
+      16px bold), numbers 01-05 `text-[13px] text-accent-strong
+      tabular-nums` (was 11px), descriptions stay `text-[13px] text-muted`.
+- [x] Unchanged: row tap targets (products `min-h-[68px]`, secondary
+      `min-h-[52px]`, accordion `min-h-[56px]`), separators, arrows,
+      chevron rotation, RTL, drawer geometry/stacking. Desktop/header/
+      globe/homepage/footer untouched.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm exec vitest run
+      src/features/vitrine` (21 files / 146 passed). On-device
+      320/375/390/430 + RTL eyeball remains UNVERIFIED here.
+
+- [x] Produits chevron visibility (same day): chevron bumped from `text-xs
+      text-muted` to `text-[20px] text-text` (dark, high contrast, far right
+      via `justify-between`), with `-m-2 p-2` for a slightly larger hit
+      area — no separate button, no layout shift; 180° rotation on open
+      preserved (RTL-safe transform). aria-expanded/accordion logic,
+      drawer structure, and all other UI untouched.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm exec vitest run
+      src/features/vitrine` (21 files / 146 passed). On-device
+      320/375/390/430 + RTL eyeball remains UNVERIFIED here.
+
+Known limitations:
+- No NFC imagery (`public/` absent): rail/hero use neutral decorative media
+  wells, not invented image paths.
+- Real Android/iOS on-device check not possible here �?" treated as UNVERIFIED
+  (LAN hydration fix is expected but not device-confirmed).
 ---
 
 # Post-MVP Backlog — Do Not Implement Yet

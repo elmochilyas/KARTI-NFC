@@ -24,6 +24,22 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Dev-only: Next.js 16 blocks cross-origin requests to internal dev
+  // resources (/_next/*, /_next/hmr) by default. Loading the LAN URL from
+  // a real phone therefore renders the HTML but never hydrates (the page
+  // looks fine, yet any onClick control — e.g. the mobile hamburger — is
+  // dead). Allow the private LAN ranges so `next dev` on the same Wi-Fi
+  // hydrates normally.
+  //
+  // `*.trycloudflare.com` covers Cloudflare Quick Tunnel (`next dev` exposed
+  // to a remote tester): the tunnel origin only receives the HTML otherwise,
+  // and its /_next/* requests are blocked -> same "no hydration / dead
+  // hamburger" symptom. `*` matches exactly one hostname label, which is the
+  // Quick Tunnel shape (e.g. armstrong-cove-presently-consent.trycloudflare.com),
+  // and it does NOT match the bare `trycloudflare.com`. This option has no
+  // effect on production builds (dev server only), so production origin
+  // protection is unchanged.
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*", "*.trycloudflare.com"],
   experimental: {
     // Public pays react-icons only, dashboard pays lucide-react only — but
     // without this both libraries compile whole-package without tree-shaking

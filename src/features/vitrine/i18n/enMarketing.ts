@@ -82,7 +82,8 @@ export const enMarketing: VitrineMarketingDict = {
   },
   marketingHome: {
     heroSupport: "NFC · Backup QR · Editable destination",
-    heroSecondary: "See how it works",
+    heroPrimary: "See the cards",
+    heroSecondary: "How it works",
     trustItems: [
       "One single tap",
       "No app needed for recipients",
@@ -187,6 +188,23 @@ export const enMarketing: VitrineMarketingDict = {
         phoneLines: ["Hello, I have a question…", "Conversation pre-addressed"],
       },
     ],
+    categories: {
+      personal: { title: "Personal", usage: "Profile, contact and socials" },
+      business: { title: "Business", usage: "Company, services and location" },
+      googleReview: { title: "Google Reviews", usage: "Collect customer reviews" },
+      career: { title: "Student / CV", usage: "CV, LinkedIn and portfolio" },
+      customLink: { title: "Social / Direct link", usage: "WhatsApp, Instagram and links" },
+    },
+    rail: {
+      title: "Choose your Karti",
+      subtitle: "Five smart cards, each with one clear destination.",
+      priceFrom: "From",
+      pricingNote: "Prices confirmed at checkout.",
+      viewAll: "View all products",
+      discover: "Discover",
+      prev: "Previous cards",
+      next: "Next cards",
+    },
     audiencesTitle: "Built around how you work",
     audiencesSubtitle: "Three starting points, one tap.",
     audiences: [

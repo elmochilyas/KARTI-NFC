@@ -65,9 +65,13 @@ export type VitrineDict = {
     faq: string;
     contact: string;
     orderCta: string;
+    /** Compact header CTA (mobile bar) where the full label is too long. */
+    orderCtaShort: string;
     menu: string;
     closeMenu: string;
     language: string;
+    /** Accessible label for the globe language button (e.g. "Change language"). */
+    changeLanguage: string;
     profileGroup: string;
     directGroup: string;
   };
@@ -76,8 +80,16 @@ export type VitrineDict = {
     productsTitle: string;
     solutionsTitle: string;
     learnTitle: string;
+    helpTitle: string;
     companyTitle: string;
     legalTitle: string;
+    categories: {
+      personal: string;
+      business: string;
+      googleReview: string;
+      career: string;
+      customLink: string;
+    };
     contactLink: string;
     orderLink: string;
     notice: string;
@@ -272,6 +284,8 @@ export type VitrineDict = {
   };
   marketingHome: {
     heroSupport: string;
+    /** Primary hero CTA label (scrolls to the product rail). */
+    heroPrimary: string;
     heroSecondary: string;
     trustItems: string[];
     goals: { product: ProductType; title: string; desc: string; audience: string; tap: string }[];
@@ -280,6 +294,26 @@ export type VitrineDict = {
     demoTitle: string;
     demoSubtitle: string;
     demoTabs: { id: string; label: string; phoneTitle: string; phoneLines: string[] }[];
+    /** The five main customer-facing product categories (shared by navigation, menu, and home rail). */
+    categories: {
+      personal: { title: string; usage: string };
+      business: { title: string; usage: string };
+      googleReview: { title: string; usage: string };
+      career: { title: string; usage: string };
+      customLink: { title: string; usage: string };
+    };
+    /** Home product discovery rail (replaces the static product sections). */
+    rail: {
+      title: string;
+      subtitle: string;
+      /** Prefix shown before a configured catalog price (e.g. "À partir de 199.00 MAD"). */
+      priceFrom: string;
+      pricingNote: string;
+      viewAll: string;
+      discover: string;
+      prev: string;
+      next: string;
+    };
     audiencesTitle: string;
     audiencesSubtitle: string;
     audiences: { solution: SolutionKey; title: string; desc: string }[];

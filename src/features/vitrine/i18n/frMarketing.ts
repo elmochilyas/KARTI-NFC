@@ -89,7 +89,8 @@ export const frMarketing: VitrineMarketingDict = {
   },
   marketingHome: {
     heroSupport: "NFC · QR de secours · Destination modifiable",
-    heroSecondary: "Voir comment ça marche",
+    heroPrimary: "Voir les cartes",
+    heroSecondary: "Comment ça marche",
     trustItems: [
       "Un seul passage",
       "Aucune application pour le destinataire",
@@ -194,6 +195,23 @@ export const frMarketing: VitrineMarketingDict = {
         phoneLines: ["Bonjour, je souhaite un renseignement…", "Conversation déjà adressée"],
       },
     ],
+    categories: {
+      personal: { title: "Personnelle", usage: "Profil, contact et réseaux" },
+      business: { title: "Business", usage: "Entreprise, services et localisation" },
+      googleReview: { title: "Avis Google", usage: "Collecter les avis clients" },
+      career: { title: "Étudiant / CV", usage: "CV, LinkedIn et portfolio" },
+      customLink: { title: "Social / Lien direct", usage: "WhatsApp, Instagram et liens" },
+    },
+    rail: {
+      title: "Choisissez votre Karti",
+      subtitle: "Cinq cartes intelligentes, chacune avec une destination claire.",
+      priceFrom: "À partir de",
+      pricingNote: "Tarifs confirmés à la commande",
+      viewAll: "Voir tous les produits",
+      discover: "Découvrir",
+      prev: "Cartes précédentes",
+      next: "Cartes suivantes",
+    },
     audiencesTitle: "Pensé pour votre façon de travailler",
     audiencesSubtitle: "Trois points de départ, un même geste.",
     audiences: [

@@ -17,9 +17,11 @@ export const arDict: VitrineBaseDict = {
     faq: "الأسئلة الشائعة",
     contact: "اتصل بنا",
     orderCta: "اطلب بطاقتك",
+    orderCtaShort: "اطلب",
     menu: "القائمة",
     closeMenu: "إغلاق القائمة",
     language: "اللغة",
+    changeLanguage: "تغيير اللغة",
     profileGroup: "ملفات ذكية",
     directGroup: "إجراءات مباشرة",
   },
@@ -28,8 +30,16 @@ export const arDict: VitrineBaseDict = {
     productsTitle: "المنتجات",
     solutionsTitle: "الحلول",
     learnTitle: "اعرف المزيد",
+    helpTitle: "مساعدة",
     companyTitle: "Karti",
     legalTitle: "معلومات",
+    categories: {
+      personal: "شخصية",
+      business: "أعمال",
+      googleReview: "تقييمات جوجل",
+      career: "طلاب / سيرة ذاتية",
+      customLink: "روابط التواصل / رابط مباشر",
+    },
     contactLink: "اتصل بنا",
     orderLink: "اطلب",
     notice: "تُؤكَّد الأسعار والآجال بعد دراسة طلبك.",
@@ -74,6 +84,14 @@ export const arDict: VitrineBaseDict = {
       {
         q: "هل أحتاج إلى تثبيت تطبيق؟",
         a: "لا، لا للطلب ولا لاستلام بطاقة. كل شيء يعمل في المتصفح.",
+      },
+      {
+        q: "ما الهواتف المتوافقة؟",
+        a: "معظم الهواتف الحديثة تقرأ NFC. أما بقية الهواتف فتصل إلى الوجهة نفسها عبر رمز QR المطبوع على البطاقة.",
+      },
+      {
+        q: "وإذا لم يعمل NFC؟",
+        a: "كل بطاقة تحمل أيضاً رمز QR احتياطياً يؤدي إلى الوجهة نفسها تماماً: يكفي مسحه.",
       },
       {
         q: "كيف يُؤكَّد الثمن والتوصيل؟",
