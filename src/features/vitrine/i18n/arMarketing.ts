@@ -80,7 +80,8 @@ export const arMarketing: VitrineMarketingDict = {
   },
   marketingHome: {
     heroSupport: "NFC · رمز QR احتياطي · وجهة قابلة للتعديل",
-    heroSecondary: "اكتشف كيف يعمل",
+    heroPrimary: "اطّلع على البطاقات",
+    heroSecondary: "كيف تعمل",
     trustItems: [
       "لمسة واحدة فقط",
       "لا يحتاج المتلقي أي تطبيق",
@@ -181,6 +182,23 @@ export const arMarketing: VitrineMarketingDict = {
         phoneLines: ["مرحبا، لدي استفسار…", "محادثة موجهة مسبقا"],
       },
     ],
+    categories: {
+      personal: { title: "شخصية", usage: "الملف الشخصي والتواصل والشبكات" },
+      business: { title: "أعمال", usage: "الشركة والخدمات والموقع" },
+      googleReview: { title: "تقييمات جوجل", usage: "جمع تقييمات العملاء" },
+      career: { title: "طلاب / سيرة ذاتية", usage: "السيرة الذاتية ولينكدإن والأعمال" },
+      customLink: { title: "روابط التواصل / رابط مباشر", usage: "واتساب وإنستغرام وروابط" },
+    },
+    rail: {
+      title: "اختر بطاقة Karti",
+      subtitle: "خمس بطاقات ذكية، لكل واحدة وجهة واضحة.",
+      priceFrom: "انطلاقاً من",
+      pricingNote: "تُؤكَّد الأسعار عند الطلب.",
+      viewAll: "عرض كل المنتجات",
+      discover: "اكتشف",
+      prev: "البطاقات السابقة",
+      next: "البطاقات التالية",
+    },
     audiencesTitle: "مصمم لطريقة عملك",
     audiencesSubtitle: "ثلاث نقاط انطلاق، ولمسة واحدة.",
     audiences: [

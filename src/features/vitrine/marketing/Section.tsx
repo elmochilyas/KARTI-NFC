@@ -42,7 +42,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} aria-label={title} className="scroll-mt-24 py-10 md:py-14">
+    <section id={id} aria-label={title} className="scroll-mt-24 py-9 md:py-14">
       <div className="max-w-3xl">
         {eyebrow ? (
           <p className="font-display text-[13px] font-bold tracking-[0.22em] text-accent-strong uppercase">

@@ -17,9 +17,11 @@ export const enDict: VitrineBaseDict = {
     faq: "FAQ",
     contact: "Contact",
     orderCta: "Order your card",
+    orderCtaShort: "Order",
     menu: "Menu",
     closeMenu: "Close menu",
     language: "Language",
+    changeLanguage: "Change language",
     profileGroup: "Smart profiles",
     directGroup: "Direct actions",
   },
@@ -28,8 +30,16 @@ export const enDict: VitrineBaseDict = {
     productsTitle: "Products",
     solutionsTitle: "Solutions",
     learnTitle: "Learn",
+    helpTitle: "Help",
     companyTitle: "Karti",
     legalTitle: "Information",
+    categories: {
+      personal: "Personal",
+      business: "Business",
+      googleReview: "Google Reviews",
+      career: "Student / CV",
+      customLink: "Social / Direct link",
+    },
     contactLink: "Contact us",
     orderLink: "Order",
     notice: "Prices and timelines are confirmed after reviewing your request.",
@@ -74,6 +84,14 @@ export const enDict: VitrineBaseDict = {
       {
         q: "Do I need to install an app?",
         a: "No, neither to order nor to receive a card. Everything works in the browser.",
+      },
+      {
+        q: "Which phones are compatible?",
+        a: "Most recent smartphones read NFC. Any other phone reaches the same destination through the QR printed on the card.",
+      },
+      {
+        q: "What if NFC does not work?",
+        a: "Every card also carries a backup QR that leads to exactly the same destination: scanning it is enough.",
       },
       {
         q: "How are price and delivery confirmed?",

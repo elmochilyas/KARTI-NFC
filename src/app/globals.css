@@ -203,3 +203,53 @@ body {
   color: transparent;
   user-select: none;
 }
+
+/* Product rail + horizontal menus: hide the native scrollbar. */
+.karti-scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.karti-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Header/menu enter animations (short, no bounce, no blur). */
+@keyframes karti-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes karti-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.karti-fade-in {
+  animation: karti-fade-in 180ms ease-out both;
+}
+
+.karti-panel-in {
+  animation: karti-panel-in 160ms ease-out both;
+}
+
+/* Reduced motion: neutralize header/rail micro-animations. */
+@media (prefers-reduced-motion: reduce) {
+  .karti-anim,
+  .karti-anim *,
+  .karti-fade-in,
+  .karti-panel-in {
+    animation: none !important;
+    transition: none !important;
+  }
+}
