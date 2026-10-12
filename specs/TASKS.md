@@ -4896,6 +4896,41 @@ Known limitations:
   (LAN hydration fix is expected but not device-confirmed).
 ---
 
+# Phase: Product structured data (Product + Offer) correctness (2026-10-12)
+
+Branch `feature/fix-karti-product`. Driver: Google "Product snippets"
+report showed invalid items (missing "offers"/"review"/"aggregateRating").
+
+- [x] Root cause located in history: before `f75c0cc` the product route
+      always emitted `productJsonLd(...)` with `offer` possibly `undefined`,
+      so unpublished/unpriced products emitted a priceless `Product`.
+      `f75c0cc` gated the emitter (`product: offer ? productJsonLd(...) :
+      null`), so a published product without a configured fixed price emits
+      NO Product markup, and only a real price emits Product + Offer. No fake
+      reviews/ratings, no guessed price; the Catalog CMS stays the single
+      source for both the visible price and the schema price.
+- [x] Removed the last floating-point conversion on the price path:
+      `formatMinorDecimal` (integer division + remainder) in
+      `src/domain/orders/money.ts` now backs both `formatMinorToMad` and
+      `catalogPriceDecimal`. `(minor / 100).toFixed(2)` drifts near the top
+      of the safe-integer range (`9000000000000015` -> `...16`); integer math
+      yields the exact `90000000000000.15`.
+- [x] Regression tests pin the contract: `structured-data.test.ts` covers all
+      8 products x FR/EN/AR (Product `@type`, Offer `url` == canonical
+      localized URL, `price` == same minor units as the visible line,
+      `priceCurrency` MAD, `availability` InStock when configured, real image
+      URLs, no review/aggregateRating), no Product when the price is null, and
+      breadcrumb/FAQ still emitted. `money.test.ts` / `price.test.ts` pin the
+      integer formatter including the drift case.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm test` (136 files / 1393
+      passed), `pnpm build` (all product pages prerendered) all green.
+- [ ] Operator action (outside repo): after deploy, open the Product snippets
+      report in Google Search Console and "Validate fix"; re-check
+      `https://karti.pro/{fr,en,ar}/products/personal-card` with the Rich
+      Results Test.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

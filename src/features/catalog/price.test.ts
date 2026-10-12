@@ -24,4 +24,8 @@ describe("catalog price display", () => {
     expect(catalogPriceDecimal(0)).toBeNull();
     expect(catalogPriceDecimal(-5)).toBeNull();
   });
+
+  it("never uses floating point (safe-integer drift case)", () => {
+    expect(catalogPriceDecimal(9000000000000015)).toBe("90000000000000.15");
+  });
 });

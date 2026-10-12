@@ -2992,7 +2992,7 @@ failed). No Pro upgrade is in scope.
 
 ---
 
-## ADR-085 — Fail-closed public submission must be server-observable (no silent UNAVAILABLE)
+## ADR-085 ï¿½ Fail-closed public submission must be server-observable (no silent UNAVAILABLE)
 
 **Status:** Accepted
 **Date:** 2026-10-09
@@ -3010,7 +3010,7 @@ proven in the same session: all 8 `catalog_products.price_minor` are NULL
 (prices never configured), which refuses every order at pricing with
 VALIDATION once the secret exists. The RPC signature (40-arg fixed-price
 form, no `p_pricing_status`), the call site, and the generated
-`database.ts` types were all verified matching live `pg_proc` — no drift,
+`database.ts` types were all verified matching live `pg_proc` ï¿½ no drift,
 no migration needed.
 
 ### Decision
@@ -3019,7 +3019,7 @@ no migration needed.
   receipt errors, and RPC failures all still return generic UNAVAILABLE
   customer-side. The rate limiter is never bypassed or weakened.
 - Add message-only `console.error` traces (repo `[actionName]` convention,
-  OBSERVABILITY.md §2–3) on every UNAVAILABLE path of both public
+  OBSERVABILITY.md ï¿½2ï¿½3) on every UNAVAILABLE path of both public
   actions: rate-limiter failure, receipt derivation failure, RPC error,
   and the outer catch. Never logged: form input, IPs, receipt material,
   secret values. PostgREST error logging is limited to its message.
@@ -3038,3 +3038,47 @@ no migration needed.
 - Regression tests pin: fail-closed on either missing secret (no RPC, log
   asserted), quantity snapshot math, the reported Agadir payload shape,
   and Sheets-mirror gating (PENDING + `after()` only post-commit).
+
+## ADR-086 - Product JSON-LD is emitted only with a real fixed price; price decimals use integer math
+
+**Status:** Accepted
+**Date:** 2026-10-12
+
+### Context
+
+Google Search Console's "Product snippets" report flagged product URLs
+with the critical error `Missing "offers", "review", or
+"aggregateRating"`. The public product route historically always emitted a
+`Product` block, with the `Offer` simply omitted while no price was
+configured, so every unpublished/unpriced product produced a priceless
+`Product`. The fix already landed in `f75c0cc`: `productRouteJsonLd` now
+returns `product: null` unless a truthful fixed price exists. The remaining
+gap was on the price path: `catalogPriceDecimal` and `formatMinorToMad`
+converted minor units with `(minor / 100).toFixed(2)`, which is floating
+point and drifts near the top of the safe-integer range
+(`9000000000000015` renders as `90000000000000.16` instead of `.15`).
+
+### Decision
+
+- Keep Product JSON-LD strictly gated on a real configured fixed price. A
+  published product with no price (or an unpublished/unreachable catalog)
+  emits NO `Product` markup at all; `breadcrumb`/`faq` remain valid. Never
+  emit a guessed price, fake `review`, or fake `aggregateRating`.
+- The Catalog CMS row is the single source for both the visible price line
+  and the JSON-LD `Offer`; both derive from the same `priceMinor`.
+- Emit the `Offer` with the canonical localized `url`, a decimal `price`
+  string, `priceCurrency: "MAD"`, and `availability` mapped only from a real
+  configured state (`IN_STOCK`/`OUT_OF_STOCK`/`PREORDER`), never fabricated.
+- Convert minor units to decimal with integer division + remainder
+  (`formatMinorDecimal`), never `toFixed` on a float quotient.
+
+### Consequences
+
+- `structured-data.test.ts` pins the contract for all 8 products x FR/EN/AR:
+  `Product` + `Offer`, `Offer.url` == canonical localized URL, `price` equal
+  to the visible line's minor units, `priceCurrency` MAD, `availability`
+  InStock when configured, real image URLs, and no
+  review/aggregateRating; plus no `Product` when the price is null.
+- Search Console's flag is historical; after deploy the operator clicks
+  "Validate fix" in the Product snippets report.
+
