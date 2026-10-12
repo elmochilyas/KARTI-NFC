@@ -1,4 +1,4 @@
-import { formatMinorToMad, isNonNegativeMinor } from "@/domain/orders/money";
+import { formatMinorDecimal, formatMinorToMad, isNonNegativeMinor } from "@/domain/orders/money";
 
 /**
  * Catalog price display helpers (pure, unit-tested).
@@ -24,5 +24,5 @@ export function hasCatalogPrice(args: { priceMinor: number | null }): boolean {
 /** Visible decimal price for JSON-LD Offer (e.g. 19900 → "199.00"). */
 export function catalogPriceDecimal(priceMinor: number): string | null {
   if (!isNonNegativeMinor(priceMinor) || priceMinor <= 0) return null;
-  return (priceMinor / 100).toFixed(2);
+  return formatMinorDecimal(priceMinor);
 }

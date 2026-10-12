@@ -76,9 +76,24 @@ export function computeOrderTotal(args: {
   return total;
 }
 
+/**
+ * Deterministic integer-only minor → major decimal string ("1250.50").
+ *
+ * Uses integer division and remainder only — never JS floating point on
+ * the value. `(minor / 100).toFixed(2)` drifts for large safe integers
+ * (e.g. 9000000000000015 → "90000000000000.16" instead of ".15") because
+ * the quotient exceeds the double precision needed for the cents.
+ * Callers must pass a valid non-negative safe integer minor amount.
+ */
+export function formatMinorDecimal(minor: number): string {
+  const remainder = minor % MAD_MINOR_PER_MAJOR;
+  const major = (minor - remainder) / MAD_MINOR_PER_MAJOR;
+  return `${major}.${String(remainder).padStart(2, "0")}`;
+}
+
 /** Display-only formatting of minor units ("1250.50 MAD"). */
 export function formatMinorToMad(minor: number | null | undefined): string {
   if (minor === null || minor === undefined) return "—";
   if (!isNonNegativeMinor(minor)) return "—";
-  return `${(minor / MAD_MINOR_PER_MAJOR).toFixed(2)} ${MAD_CURRENCY}`;
+  return `${formatMinorDecimal(minor)} ${MAD_CURRENCY}`;
 }

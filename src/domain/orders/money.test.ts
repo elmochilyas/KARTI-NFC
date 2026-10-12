@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeOrderTotal,
+  formatMinorDecimal,
   formatMinorToMad,
   isNonNegativeMinor,
   parseMadDecimalToMinor,
@@ -56,5 +57,15 @@ describe("order money", () => {
   it("formats minor units for display", () => {
     expect(formatMinorToMad(125050)).toBe("1250.50 MAD");
     expect(formatMinorToMad(null)).toBe("—");
+  });
+
+  it("formats the decimal with integer-only math (no floating point drift)", () => {
+    expect(formatMinorDecimal(19900)).toBe("199.00");
+    expect(formatMinorDecimal(24950)).toBe("249.50");
+    expect(formatMinorDecimal(5)).toBe("0.05");
+    expect(formatMinorDecimal(0)).toBe("0.00");
+    // `(minor / 100).toFixed(2)` drifts here; integer math must not.
+    expect(formatMinorDecimal(9000000000000015)).toBe("90000000000000.15");
+    expect(formatMinorDecimal(9000000000000004)).toBe("90000000000000.04");
   });
 });
