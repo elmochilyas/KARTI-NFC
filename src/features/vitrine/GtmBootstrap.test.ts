@@ -30,7 +30,7 @@ describe("GtmBootstrap (consent-gated, lazy)", () => {
   });
 
   it("preconnects only when the container will actually load", () => {
-    const preconnectAt = bootstrap.indexOf("rel=\"preconnect\"");
+    const preconnectAt = bootstrap.indexOf('rel="preconnect"');
     expect(preconnectAt).toBeGreaterThan(-1);
     const gateAt = bootstrap.indexOf("if (!consented) return null;");
     expect(preconnectAt).toBeGreaterThan(gateAt);

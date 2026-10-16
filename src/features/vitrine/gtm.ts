@@ -236,14 +236,10 @@ export function dataLayerHasGrantedAnalytics(): boolean {
  * this island hydrated). SSR-safe: returns false without a window.
  * Receipt routes never qualify (their document holds no consent state).
  */
-export function hasGrantedAnalyticsConsent(
-  cookieString?: string | null,
-): boolean {
+export function hasGrantedAnalyticsConsent(cookieString?: string | null): boolean {
   try {
     if (typeof window === "undefined" && cookieString == null) return false;
-    const raw =
-      cookieString ??
-      (typeof document !== "undefined" ? document.cookie : null);
+    const raw = cookieString ?? (typeof document !== "undefined" ? document.cookie : null);
     if (raw) {
       const parts = raw.split(";");
       for (const part of parts) {
