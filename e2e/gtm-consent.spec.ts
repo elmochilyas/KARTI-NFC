@@ -67,14 +67,22 @@ async function hasGtmIframe(page: Page): Promise<boolean> {
 
 /**
  * Mode-aware suite: when the prod server is built WITH NEXT_PUBLIC_GTM_ID,
- * marketing/order routes genuinely load the container; when built WITHOUT
- * it, they must not. Receipt routes never load it in either mode.
+ * marketing/order routes genuinely load the container — but ONLY after the
+ * visitor grants analytics consent (consent-gated `lazyOnload`); when built
+ * WITHOUT it, they must not. Receipt routes never load it in either mode.
  */
 test("GTM loads on marketing/order routes but never on receipt routes", async ({ page }) => {
   await page.goto("/fr");
   await expect(page.locator("main#main-content")).toBeVisible();
-  // Settle past hydration + afterInteractive injection before sampling.
+  // Settle past hydration before sampling. Fresh visit = no consent yet,
+  // so the container must NOT load (third-party-free first paint).
   await page.waitForTimeout(2000);
+  expect(await hasGtmScript(page)).toBe(false);
+
+  // Grant analytics consent: the container may now load lazily when the
+  // ID is baked in (stays absent when the build has no GTM ID).
+  await page.getByTestId("consent-accept").click();
+  await page.waitForTimeout(2500);
   const marketingHasGtm = await hasGtmScript(page);
 
   await page.goto("/fr/products/personal-card");

@@ -5063,6 +5063,45 @@ hidden-scrollbar rail had no pointer-drag path for mouse users.
 
 ---
 
+# Phase: PageSpeed fixes — consent-gated GTM, modern baseline, home ISR (2026-10-16)
+
+PageSpeed Insights on `/fr` (karti.pro) flagged: render-blocking CSS
+(160ms), legacy-JS polyfills (`Array.at/flat/flatMap`,
+`Object.fromEntries/hasOwn`, `String.trimStart/trimEnd`, ~14 KiB),
+critical chain 1151ms (`/fr` TTFB 736ms + CSS), and 182 KiB unused JS
+(~155 KiB GTM `gtm.js` + `gtag.js`, ~27 KiB first-party).
+
+- [x] `tsconfig.json`: `target ES2017` → `ES2022`; `package.json` gains an
+      explicit modern `browserslist` (Chrome/Edge/Android ≥ 93, Firefox ≥
+      92, Safari/iOS ≥ 15.4 — every flagged API is native there, so SWC
+      drops those transforms/polyfills; verified absent from prod chunks).
+- [x] Consent-gated GTM (`GtmBootstrap`): container loads `lazyOnload`
+      and ONLY after an analytics grant (fresh `karti_consent` cookie or
+      dataLayer grant); no consent/reject → no `gtm.js`, no `gtag.js`, no
+      preconnect — first paint is third-party-free. Banner Accept fires
+      `karti:consent-change` (`notifyConsentChange`) so the container
+      loads without a reload. Receipt-route exclusion unchanged.
+- [x] `gtm.ts`: `dataLayerHasGrantedAnalytics()` (reject-updates don't
+      count as grants) + `hasGrantedAnalyticsConsent()` (cookie first,
+      dataLayer fallback, SSR-safe); header comment updated.
+- [x] `VitrineShell`: banner rides a deferred island (`ConsentBannerLazy`,
+      `next/dynamic` `ssr: false` — its initial render is `null` anyway).
+- [x] `/fr|en|ar` homes are ISR (`revalidate = 3600`); dashboard catalog
+      actions now `revalidatePath` the locale homes + edited product
+      pages, so price/copy edits stay promptly visible.
+- [x] Contracts: new `GtmBootstrap.test.ts` pins (lazyOnload, gating,
+      preconnect-after-grant, receipt + single-transport kept); consent
+      event + grant-helper tests; `e2e/gtm-consent.spec.ts` updated
+      (fresh visit = no GTM script; Accept = lazy load when ID baked in).
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm test` (141 files /
+      1465 passed), `pnpm build` (92 pages; `/fr|en|ar` show `1h`); local
+      prod-server `/fr` serves zero `googletagmanager` bytes pre-consent.
+- [ ] Operator action: re-run PageSpeed on `/fr` after deploy; confirm
+      GTM tag fires post-Accept (Tag Assistant) with GA4 auto `page_view`
+      still disabled there.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

@@ -5,7 +5,7 @@
  * WHY A RAW SERVER-RENDERED SCRIPT: the browser must execute
  * `gtag('consent', 'default', … denied)` synchronously while parsing the
  * document, so it runs BEFORE the GTM container (`gtm.js`, loaded
- * `afterInteractive` by `GtmBootstrap`). That pre-container default is
+ * `lazyOnload` — and only after analytics consent — by `GtmBootstrap`). That pre-container default is
  * exactly what Tag Assistant's Consent tab requires; a `useEffect`-only
  * push races hydration against the container and reads as "non configuré".
  *

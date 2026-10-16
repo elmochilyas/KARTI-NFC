@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { isProductType, type ProductType } from "@/domain/orders/productTypes";
+import { productSlugFromType } from "@/features/vitrine/products";
 import {
   deleteCatalogMedia,
   getCatalogAdminProduct,
@@ -62,6 +63,14 @@ function refresh(productType: ProductType): void {
   revalidateCatalog();
   revalidatePath("/dashboard/catalog");
   revalidatePath(`/dashboard/catalog/${productType}`);
+  // The locale homes are ISR (`revalidate = 3600`): purge them (and the
+  // edited product's pages) so catalog price/copy changes stay promptly
+  // visible instead of lagging the static window.
+  const slug = productSlugFromType(productType);
+  for (const locale of ["fr", "en", "ar"] as const) {
+    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/products/${slug}`);
+  }
 }
 
 export async function updateCatalogProductAction(

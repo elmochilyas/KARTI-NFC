@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   isFreshConsent,
+  notifyConsentChange,
   readConsentCookie,
   writeConsentCookie,
   CONSENT_OPEN_EVENT,
@@ -58,6 +59,9 @@ export function ConsentBanner({ dict }: { dict: VitrineDict }) {
     try {
       writeConsentCookie(analytics);
       pushGtagConsent("update", consentUpdateFor(analytics));
+      // Wake deferred vendor loaders (consent-gated GTM): accept → lazy
+      // load; reject → stay unloaded. No polling, no reload needed.
+      notifyConsentChange(analytics);
     } finally {
       setVisible(false);
     }

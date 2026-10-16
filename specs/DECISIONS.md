@@ -3157,3 +3157,50 @@ brand marks where a real brand is named.
   in favor of the photo rail (`getRelatedCards`); the tile component was
   removed rather than left dead.
 
+---
+
+## ADR-089 - PageSpeed: consent-gated GTM, modern JS baseline, home ISR
+
+**Status:** Accepted
+**Date:** 2026-10-16
+
+### Context
+
+PageSpeed Insights on `/fr` (karti.pro) flagged render-blocking CSS
+(160ms), legacy-JS polyfills (`Array.at/flat/flatMap`,
+`Object.fromEntries/hasOwn`, `String.trimStart/trimEnd`, ~14 KiB),
+a 1151ms critical chain (`/fr` TTFB 736ms + CSS), and 182 KiB unused JS
+(~155 KiB GTM `gtm.js` + `gtag.js`, ~27 KiB first-party). Investigation
+notes: Next 16's unconditional `polyfill-module.js` covers exactly the
+flagged APIs, so they vanish once SWC targets Baseline browsers; the
+110 KiB `polyfill-nomodule` bundle ships with a `nomodule` attribute
+and is skipped by modern browsers. The dominant cost was GTM loading
+`afterInteractive` before any consent choice, then pulling GA4 `gtag.js`
+on top of `gtm.js`.
+
+### Decision
+
+- GTM is consent-gated: `GtmBootstrap` injects the container `lazyOnload`
+  only after an analytics grant (fresh `karti_consent` cookie or a
+  dataLayer grant — a reject-update never counts). No choice/reject
+  means no `gtm.js`, no `gtag.js`, no preconnect. Banner Accept emits
+  `karti:consent-change` so the container loads without a reload.
+  Consent Mode defaults (denied) and the receipt-route exclusion are
+  unchanged.
+- JS baseline is ES2022 + explicit modern browserslist (Chrome/Edge/
+  Android ≥ 93, Firefox ≥ 92, Safari/iOS ≥ 15.4): every flagged API is
+  native there. Verified absent from production chunks.
+- `/fr|en|ar` homes are ISR (`revalidate = 3600`); dashboard catalog
+  writes `revalidatePath` the locale homes + edited product pages, so
+  the static window never delays real price/copy changes.
+- Consent banner rides a deferred `ssr: false` island; the product rail
+  stays statically imported so SSR crawlability pins keep holding.
+
+### Consequences
+
+- First paint is third-party-free for new visitors; marketing measurement
+  starts at Accept (returning acceptors load immediately). GA4 automatic
+  `page_view` must stay disabled in the container (manual `page_view`
+  already exists). `GtmBootstrap.test.ts` + updated `e2e/gtm-consent`
+  pin the new contract.
+

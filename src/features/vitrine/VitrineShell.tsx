@@ -8,7 +8,7 @@
 
 import type { ReactNode } from "react";
 import { AttributionTracker } from "./AttributionTracker";
-import { ConsentBanner } from "./ConsentBanner";
+import { ConsentBannerLazy } from "./ConsentBannerLazy";
 import { ConsentInit } from "./ConsentInit";
 import { GtmBootstrap } from "./GtmBootstrap";
 import type { VitrineDict, VitrineLocale } from "./i18n";
@@ -41,7 +41,8 @@ export function VitrineShell({
       <SiteHeader locale={locale} dict={dict} />
       <main id="main-content">{children}</main>
       <SiteFooter locale={locale} dict={dict} />
-      <ConsentBanner dict={dict} />
+      {/* Deferred island: banner chunk loads after first paint (see ConsentBannerLazy). */}
+      <ConsentBannerLazy dict={dict} />
     </div>
   );
 }
