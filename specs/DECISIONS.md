@@ -3082,3 +3082,78 @@ point and drifts near the top of the safe-integer range
 - Search Console's flag is historical; after deploy the operator clicks
   "Validate fix" in the Product snippets report.
 
+---
+
+## ADR-087 - Product pages are ecommerce PDPs driven by catalog media + hero copy
+
+**Status:** Accepted
+**Date:** 2026-10-14
+
+### Context
+
+The product routes read as editorial storytelling (tagline + outcome
+paragraph beside CSS phone/card mockups), with no photo gallery, the
+title/description buried, and the price hidden near the FAQ. The catalog
+CMS already stores PRIMARY/GALLERY media rows plus hero/short
+descriptions per locale, but the public projection exposed only
+`primaryImageUrl`, so gallery photos never reached the storefront.
+
+### Decision
+
+- Rebuild the locale product routes as PDPs: gallery + buy-panel header
+  (H1, short pitch, price, truthful availability badge, single order
+  CTA), then description, tap effect, use cases, steps, audience,
+  benefits, included + customization, examples only, FAQ, related with
+  real prices, final CTA.
+- Gallery reads `catalog_product_media` PRIMARY + GALLERY in operator
+  order (primary pointer first), unlimited up to the 30-row schema bound;
+  alt prefers the page locale with fallback chain, then the product name.
+  Empty gallery is an honest placeholder, never a broken frame.
+- Buy panel is price + CTA only (quantity stays in the order wizard); no
+  CTA while unpriced; availability badges render only configured values.
+  No ratings, no testimonials, no invented photos.
+- JSON-LD `image` follows PDP order (gallery, deduped, distinct OG
+  appended); Offer gating from ADR-086 is unchanged.
+
+### Consequences
+
+- Operators fill PDP photography via `/dashboard/catalog` media +
+  hero/short descriptions + alt text; pages render correctly before that
+  (placeholder + static copy + pending price).
+- The old editorial `ProductPage` is deleted; `ProductBlocks` keeps only
+  `LabeledFlow`/`ScenarioCards` for info pages.
+
+---
+
+## ADR-088 - PDP icon system: custom duotone SVGs + official brand tiles
+
+**Status:** Accepted
+**Date:** 2026-10-15
+
+### Context
+
+The rebuilt PDPs converted but read as text-only: every section shared
+the same check/arrow/numeral texture. The operator asked for meaningful
+visuals and chose custom brand SVGs across all sections, with official
+brand marks where a real brand is named.
+
+### Decision
+
+- One PDP icon module (`vitrine/product/icons.tsx`): hand-drawn duotone
+  line marks (ink `currentColor` strokes, accent/gold fills), server-only,
+  no new dependencies. Directional arrows wrap in `karti-flip-rtl`.
+- Related cards use official brand tiles (WhatsApp green, Instagram
+  gradient, Google blue — same convention as public-profile quick tiles);
+  all other marks are custom. Free-text lists (steps, use cases) keep
+  numerals/arrow chips — no invented semantic mapping.
+- Every mark is decorative (`aria-hidden`, `focusable="false"`); text
+  never depends on an icon alone.
+
+### Consequences
+
+- `icons.test.ts` pins the contract (decorative SVG per mark, distinct
+  profile/direct tap marks).
+- 2026-10-15 follow-up: the related grid dropped its brand/custom tiles
+  in favor of the photo rail (`getRelatedCards`); the tile component was
+  removed rather than left dead.
+
