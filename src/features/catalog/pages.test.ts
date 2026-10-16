@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getDict } from "@/features/vitrine/i18n";
 import { HomePage } from "@/features/vitrine/HomePage";
-import { ProductPage } from "@/features/vitrine/ProductPage";
+import { ProductLandingPage } from "@/features/vitrine/product/landing";
 import type { PublicCatalogProduct } from "./public";
 
 function fixedCatalog(): PublicCatalogProduct {
@@ -14,6 +14,7 @@ function fixedCatalog(): PublicCatalogProduct {
     availability: null,
     primaryImageUrl: "https://cdn.example/primary.jpg",
     ogImageUrl: null,
+    galleryImages: [{ url: "https://cdn.example/primary.jpg", alt: "Carte Karti" }],
     displayName: "Carte Personnelle",
     shortName: null,
     heroTitle: null,
@@ -43,10 +44,13 @@ const ALL_PUBLISHED = {
 } as const;
 
 describe("catalog public pages", () => {
-  it("preserves the approved design when the catalog is unreachable (honest pending state)", () => {
+  it("preserves an honest pending state when the catalog is unreachable", () => {
     const dict = getDict("fr");
-    const html = renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "personal-card" }));
+    const html = renderToStaticMarkup(
+      ProductLandingPage({ locale: "fr", dict, slug: "personal-card" }),
+    );
     expect(html).toContain(dict.order.pricePending);
+    expect(html).toContain(dict.productPage.galleryEmpty);
     expect(html).not.toContain("199.00 MAD");
     expect(html).not.toContain("undefined");
   });
@@ -54,7 +58,7 @@ describe("catalog public pages", () => {
   it("shows the real configured price and CMS name when priced", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(
-      ProductPage({ locale: "fr", dict, slug: "personal-card", catalog: fixedCatalog() }),
+      ProductLandingPage({ locale: "fr", dict, slug: "personal-card", catalog: fixedCatalog() }),
     );
     expect(html).toContain("199.00 MAD");
     expect(html).toContain("Carte Personnelle");
@@ -66,7 +70,7 @@ describe("catalog public pages", () => {
   it("keeps the honest pending state while the price is not configured", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(
-      ProductPage({
+      ProductLandingPage({
         locale: "fr",
         dict,
         slug: "personal-card",
@@ -77,16 +81,26 @@ describe("catalog public pages", () => {
     expect(html).not.toContain("199.00 MAD");
   });
 
-  it("removes unpublished products from related grids", () => {
+  it("shows only supplied related cards (unpublished entries excluded upstream)", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(
-      ProductPage({
+      ProductLandingPage({
         locale: "fr",
         dict,
         slug: "personal-card",
-        publishedFlags: { ...ALL_PUBLISHED, CAREER_CARD: false, CONTACT_CARD: false },
+        relatedCards: [
+          {
+            product: "BUSINESS_CARD",
+            name: null,
+            priceLine: "199.00 MAD",
+            imageUrl: "https://cdn.example/business.jpg",
+            imageAlt: "",
+          },
+        ],
       }),
     );
+    expect(html).toContain("/fr/products/business-card");
+    expect(html).toContain("199.00 MAD");
     expect(html).not.toContain("/fr/products/career-card");
   });
 
@@ -111,23 +125,20 @@ describe("catalog public pages", () => {
     expect(html).not.toContain("/fr/products/contact-card");
   });
 
-  it("renders the primary image in a 4:3 frame with responsive delivery", () => {
+  it("renders the gallery in a 4:3 frame with cover fit", () => {
     const dict = getDict("fr");
     const html = renderToStaticMarkup(
-      ProductPage({ locale: "fr", dict, slug: "personal-card", catalog: fixedCatalog() }),
+      ProductLandingPage({ locale: "fr", dict, slug: "personal-card", catalog: fixedCatalog() }),
     );
-    // 4:3 container reserves layout space (no CLS), cover fit, lazy load.
+    // 4:3 container reserves layout space (no CLS), cover fit.
     expect(html).toContain("aspect-[4/3]");
     expect(html).toContain("object-cover");
-    expect(html).toContain('width="1600"');
-    expect(html).toContain('height="1200"');
-    expect(html).toContain('loading="lazy"');
   });
 
   it("renders identically in RTL without breaking layout markers", () => {
     const dict = getDict("ar");
     const html = renderToStaticMarkup(
-      ProductPage({ locale: "ar", dict, slug: "personal-card", catalog: fixedCatalog() }),
+      ProductLandingPage({ locale: "ar", dict, slug: "personal-card", catalog: fixedCatalog() }),
     );
     expect(html).toContain("199.00 MAD");
     expect(html).not.toContain("undefined");

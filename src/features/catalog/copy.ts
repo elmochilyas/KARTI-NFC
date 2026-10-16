@@ -39,6 +39,46 @@ export function resolveProductCopy(
   };
 }
 
+export type ProductLandingTexts = {
+  /** PDP H1: hero title → display name → static name. */
+  title: string;
+  /** Short pitch under the H1: CMS short description → static tagline. */
+  tagline: string;
+  /** Raw CMS short description (null when unset) for compact placements. */
+  shortDescription: string | null;
+  /** Full PDP description: hero description → outcome text → static outcome. */
+  description: string;
+};
+
+/**
+ * PDP title/description resolution (pure). Surfaces the CMS hero fields
+ * that `resolveProductCopy` deliberately leaves out of the shared
+ * ProductCopy shape, so the buy panel shows a real title + description.
+ */
+export function resolveProductLanding(
+  staticCopy: ProductCopy,
+  catalog: PublicCatalogProduct | null,
+): ProductLandingTexts {
+  if (!catalog) {
+    return {
+      title: staticCopy.name,
+      tagline: staticCopy.tagline,
+      shortDescription: null,
+      description: staticCopy.outcome,
+    };
+  }
+  const clean = (value: string | null): string | null => {
+    const trimmed = value?.trim() ?? "";
+    return trimmed !== "" ? trimmed : null;
+  };
+  return {
+    title: clean(catalog.heroTitle) ?? clean(catalog.displayName) ?? staticCopy.name,
+    tagline: clean(catalog.shortDescription) ?? staticCopy.tagline,
+    shortDescription: clean(catalog.shortDescription),
+    description: clean(catalog.heroDescription) ?? clean(catalog.outcomeText) ?? staticCopy.outcome,
+  };
+}
+
 /** Visible fixed price line for a product card / pricing section, or null when unconfigured. */
 export function catalogPriceLine(catalog: PublicCatalogProduct | null): string | null {
   if (!catalog) return null;

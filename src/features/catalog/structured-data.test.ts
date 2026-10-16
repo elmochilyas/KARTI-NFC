@@ -36,6 +36,7 @@ function catalog(productType: PublicCatalogProduct["productType"]): PublicCatalo
     availability: "IN_STOCK",
     primaryImageUrl: `https://cdn.example/${asset}/primary.jpg`,
     ogImageUrl: `https://cdn.example/${asset}/og.jpg`,
+    galleryImages: [],
     displayName: null,
     shortName: null,
     heroTitle: null,
@@ -93,6 +94,31 @@ describe("Product structured data contract (all 8 products x 3 locales)", () => 
       });
     }
   }
+
+  it("emits gallery images first in PDP order, deduped, OG last when distinct", () => {
+    const product = "PERSONAL_CARD" as const;
+    const asset = product.toLowerCase();
+    const row = {
+      ...catalog(product),
+      galleryImages: [
+        { url: `https://cdn.example/${asset}/gallery-2.jpg`, alt: "Side" },
+        { url: `https://cdn.example/${asset}/primary.jpg`, alt: "" },
+      ],
+    };
+    const jsonLd = productRouteJsonLd(
+      { product, catalog: row, published: true },
+      getDict("fr"),
+      "personal-card",
+      "fr",
+    );
+    const data = jsonLd.product as Record<string, unknown>;
+    // Gallery order kept, primary deduped (gallery copy === primaryImageUrl), OG appended.
+    expect(data.image).toEqual([
+      `https://cdn.example/${asset}/gallery-2.jpg`,
+      `https://cdn.example/${asset}/primary.jpg`,
+      `https://cdn.example/${asset}/og.jpg`,
+    ]);
+  });
 
   it("visible price and JSON-LD Offer price come from the same catalog value", () => {
     for (const slug of PRODUCT_PUBLIC_SLUGS) {

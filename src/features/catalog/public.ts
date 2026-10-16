@@ -20,6 +20,13 @@ type AdminDb = SupabaseClient<Database>;
 
 export type PublicCatalogFaq = { q: string; a: string };
 
+export type PublicCatalogGalleryImage = {
+  /** Absolute public URL of the catalog asset. */
+  url: string;
+  /** Localized alt text (may be empty when the operator set none — callers fall back to the product name). */
+  alt: string;
+};
+
 export type PublicCatalogProduct = {
   productType: ProductType;
   published: boolean;
@@ -29,6 +36,8 @@ export type PublicCatalogProduct = {
   availability: CatalogAvailability | null;
   primaryImageUrl: string | null;
   ogImageUrl: string | null;
+  /** PRIMARY first, then GALLERY in operator sort order (dashboard CMS, unlimited up to the 30-row schema bound). */
+  galleryImages: PublicCatalogGalleryImage[];
   displayName: string | null;
   shortName: string | null;
   heroTitle: string | null;
@@ -149,6 +158,41 @@ export async function getPublishedCatalogProduct(
     locRow = null;
   }
 
+  // PDP gallery: PRIMARY + GALLERY media rows in operator order, with the
+  // configured primary image first. Alt text prefers the page locale, then
+  // any available locale — the PDP falls back to the product name when all
+  // are empty. A media failure never blocks the product: empty gallery.
+  let galleryImages: PublicCatalogGalleryImage[] = [];
+  try {
+    const res = await supabase
+      .from("catalog_product_media")
+      .select("storage_path,media_role,sort_order,alt_fr,alt_en,alt_ar")
+      .eq("product_type", productType)
+      .in("media_role", ["PRIMARY", "GALLERY"])
+      .order("sort_order");
+    if (!res.error && res.data) {
+      const primaryPath = productRow.primary_image_path;
+      const rows = [...res.data]
+        .filter((row) => row.media_role === "PRIMARY" || row.media_role === "GALLERY")
+        .sort((a, b) => {
+          const aFirst = a.storage_path === primaryPath ? 0 : 1;
+          const bFirst = b.storage_path === primaryPath ? 0 : 1;
+          if (aFirst !== bFirst) return aFirst - bFirst;
+          return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        });
+      galleryImages = rows.map((row) => {
+        const byLocale = locale === "ar" ? row.alt_ar : locale === "en" ? row.alt_en : row.alt_fr;
+        const alt =
+          [byLocale, row.alt_en, row.alt_fr, row.alt_ar]
+            .find((value) => typeof value === "string" && value.trim() !== "")
+            ?.trim() ?? "";
+        return { url: catalogAssetUrl(row.storage_path), alt };
+      });
+    }
+  } catch {
+    galleryImages = [];
+  }
+
   return {
     productType,
     published: true,
@@ -177,6 +221,7 @@ export async function getPublishedCatalogProduct(
     useCases: cleanList(locRow?.use_cases, 200, 12),
     included: cleanList(locRow?.included, 200, 20),
     faqs: cleanFaqs(locRow?.faqs),
+    galleryImages,
   };
 }
 

@@ -5,6 +5,7 @@ import {
   catalogOrderUnitLine,
   catalogPriceLine,
   resolveProductCopy,
+  resolveProductLanding,
 } from "./copy";
 import type { PublicCatalogProduct } from "./public";
 
@@ -17,6 +18,7 @@ function pricedCatalog(overrides?: Partial<PublicCatalogProduct>): PublicCatalog
     availability: "IN_STOCK",
     primaryImageUrl: "https://cdn.example/catalog/personal/primary/abc.jpg",
     ogImageUrl: null,
+    galleryImages: [],
     displayName: "Carte Personnelle",
     shortName: null,
     heroTitle: null,
@@ -71,6 +73,52 @@ describe("catalog copy merge", () => {
     );
     expect(merged.benefits).toEqual(["Fast tap"]);
     expect(merged.faq).toEqual([{ q: "Q?", a: "A." }]);
+  });
+});
+
+describe("product landing texts", () => {
+  it("falls back to static copy without a catalog row", () => {
+    const dict = getDict("fr");
+    const landing = resolveProductLanding(dict.products.PERSONAL_CARD, null);
+    expect(landing.title).toBe(dict.products.PERSONAL_CARD.name);
+    expect(landing.tagline).toBe(dict.products.PERSONAL_CARD.tagline);
+    expect(landing.shortDescription).toBeNull();
+    expect(landing.description).toBe(dict.products.PERSONAL_CARD.outcome);
+  });
+
+  it("prefers hero title, short description, and hero description", () => {
+    const dict = getDict("fr");
+    const landing = resolveProductLanding(
+      dict.products.PERSONAL_CARD,
+      pricedCatalog({
+        heroTitle: "Titre héros",
+        shortDescription: "Pitch court",
+        heroDescription: "Description complète",
+      }),
+    );
+    expect(landing.title).toBe("Titre héros");
+    expect(landing.tagline).toBe("Pitch court");
+    expect(landing.shortDescription).toBe("Pitch court");
+    expect(landing.description).toBe("Description complète");
+  });
+
+  it("falls back per field (display name → name, outcome → description)", () => {
+    const dict = getDict("fr");
+    const landing = resolveProductLanding(dict.products.PERSONAL_CARD, pricedCatalog());
+    // Fixture has displayName + outcomeText but no hero fields.
+    expect(landing.title).toBe("Carte Personnelle");
+    expect(landing.description).toBe("Partagez vos coordonnées d'un geste.");
+  });
+
+  it("ignores blank CMS strings", () => {
+    const dict = getDict("fr");
+    const landing = resolveProductLanding(
+      dict.products.PERSONAL_CARD,
+      pricedCatalog({ heroTitle: "   ", heroDescription: "", shortDescription: "  " }),
+    );
+    expect(landing.title).toBe("Carte Personnelle");
+    // Blank hero fields fall back per field: display name, then outcome text.
+    expect(landing.description).toBe("Partagez vos coordonnées d'un geste.");
   });
 });
 

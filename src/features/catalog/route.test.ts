@@ -16,7 +16,7 @@ vi.mock("./cache", () => ({
 import { getDict } from "@/features/vitrine/i18n";
 import { getCachedCatalogProduct, getCachedPublishedFlags } from "./cache";
 import type { PublicCatalogProduct } from "./public";
-import { getHomeCatalogData, getProductRoute, productRouteJsonLd } from "./route";
+import { getHomeCatalogData, getProductRoute, getRelatedCards, productRouteJsonLd } from "./route";
 
 const ALL_PUBLISHED = {
   PERSONAL_CARD: true,
@@ -38,6 +38,7 @@ function fixedCatalog(): PublicCatalogProduct {
     availability: "IN_STOCK",
     primaryImageUrl: "https://cdn.example/primary.jpg",
     ogImageUrl: "https://cdn.example/og.jpg",
+    galleryImages: [],
     displayName: null,
     shortName: null,
     heroTitle: null,
@@ -152,5 +153,43 @@ describe("homepage catalog data", () => {
     expect(flags.CAREER_CARD).toBe(false);
     expect(priceLines.PERSONAL_CARD).toBe("199.00 MAD");
     expect(priceLines.CAREER_CARD).toBeUndefined();
+  });
+});
+
+describe("related product cards", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getCachedPublishedFlags).mockResolvedValue({ ...ALL_PUBLISHED });
+    vi.mocked(getCachedCatalogProduct).mockResolvedValue(null);
+  });
+
+  it("returns photo, CMS name, and price per published related product", async () => {
+    vi.mocked(getCachedCatalogProduct).mockImplementation(async (product) => {
+      // PERSONAL_CARD relates CAREER (unpublished) + CONTACT + BUSINESS.
+      if (product === "CAREER_CARD") return null;
+      return {
+        ...fixedCatalog(),
+        productType: product,
+        displayName: product === "CONTACT_CARD" ? "Contact CMS" : "   ",
+        priceMinor: product === "CONTACT_CARD" ? 14900 : null,
+        primaryImageUrl: "https://cdn.example/rel.jpg",
+        galleryImages: [{ url: "https://cdn.example/rel.jpg", alt: "Rel" }],
+      };
+    });
+    const cards = await getRelatedCards("PERSONAL_CARD", "fr");
+    expect(cards.map((card) => card.product)).toEqual(["CONTACT_CARD", "BUSINESS_CARD"]);
+    expect(cards[0]).toMatchObject({
+      name: "Contact CMS",
+      priceLine: "149.00 MAD",
+      imageUrl: "https://cdn.example/rel.jpg",
+      imageAlt: "Rel",
+    });
+    // Blank display name falls back to static copy; unpriced keeps no line.
+    expect(cards[1].name).toBeNull();
+    expect(cards[1].priceLine).toBeNull();
+  });
+
+  it("returns no cards when the catalog is unreachable", async () => {
+    await expect(getRelatedCards("PERSONAL_CARD", "fr")).resolves.toEqual([]);
   });
 });
