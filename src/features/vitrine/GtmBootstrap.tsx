@@ -34,7 +34,7 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { getGtmId } from "@/lib/env";
 import { setAnalyticsTransport } from "./analytics";
 import { CONSENT_CHANGE_EVENT, isFreshConsent, readConsentCookie } from "./consent";
@@ -54,13 +54,48 @@ import {
 } from "./gtm";
 import { gtmTransport } from "./gtmTransport";
 
+/**
+ * Consent grant as external-store snapshots (same pattern as
+ * `ConsentInit`): the server snapshot is always `false` (no vendor
+ * bytes in SSR HTML, no hydration mismatch), while the client snapshot
+ * re-reads the fresh grant after hydration and on every
+ * `karti:consent-change` choice — no `setState`-in-effect needed.
+ */
+function subscribeConsentGrant(onChange: () => void): () => void {
+  try {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener(CONSENT_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(CONSENT_CHANGE_EVENT, onChange);
+  } catch {
+    return () => {};
+  }
+}
+
+function getConsentGrantSnapshot(): boolean {
+  try {
+    return hasGrantedAnalyticsConsent();
+  } catch {
+    return false;
+  }
+}
+
+function getConsentGrantServerSnapshot(): boolean {
+  return false;
+}
+
 export function GtmBootstrap() {
   // Public container ID only; absent/invalid → GTM stays disabled, app works.
   const [gtmId] = useState<string | null>(() => getGtmId() ?? null);
   const pathname = usePathname();
   const suppressed = isReceiptRoute(pathname);
   // Consent-gated: the container (and its preconnect) render only here.
-  const [consented, setConsented] = useState(false);
+  // Returning acceptors flip on right after hydration; new visitors flip
+  // when the banner Accept fires `karti:consent-change` (no reload).
+  const consented = useSyncExternalStore(
+    subscribeConsentGrant,
+    getConsentGrantSnapshot,
+    getConsentGrantServerSnapshot,
+  );
 
   useEffect(() => {
     // Receipt route: never initialize any GA transport (clean document by
@@ -94,27 +129,11 @@ export function GtmBootstrap() {
     } catch {
       // No stored consent — defaults (denied) stand.
     }
-    // 4. Consent state: returning acceptors load immediately; new visitors
-    // load only after the banner Accept fires `karti:consent-change`.
-    try {
-      if (hasGrantedAnalyticsConsent()) setConsented(true);
-    } catch {
-      // Consent unreadable — stay unloaded, page keeps working.
-    }
-    const onConsentChange = (event: Event) => {
-      try {
-        const detail = (event as CustomEvent<{ analytics?: unknown }>).detail;
-        if (detail?.analytics === true) setConsented(true);
-        else if (hasGrantedAnalyticsConsent()) setConsented(true);
-      } catch {
-        // Consent bookkeeping must never break the page.
-      }
-    };
-    window.addEventListener(CONSENT_CHANGE_EVENT, onConsentChange);
+    // 4. Consent state needs no effect wiring: `consented` above
+    // re-reads the grant after hydration and on every banner choice.
     // 5. Wire the ONE GTM transport (events queue even before gtm.js arrives).
     setAnalyticsTransport(gtmTransport);
     return () => {
-      window.removeEventListener(CONSENT_CHANGE_EVENT, onConsentChange);
       setAnalyticsTransport(null);
     };
   }, [suppressed]);
