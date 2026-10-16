@@ -3204,3 +3204,45 @@ on top of `gtm.js`.
   already exists). `GtmBootstrap.test.ts` + updated `e2e/gtm-consent`
   pin the new contract.
 
+## ADR-090 — Lighthouse TBT follow-up: no GTM preconnect, rail without style queries, trimmed prefetch
+
+**Status:** Accepted
+**Date:** 2026-10-16
+
+### Context
+
+A 2026-10-16 Lighthouse run on `https://karti.pro/fr` (desktop,
+performance 0.76) showed `TBT 598ms` / `max-potential-FID 553ms` while
+`FCP/LCP/SI/CLS` stayed green. ~503ms of the blocking time came from a
+single 553ms `chrome-extension` long task (run warnings confirm
+extensions + stored IndexedDB polluted the run), so the report must be
+re-run incognito before judging the site. Genuine site findings:
+`network-dependency-tree` flags the GTM `preconnect` as unused
+(`lazyOnload` fetches ~1.7s after idle, so the early connection sits
+idle); `forced-reflow` flags layout reads in the home product rail;
+and 8 `?_rsc=` prefetches (product/order pages) fire within ~300ms of
+load, competing with the consented GTM download.
+
+### Decision
+
+- `GtmBootstrap` renders no `preconnect`/`dns-prefetch` at all: with a
+  `lazyOnload` container the early connection is pure waste even after
+  consent. `GtmBootstrap.test.ts` now pins their absence.
+- `ProductRail` never calls `getComputedStyle`: RTL comes from
+  `dict.dir` (the shell already sets `dir` on the wrapper, so they
+  always agree), and the first scroll measurement is deferred to
+  `requestAnimationFrame`, out of the hydration critical path.
+- Below-fold `<Link>`s use `prefetch={false}` (product rail cards,
+  home section/product-index/final-CTA links). The header order CTA
+  keeps default prefetch (highest conversion intent); navigation still
+  works, only the speculative RSC download is dropped.
+
+### Consequences
+
+- Returning (consented) visitors skip a wasted early connection; the
+  rail does no style recalc on drag/scroll/step and no synchronous
+  layout read during mount; post-load RSC traffic on `/fr` drops from
+  ~8 speculative fetches toward on-demand.
+- Re-measure incognito (no extensions): target `TBT < 200ms` with zero
+  site-origin long tasks > 50ms.
+

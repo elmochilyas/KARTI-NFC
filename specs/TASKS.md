@@ -5102,6 +5102,39 @@ critical chain 1151ms (`/fr` TTFB 736ms + CSS), and 182 KiB unused JS
 
 ---
 
+# Phase: Lighthouse TBT follow-up — preconnect removal, rail reflow, prefetch trim (2026-10-16)
+
+A 2026-10-16 Lighthouse run on `https://karti.pro/fr` (desktop,
+performance 0.76) showed `TBT 598ms` / `max-potential-FID 553ms` with
+`FCP/LCP/SI/CLS` green. ~503ms of blocking came from a 553ms
+`chrome-extension` long task (run warnings: extensions + stored
+IndexedDB polluted the run) — the report must be re-run incognito.
+Genuine site findings addressed here: unused GTM `preconnect`
+(`lazyOnload` fetches ~1.7s after idle), `forced-reflow` in the product
+rail (`getComputedStyle` + sync mount measurement), and 8 speculative
+`?_rsc=` prefetches competing with the consented GTM download.
+
+- [x] `GtmBootstrap`: removed `preconnect` + `dns-prefetch` entirely
+      (`lazyOnload` makes any early connection wasteful, even post-grant);
+      `GtmBootstrap.test.ts` now pins their absence instead of
+      preconnect-after-grant.
+- [x] `ProductRail`: RTL from `dict.dir` (no `getComputedStyle` on
+      drag/scroll/step/keydown); first scroll measurement deferred to
+      `requestAnimationFrame`, out of the hydration critical path.
+- [x] Below-fold `<Link>`s use `prefetch={false}` (rail cards, home
+      section/product-index/final-CTA links); header order CTA keeps
+      default prefetch (highest intent).
+- [x] Verified: `pnpm typecheck`, `pnpm lint` (touched files),
+      `pnpm test` (141 files / 1465 passed), `pnpm build` (92 pages;
+      `/fr|en|ar` still `1h`).
+- [ ] Operator action: re-run Lighthouse on `/fr` **incognito, no
+      extensions** after deploy; target `TBT < 200ms`, zero site-origin
+      long tasks > 50ms; confirm fresh visit still serves zero
+      `googletagmanager` bytes and Accept still lazy-loads the
+      container.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.
