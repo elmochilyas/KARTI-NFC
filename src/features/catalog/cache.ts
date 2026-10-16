@@ -32,10 +32,14 @@ async function fetchCatalogProduct(
   return getPublishedCatalogProduct(productType, locale, supabase);
 }
 
-export const getCachedCatalogProduct = unstable_cache(fetchCatalogProduct, ["catalog-product"], {
-  tags: [CATALOG_TAG],
-  revalidate: false,
-});
+export const getCachedCatalogProduct = unstable_cache(
+  fetchCatalogProduct,
+  ["catalog-product", "v2"],
+  {
+    tags: [CATALOG_TAG],
+    revalidate: false,
+  },
+);
 
 async function fetchPublishedFlags(): Promise<Record<ProductType, boolean>> {
   let supabase;

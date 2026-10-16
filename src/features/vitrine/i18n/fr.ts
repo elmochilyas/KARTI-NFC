@@ -573,6 +573,12 @@ export const frDict: VitrineBaseDict = {
     whyTitle: "Pourquoi Karti",
     finalTitle: "Prêt à partager en un geste ?",
     finalSubtitle: "Commandez en quelques minutes, sans créer de compte.",
+    availabilityInStock: "En stock",
+    availabilityPreorder: "Précommande",
+    availabilityOutOfStock: "Rupture de stock",
+    galleryLabel: "Photos du produit",
+    galleryEmpty: "Photos produit à venir.",
+    descriptionTitle: "Description",
   },
   order: {
     title: "Commander",

@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getDict } from "../i18n";
 import { HomePage } from "../HomePage";
-import { ProductPage } from "../ProductPage";
+import { ProductLandingPage } from "../product/landing";
 import { allProducts, PRODUCT_PUBLIC_SLUGS, productSlugFromType } from "../products";
 import { localePath, orderPath, SOLUTION_SLUGS } from "../site";
 import { ExamplesHubPage, FaqHubPage, PricingPage, ResourcesPage, SolutionPage } from "./InfoPages";
@@ -91,8 +91,8 @@ describe("marketing link integrity", () => {
     });
     const pages = [
       renderToStaticMarkup(HomePage({ locale: "fr", dict })),
-      renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "google-review-card" })),
-      renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "career-card" })),
+      renderToStaticMarkup(ProductLandingPage({ locale: "fr", dict, slug: "google-review-card" })),
+      renderToStaticMarkup(ProductLandingPage({ locale: "fr", dict, slug: "career-card" })),
       renderToStaticMarkup(SolutionPage({ locale: "fr", dict, solution: "businesses" })),
       renderToStaticMarkup(PricingPage({ locale: "fr", dict, products: pricingProducts })),
       renderToStaticMarkup(ExamplesHubPage({ locale: "fr", dict })),
@@ -107,7 +107,9 @@ describe("marketing link integrity", () => {
 
   it("keeps product order CTAs on valid ?product= slugs", () => {
     const dict = getDict("fr");
-    const html = renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "whatsapp-card" }));
+    const html = renderToStaticMarkup(
+      ProductLandingPage({ locale: "fr", dict, slug: "whatsapp-card" }),
+    );
     expect(html).toContain("/fr/order?product=whatsapp-card");
   });
 
@@ -145,7 +147,7 @@ describe("marketing render smoke", () => {
     const dict = getDict("fr");
     const html =
       renderToStaticMarkup(HomePage({ locale: "fr", dict })) +
-      renderToStaticMarkup(ProductPage({ locale: "fr", dict, slug: "personal-card" }));
+      renderToStaticMarkup(ProductLandingPage({ locale: "fr", dict, slug: "personal-card" }));
     expect(html).not.toContain("{order}");
     expect(html).not.toContain("{qty}");
     expect(html).not.toContain("NEXT_PUBLIC");

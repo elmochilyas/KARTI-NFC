@@ -558,6 +558,12 @@ export const enDict: VitrineBaseDict = {
     whyTitle: "Why Karti",
     finalTitle: "Ready to share in one tap?",
     finalSubtitle: "Order in minutes, with no account.",
+    availabilityInStock: "In stock",
+    availabilityPreorder: "Pre-order",
+    availabilityOutOfStock: "Out of stock",
+    galleryLabel: "Product photos",
+    galleryEmpty: "Product photos coming soon.",
+    descriptionTitle: "Description",
   },
   order: {
     title: "Order",

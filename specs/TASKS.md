@@ -4931,6 +4931,138 @@ report showed invalid items (missing "offers"/"review"/"aggregateRating").
 
 ---
 
+# Phase: Product PDP rebuild — ecommerce landing pages (2026-10-14)
+
+Operator verdict: the product pages did not read as ecommerce PDPs — no
+photo gallery, title/description buried in editorial storytelling, price
+hidden near the FAQ, CSS phone/card mockups instead of product photos.
+Full rebuild (not a restyle): new `src/features/vitrine/product/`
+composition owns the locale product routes; the old editorial
+`ProductPage` is deleted and `ProductBlocks` is trimmed to the two blocks
+info pages still use (`LabeledFlow`, `ScenarioCards`).
+
+- [x] Data: `PublicCatalogProduct.galleryImages` (PRIMARY first, then
+      GALLERY in operator sort order, locale alt with fallback chain,
+      media failure degrades to `[]`) in `src/features/catalog/public.ts`;
+      `resolveProductLanding` (hero title → display name → name;
+      short description → tagline; hero description → outcome) in
+      `src/features/catalog/copy.ts`; JSON-LD `image` = gallery-first
+      deduped set + distinct OG in `src/features/catalog/route.ts`;
+      `getRelatedPriceLines` (real configured prices only) in `route.ts`.
+- [x] UI: `product/landing.tsx` (H1 + breadcrumbs + sticky bar with price
+      meta), `product/gallery.tsx` (client island: main 4:3 + thumbnail
+      strip + honest empty state), `product/buy-panel.tsx` (title, pitch,
+      price, truthful availability badge, single order CTA, no CTA while
+      unpriced, no quantity — stays in the wizard), `product/sections.tsx`
+      (description, tap effect, use cases, steps, audience, benefits,
+      included + customization, examples only, FAQ, related with real
+      prices), `product/related.ts` (explicit cross-sell map).
+- [x] i18n: `availabilityInStock/Preorder/OutOfStock`, `galleryLabel`,
+      `galleryEmpty`, `descriptionTitle` in FR/EN/AR.
+- [x] Routes: FR/EN/AR `products/[productSlug]` render the new landing
+      with related price lines; metadata/JSON-LD/noindex rules unchanged.
+- [x] Tests: `landing.test.ts` (12: gallery pipeline + alt fallback +
+      empty state + pending CTA count + related filter/prices + RTL +
+      notFound + gallery projection incl. primary-first/alt-fallback/
+      media-failure), `copy.test.ts` (+4 landing texts),
+      `structured-data.test.ts` (+1 gallery JSON-LD),
+      `pages.test.ts` + `routes.test.ts` + FR route test migrated.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm test` (137 files /
+      1410 passed), `pnpm build` (24 product pages prerendered) all green.
+- [ ] Operator action (outside repo): upload PRIMARY + GALLERY photos and
+      fill hero/short descriptions + alt text per product in
+      `/dashboard/catalog`; then eyeball one PDP at 390px + desktop.
+
+---
+
+# Phase: Related-products photo rail (2026-10-15)
+
+Operator verdict: the related block must look like ecommerce
+cross-sell — photos, prices, proper layout.
+
+- [x] Data: `getRelatedCards` (photo + CMS name override + real price
+      per related product; unpublished/unreachable excluded, never
+      guessed). Defensive `galleryImages ?? []` plus catalog cache key
+      `v2` after the persistent disk cache served pre-gallery rows into a
+      build (`revalidate: false` never expires them).
+- [x] UI: `PdpRelated` is a photo-card rail (swipe + peek on mobile,
+      3-up grid on desktop, 4:3 pipeline images, honest placeholder,
+      whole card = one link). Landing takes `relatedCards`; FR/EN/AR
+      routes preload them; `getRelatedPriceLines` removed.
+- [x] Tests: route helper (photo/name/price, unpublished excluded,
+      empty on outage) + landing render (pipeline image, alt fallback,
+      placeholder initial, price, CMS name).
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm test` (139 files /
+      1441 passed), `pnpm build` (92 pages) all green.
+
+---
+
+# Phase: PDP icon system — custom duotone SVGs for all sections (2026-10-15)
+
+Operator verdict: PDP sections were text-only and boring. Per plan
+answers (custom brand SVGs, all sections, brand marks allowed): new
+`src/features/vitrine/product/icons.tsx` — hand-drawn duotone line marks
+(ink strokes + accent/gold fills, `currentColor`-first, decorative
+`aria-hidden`, RTL-safe, zero JS, zero new deps).
+
+- [x] Tap-effect section is the signature visual (profile = person+waves,
+      direct = bolt+waves); buy panel (bag CTA, package/clock/blocked
+      badges, tap-mark note); included (check seals + sliders);
+      audience (user chips); examples (demo spark); empty gallery
+      (image-plus mark); SVG arrows replace text glyphs. (The related
+      grid's brand tiles were later replaced by the photo rail, above.)
+- [x] Tests: `icons.test.ts` (17: every mark decorative SVG, profile vs
+      direct distinct, all 8 products tile, brand colors pinned).
+- [x] Mobile polish: sticky bar uses the compact `nav.orderCtaShort`
+      label on small screens (full label from `sm:` up) with tighter
+      padding; tap mark centers on stacked mobile; H1 `break-words`
+      insurance at 320px; edge-bleed snap-scrolling thumbnail strip
+      (+3 `landing.test.ts` cases).
+- [x] Mobile footer no longer a list: products as icon menu rows and
+      Solutions/Help/Legal as borderless `<details>` accordions over
+      hairline dividers — zero boxed cards; CTAs, 44px targets, centered
+      bottom bar kept. Marks are tile-less white glyphs.
+- [x] Footer language chooser is a segmented pill (full names, filled
+      active, 44px targets, zero JS) in both mobile and desktop trees.
+- [x] Language switch preserves the page: footer segment swaps only the
+      locale prefix via `usePathname` (same pattern as the header globe
+      menu), instead of dropping to the homepage.
+- [x] Verified: `pnpm typecheck`, `pnpm lint`, `pnpm test` (139 files /
+      1436 passed), `pnpm build` (92 pages) all green.
+- [ ] Operator action: eyeball one PDP at 390px + desktop after deploy.
+
+---
+
+# Phase: Home product rail navigation fix (2026-10-16)
+
+Laptop arrows felt dead and mobile had no step buttons — only swipe. Root
+causes: `stepCard` used `scrollIntoView({ inline: "nearest" })` (no-op when
+the target card was already partially visible, the common 3-up desktop
+case), header prev/next were `hidden md:flex` (no mobile controls), and the
+hidden-scrollbar rail had no pointer-drag path for mouse users.
+
+- [x] `railNav.ts` (new): pure navigation math outside JSX —
+      `railStepFromWidths` (one card + gap, 80%-viewport fallback),
+      `railScrollDelta` (explicit signed `scrollBy` delta, RTL sign flip,
+      never zero), `railEdgeState` (`Math.abs(scrollLeft)` normalization,
+      tolerance, progress/visible) + `railNav.test.ts` (10 cases).
+- [x] `ProductRail.tsx` rework: explicit `scrollBy` stepping (replaces
+      `scrollIntoView`); header prev/next always rendered (44px targets,
+      `aria-controls`); floating side overlay buttons (`start-2`/`end-2`,
+      RTL-logical, fade out at each end); mouse/pen pointer drag-to-scroll
+      with click-after-drag suppression (touch keeps native swipe);
+      `snap-proximity` (was `mandatory`, fought drag/buttons);
+      `ResizeObserver` + resize edge-state refresh; thicker progress hairline.
+- [x] Follow-up: header prev/next reverted to desktop-only
+      (`hidden md:flex`) — mobile uses only the floating side buttons, per
+      operator request; native swipe unchanged.
+- [x] Verified: `pnpm typecheck`, `pnpm lint` (changed files),
+      `pnpm test` (140 files / 1452 passed), `pnpm build` (92 pages).
+- [ ] Operator action: swipe/click/drag the rail on a real phone (390px) +
+      laptop, incl. AR (RTL) locale, after deploy.
+
+---
+
 # Post-MVP Backlog — Do Not Implement Yet
 
 - [ ] Customer/cardholder self-service accounts.

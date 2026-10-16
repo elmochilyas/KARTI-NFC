@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import {
   getProductRoute,
+  getRelatedCards,
   productRouteJsonLd,
   productRouteMetadata,
 } from "@/features/catalog/route";
-import { ProductPage } from "@/features/vitrine/ProductPage";
+import { ProductLandingPage } from "@/features/vitrine/product/landing";
 import { getDict } from "@/features/vitrine/i18n";
 import { PRODUCT_PUBLIC_SLUGS } from "@/features/vitrine/products";
 import { JsonLd } from "@/features/vitrine/seo";
-import { getCachedPublishedFlags } from "@/features/catalog/cache";
 
 export function generateStaticParams(): { productSlug: string }[] {
   return PRODUCT_PUBLIC_SLUGS.map((productSlug) => ({ productSlug }));
@@ -32,18 +32,18 @@ export default async function FrProductPage({
   if (!route) notFound();
   const dict = getDict("fr");
   const jsonLd = productRouteJsonLd(route, dict, productSlug, "fr");
-  const flags = await getCachedPublishedFlags();
+  const relatedCards = await getRelatedCards(route.product, "fr");
   return (
     <>
       {jsonLd.product ? <JsonLd id="karti-jsonld-product" data={jsonLd.product} /> : null}
       <JsonLd id="karti-jsonld-breadcrumb" data={jsonLd.breadcrumb} />
       <JsonLd id="karti-jsonld-faq" data={jsonLd.faq} />
-      <ProductPage
+      <ProductLandingPage
         locale="fr"
         dict={dict}
         slug={productSlug}
         catalog={route.catalog}
-        publishedFlags={flags}
+        relatedCards={relatedCards}
       />
     </>
   );

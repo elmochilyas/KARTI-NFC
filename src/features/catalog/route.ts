@@ -10,6 +10,7 @@ import {
 } from "@/features/vitrine/seo";
 import { localePath } from "@/features/vitrine/site";
 import { productTypeFromSlug } from "@/features/vitrine/products";
+import { RELATED_PRODUCTS, type RelatedCard } from "@/features/vitrine/product/related";
 import { getAppUrl } from "@/lib/env";
 import { getCachedCatalogProduct, getCachedPublishedFlags } from "./cache";
 import { catalogOfferForJsonLd, catalogPriceLine, resolveProductCopy } from "./copy";
@@ -77,6 +78,38 @@ export async function productRouteMetadata(
 }
 
 /**
+ * Related-product cards for the PDP cross-sell rail: photo, CMS name
+ * override, and real configured price per related product. Entries
+ * without a published catalog row (unpublished or unreachable) are
+ * excluded — never guessed, never a dead card.
+ */
+export async function getRelatedCards(
+  product: ProductType,
+  locale: VitrineLocale,
+): Promise<RelatedCard[]> {
+  const entries = await Promise.all(
+    RELATED_PRODUCTS[product].map(async (item): Promise<RelatedCard | null> => {
+      const entry = await getCachedCatalogProduct(item, locale);
+      if (!entry) return null;
+      // Defensive: disk-persisted cache rows from before the gallery field
+      // existed (revalidate:false) may lack it — degrade to no photo.
+      const galleryImages = entry.galleryImages ?? [];
+      const galleryImage =
+        galleryImages.find((image) => image.url === entry.primaryImageUrl) ?? galleryImages[0];
+      const displayName = entry.displayName?.trim() ?? "";
+      return {
+        product: item,
+        name: displayName !== "" ? displayName : null,
+        priceLine: catalogPriceLine(entry),
+        imageUrl: entry.primaryImageUrl ?? galleryImage?.url ?? null,
+        imageAlt: galleryImage?.alt ?? "",
+      };
+    }),
+  );
+  return entries.filter((entry): entry is RelatedCard => entry !== null);
+}
+
+/**
  * Homepage data: published flags + one visible fixed price line per
  * published priced product (absent while "Price not configured").
  * Fail-safe: empty lines on catalog errors — the homepage never shows a
@@ -116,9 +149,16 @@ export function productRouteJsonLd(
   const url = `${appUrl}${localePath(locale, "products", productSlug)}`;
   const copy = resolveProductCopy(dict.products[route.product], route.catalog);
   const offer = route.published ? catalogOfferForJsonLd(route.catalog, url) : null;
-  const images = route.catalog?.primaryImageUrl ? [route.catalog.primaryImageUrl] : [];
+  // Gallery-first image set (PDP order), deduped, OG appended when distinct.
+  const images: string[] = [];
+  const pushImage = (src: string | null | undefined): void => {
+    if (typeof src !== "string" || src === "" || images.includes(src)) return;
+    images.push(src);
+  };
+  for (const galleryImage of route.catalog?.galleryImages ?? []) pushImage(galleryImage.url);
+  pushImage(route.catalog?.primaryImageUrl);
   if (route.catalog?.ogImageUrl && route.catalog.ogImageUrl !== route.catalog.primaryImageUrl) {
-    images.push(route.catalog.ogImageUrl);
+    pushImage(route.catalog?.ogImageUrl);
   }
   return {
     product: offer

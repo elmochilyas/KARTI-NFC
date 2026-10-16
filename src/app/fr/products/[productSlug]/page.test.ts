@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ProductPage } from "@/features/vitrine/ProductPage";
+import { ProductLandingPage } from "@/features/vitrine/product/landing";
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
@@ -43,12 +43,12 @@ function findProductPage(element: unknown) {
       props?: Record<string, unknown> & { children?: unknown };
     } | null;
     if (!node || typeof node !== "object") continue;
-    if (node.type === ProductPage && node.props) return node.props;
+    if (node.type === ProductLandingPage && node.props) return node.props;
     const children = node.props?.children;
     if (Array.isArray(children)) stack.push(...children);
     else if (children !== undefined && children !== null) stack.push(children);
   }
-  throw new Error("ProductPage not found in page output");
+  throw new Error("ProductLandingPage not found in page output");
 }
 
 describe("generateMetadata /fr/products/[productSlug]", () => {
