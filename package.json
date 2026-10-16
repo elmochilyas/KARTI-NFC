@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.4.0",
+  "browserslist": [
+    "chrome >= 92",
+    "edge >= 92",
+    "firefox >= 90",
+    "safari >= 15.4",
+    "ios_saf >= 15.4",
+    "android >= 92",
+    "not ie 11",
+    "not dead"
+  ],
   "engines": {
     "node": ">=20"
   },

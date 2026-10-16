@@ -7,7 +7,7 @@
  * bookkeeping run there. (The order flow hard-navigates to the receipt,
  * so a suppressed mount always means a clean document.)
  *
- * Execution order (consent ordering is critical):
+ * Consent-gated loading (PageSpeed + privacy):
  *   1. `dataLayer` exists — created by the blocking `ConsentInit` inline
  *      script during document parsing (before hydration, before gtm.js)
  *   2. Consent Mode default = denied via `gtag('consent', 'default', …)`
@@ -16,8 +16,15 @@
  *      'update', …)` — analytics only; ads stay denied) by the inline
  *      script; this effect re-applies it only as a fallback if the inline
  *      script did not run (never downgrading an existing command)
- *   4. GTM container loads (`afterInteractive`, exactly once, only with a valid ID)
+ *   4. GTM container loads (`lazyOnload`, exactly once, only with a valid
+ *      ID **and** a granted analytics choice). No consent (or reject) →
+ *      no `gtm.js`, no `gtag.js` (~155 KiB saved), no preconnect: first
+ *      paint stays third-party-free. Accepting the banner fires
+ *      `karti:consent-change`, which flips this island to load the
+ *      container without a reload.
  *   5. Analytics events flow via the centralized adapter transport
+ *      (dataLayer pushes are cheap and stay wired so pre-consent funnel
+ *      events queue; the vendor download is what is gated)
  *
  * When `NEXT_PUBLIC_GTM_ID` is absent (or GTM is blocked by the browser),
  * this renders nothing and the app keeps working: steps 1–3 + the safe
@@ -27,10 +34,10 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { getGtmId } from "@/lib/env";
 import { setAnalyticsTransport } from "./analytics";
-import { isFreshConsent, readConsentCookie } from "./consent";
+import { CONSENT_CHANGE_EVENT, isFreshConsent, readConsentCookie } from "./consent";
 import {
   buildGtmNoscriptUrl,
   buildGtmScriptUrl,
@@ -40,17 +47,55 @@ import {
   ensureDataLayer,
   GTM_LOADED_FLAG,
   GTM_SCRIPT_ID,
+  hasGrantedAnalyticsConsent,
   isReceiptRoute,
   isValidGtmId,
   pushGtagConsent,
 } from "./gtm";
 import { gtmTransport } from "./gtmTransport";
 
+/**
+ * Consent grant as external-store snapshots (same pattern as
+ * `ConsentInit`): the server snapshot is always `false` (no vendor
+ * bytes in SSR HTML, no hydration mismatch), while the client snapshot
+ * re-reads the fresh grant after hydration and on every
+ * `karti:consent-change` choice — no `setState`-in-effect needed.
+ */
+function subscribeConsentGrant(onChange: () => void): () => void {
+  try {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener(CONSENT_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(CONSENT_CHANGE_EVENT, onChange);
+  } catch {
+    return () => {};
+  }
+}
+
+function getConsentGrantSnapshot(): boolean {
+  try {
+    return hasGrantedAnalyticsConsent();
+  } catch {
+    return false;
+  }
+}
+
+function getConsentGrantServerSnapshot(): boolean {
+  return false;
+}
+
 export function GtmBootstrap() {
   // Public container ID only; absent/invalid → GTM stays disabled, app works.
   const [gtmId] = useState<string | null>(() => getGtmId() ?? null);
   const pathname = usePathname();
   const suppressed = isReceiptRoute(pathname);
+  // Consent-gated: the container (and its preconnect) render only here.
+  // Returning acceptors flip on right after hydration; new visitors flip
+  // when the banner Accept fires `karti:consent-change` (no reload).
+  const consented = useSyncExternalStore(
+    subscribeConsentGrant,
+    getConsentGrantSnapshot,
+    getConsentGrantServerSnapshot,
+  );
 
   useEffect(() => {
     // Receipt route: never initialize any GA transport (clean document by
@@ -84,27 +129,41 @@ export function GtmBootstrap() {
     } catch {
       // No stored consent — defaults (denied) stand.
     }
+    // 4. Consent state needs no effect wiring: `consented` above
+    // re-reads the grant after hydration and on every banner choice.
     // 5. Wire the ONE GTM transport (events queue even before gtm.js arrives).
     setAnalyticsTransport(gtmTransport);
-    // 4. Mark the container claimed exactly once (Script dedups by id).
+    return () => {
+      setAnalyticsTransport(null);
+    };
+  }, [suppressed]);
+
+  useEffect(() => {
+    // Mark the container claimed exactly once, and only when it will
+    // load (Script dedups by id; this flag guards re-mounts).
+    if (suppressed || !consented || !gtmId || !isValidGtmId(gtmId)) return;
     try {
       const w = window as unknown as Record<string, unknown>;
-      if (gtmId && isValidGtmId(gtmId) && !w[GTM_LOADED_FLAG]) {
+      if (!w[GTM_LOADED_FLAG]) {
         w[GTM_LOADED_FLAG] = true;
       }
     } catch {
       // GTM unavailable — application keeps working without it.
     }
-    return () => {
-      setAnalyticsTransport(null);
-    };
-  }, [gtmId, suppressed]);
+  }, [suppressed, consented, gtmId]);
 
   if (suppressed || !gtmId || !isValidGtmId(gtmId)) return null;
 
+  // No consent yet (or rejected): render nothing — no vendor bytes, no
+  // preconnect, no iframe. The transport above still queues dataLayer
+  // events cheaply; the 155 KiB download waits for an explicit Accept.
+  if (!consented) return null;
+
   return (
     <>
-      <Script id={GTM_SCRIPT_ID} strategy="afterInteractive" src={buildGtmScriptUrl(gtmId)} />
+      <link rel="preconnect" href="https://www.googletagmanager.com" crossOrigin="anonymous" />
+      <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+      <Script id={GTM_SCRIPT_ID} strategy="lazyOnload" src={buildGtmScriptUrl(gtmId)} />
       <noscript>
         <iframe
           src={buildGtmNoscriptUrl(gtmId)}

@@ -3,9 +3,11 @@
  *
  * Framework-appropriate equivalent of Google's raw GTM snippet for the
  * Next.js App Router: dataLayer + Consent Mode defaults are established
- * first (see `GtmBootstrap`), then the container script loads with
- * `next/script afterInteractive` (never render-blocking), with a
- * `<noscript>` iframe fallback.
+ * first (see `GtmBootstrap`), then the container script loads lazily and
+ * ONLY after the visitor grants analytics consent (`next/script
+ * lazyOnload`, never render-blocking), with a `<noscript>` iframe
+ * fallback. No consent (or reject) → no `gtm.js`, no `gtag.js`, no
+ * preconnect: first paint stays third-party-free.
  *
  * Container: GTM-PCXTLTM7 via `NEXT_PUBLIC_GTM_ID` (public, not a secret).
  * GA4 is configured INSIDE GTM — never add a direct gtag.js script.
@@ -202,6 +204,67 @@ export function buildConsentInitScript(): string {
     "}catch(e){}" +
     "})();"
   );
+}
+
+/**
+ * True when dataLayer already holds a `gtag('consent', 'update', …)`
+ * command GRANTING analytics_storage. A plain "update present" check is
+ * not enough: a reject also pushes an update (still denied), and loading
+ * 155 KiB of vendor JS on a reject would defeat consent-gated loading.
+ */
+export function dataLayerHasGrantedAnalytics(): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    const layer = window.dataLayer;
+    if (!Array.isArray(layer)) return false;
+    return layer.some((entry) => {
+      if (entry === null || typeof entry !== "object") return false;
+      const cmd = entry as unknown as ArrayLike<unknown>;
+      if (cmd[0] !== "consent" || cmd[1] !== "update") return false;
+      const params = cmd[2] as Record<string, unknown> | undefined;
+      return params?.["analytics_storage"] === "granted";
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when the visitor granted analytics: a fresh
+ * `karti_consent` cookie with `analytics=1`, or a dataLayer consent
+ * update granting it (e.g. pushed by the blocking init script before
+ * this island hydrated). SSR-safe: returns false without a window.
+ * Receipt routes never qualify (their document holds no consent state).
+ */
+export function hasGrantedAnalyticsConsent(cookieString?: string | null): boolean {
+  try {
+    if (typeof window === "undefined" && cookieString == null) return false;
+    const raw = cookieString ?? (typeof document !== "undefined" ? document.cookie : null);
+    if (raw) {
+      const parts = raw.split(";");
+      for (const part of parts) {
+        const [key, ...rest] = part.split("=");
+        if (key.trim() === "karti_consent") {
+          try {
+            const val = decodeURIComponent(rest.join("="));
+            const match = /^v1:analytics=([01]):ts=(\d+)$/.exec(val.trim());
+            if (match) {
+              const ts = Number(match[2]);
+              const now = Math.floor(Date.now() / 1000);
+              const age = now - ts;
+              if (match[1] === "1" && age >= 0 && age <= 15552000) return true;
+            }
+          } catch {
+            // Malformed cookie — fall through to the dataLayer check.
+          }
+          break;
+        }
+      }
+    }
+    return dataLayerHasGrantedAnalytics();
+  } catch {
+    return false;
+  }
 }
 
 /**

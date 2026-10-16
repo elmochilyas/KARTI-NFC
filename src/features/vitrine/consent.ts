@@ -14,6 +14,31 @@ export const CONSENT_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
 
 export const CONSENT_OPEN_EVENT = "karti:open-consent";
 
+/**
+ * Dispatched on `window` whenever the visitor makes a consent choice
+ * (accept or reject). Lets deferred third-party loaders (GTM) react
+ * without polling cookies: no choice → no vendor script; accept →
+ * load lazily; reject → stay unloaded.
+ */
+export const CONSENT_CHANGE_EVENT = "karti:consent-change";
+
+export type ConsentChangeDetail = {
+  /** The visitor's new analytics choice. */
+  analytics: boolean;
+};
+
+/** Notify in-page listeners that the visitor decided (never throws). */
+export function notifyConsentChange(analytics: boolean): void {
+  try {
+    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+    window.dispatchEvent(
+      new CustomEvent<ConsentChangeDetail>(CONSENT_CHANGE_EVENT, { detail: { analytics } }),
+    );
+  } catch {
+    // Consent bookkeeping must never break the page.
+  }
+}
+
 export type ConsentChoice = {
   version: 1;
   /** Analytics (measurement) consent. Advertising always stays denied. */

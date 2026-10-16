@@ -7,9 +7,11 @@ import {
   CONSENT_SCRIPT_ID,
   consentUpdateFor,
   dataLayerHasConsent,
+  dataLayerHasGrantedAnalytics,
   ensureDataLayer,
   GTM_LOADED_FLAG,
   GTM_SCRIPT_ID,
+  hasGrantedAnalyticsConsent,
   isReceiptRoute,
   isValidGtmId,
   pageTypeForPath,
@@ -370,5 +372,55 @@ describe("blocking consent init script (pre-GTM, Tag Assistant contract)", () =>
       expect(win["dataLayer"]).toBeUndefined();
       expect(win["gtag"]).toBeUndefined();
     }
+  });
+});
+
+describe("consent-gated loading (PageSpeed: no consent → no vendor bytes)", () => {
+  function freshCookieValue(analytics: boolean, ageSeconds = 60): string {
+    const now = Math.floor(Date.now() / 1000);
+    return serializeConsentChoice({ version: 1, analytics, decidedAt: now - ageSeconds });
+  }
+
+  it("grants only on an explicit analytics update (reject ≠ grant)", () => {
+    const win = stubWindow();
+    expect(dataLayerHasGrantedAnalytics()).toBe(false);
+    (win["dataLayer"] as unknown[]) = [["consent", "update", consentUpdateFor(false)]];
+    expect(dataLayerHasGrantedAnalytics()).toBe(false);
+    (win["dataLayer"] as unknown[]) = [["consent", "update", consentUpdateFor(true)]];
+    expect(dataLayerHasGrantedAnalytics()).toBe(true);
+    // Plain events and defaults never count as a grant.
+    (win["dataLayer"] as unknown[]) = [
+      ["consent", "default", { ...CONSENT_DEFAULTS }],
+      { event: "page_view" },
+    ];
+    expect(dataLayerHasGrantedAnalytics()).toBe(false);
+  });
+
+  it("reads the fresh first-party cookie, rejects stale/malformed ones", () => {
+    const win = stubWindow();
+    win["dataLayer"] = [];
+    const freshAccept = `karti_consent=${encodeURIComponent(freshCookieValue(true))}`;
+    const freshReject = `karti_consent=${encodeURIComponent(freshCookieValue(false))}`;
+    const staleAccept = `karti_consent=${encodeURIComponent(
+      freshCookieValue(true, CONSENT_MAX_AGE_SECONDS + 60),
+    )}`;
+    expect(hasGrantedAnalyticsConsent(freshAccept)).toBe(true);
+    expect(hasGrantedAnalyticsConsent(freshReject)).toBe(false);
+    expect(hasGrantedAnalyticsConsent(staleAccept)).toBe(false);
+    expect(hasGrantedAnalyticsConsent("karti_consent=all")).toBe(false);
+    expect(hasGrantedAnalyticsConsent("")).toBe(false);
+  });
+
+  it("falls back to the dataLayer grant when no cookie is readable", () => {
+    const win = stubWindow();
+    (win["dataLayer"] as unknown[]) = [["consent", "update", consentUpdateFor(true)]];
+    expect(hasGrantedAnalyticsConsent("")).toBe(true);
+    (win["dataLayer"] as unknown[]) = [];
+    expect(hasGrantedAnalyticsConsent("")).toBe(false);
+  });
+
+  it("is SSR-safe (no window → no grant, never throws)", () => {
+    expect(hasGrantedAnalyticsConsent()).toBe(false);
+    expect(dataLayerHasGrantedAnalytics()).toBe(false);
   });
 });

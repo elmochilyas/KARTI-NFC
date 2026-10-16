@@ -15,6 +15,15 @@ export function generateMetadata(): Metadata {
   });
 }
 
+/**
+ * ISR for the marketing home (PageSpeed: cuts `/fr` TTFB out of the LCP
+ * critical chain). Catalog data itself is cached indefinitely and purged
+ * synchronously on dashboard edits (`revalidateCatalog`); dashboard
+ * catalog actions also `revalidatePath` the locale homes, so price/copy
+ * changes stay promptly visible despite the hourly static window.
+ */
+export const revalidate = 3600;
+
 export default async function FrHomePage() {
   const dict = getDict("fr");
   const { flags, priceLines } = await getHomeCatalogData("fr");

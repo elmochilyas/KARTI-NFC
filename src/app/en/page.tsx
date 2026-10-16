@@ -15,6 +15,13 @@ export function generateMetadata(): Metadata {
   });
 }
 
+/**
+ * ISR for the marketing home (PageSpeed: cuts `/en` TTFB out of the LCP
+ * critical chain). See `/fr` for the freshness contract: dashboard
+ * catalog actions revalidate the locale homes on every edit.
+ */
+export const revalidate = 3600;
+
 export default async function EnHomePage() {
   const dict = getDict("en");
   const { flags, priceLines } = await getHomeCatalogData("en");
