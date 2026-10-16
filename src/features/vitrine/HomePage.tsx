@@ -120,6 +120,7 @@ export function HomePage({
           <p className="mt-8">
             <Link
               href={localePath(locale, "how-it-works")}
+              prefetch={false}
               className="font-display inline-flex min-h-11 items-center gap-1.5 text-base font-bold text-ink underline-offset-4 hover:underline"
             >
               {dict.common.learnMore}
@@ -172,6 +173,7 @@ export function HomePage({
             <p className="mt-6">
               <Link
                 href={localePath(locale, "examples")}
+                prefetch={false}
                 className="font-display inline-flex min-h-11 items-center gap-1.5 text-base font-bold text-accent-strong underline-offset-4 hover:underline"
               >
                 {dict.common.viewExamples}
@@ -191,6 +193,7 @@ export function HomePage({
           <p className="mt-5">
             <Link
               href={localePath(locale, "faq")}
+              prefetch={false}
               className="inline-flex min-h-11 items-center gap-1 font-semibold text-accent-strong underline-offset-4 hover:underline"
             >
               {dict.common.learnMore}
@@ -224,12 +227,14 @@ export function HomePage({
               <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Link
                   href={orderPath(locale)}
+                  prefetch={false}
                   className="font-display inline-flex min-h-12 items-center justify-center rounded-full bg-white px-7 text-base font-bold text-ink transition-all hover:-translate-y-px"
                 >
                   {dict.home.orderCta}
                 </Link>
                 <Link
                   href={localePath(locale, "contact")}
+                  prefetch={false}
                   className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/25 px-7 text-base font-semibold text-white transition-all hover:border-white/60"
                 >
                   {m.finalTalkCta}
@@ -261,6 +266,7 @@ export function HomePage({
                 <li key={product}>
                   <Link
                     href={localePath(locale, "products", productSlugFromType(product))}
+                    prefetch={false}
                     className="inline-flex min-h-11 items-center text-[15px] text-muted underline hover:text-text"
                   >
                     {dict.products[product].name}

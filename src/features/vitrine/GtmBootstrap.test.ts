@@ -29,11 +29,9 @@ describe("GtmBootstrap (consent-gated, lazy)", () => {
     expect(bootstrap).toContain("if (!consented) return null;");
   });
 
-  it("preconnects only when the container will actually load", () => {
-    const preconnectAt = bootstrap.indexOf('rel="preconnect"');
-    expect(preconnectAt).toBeGreaterThan(-1);
-    const gateAt = bootstrap.indexOf("if (!consented) return null;");
-    expect(preconnectAt).toBeGreaterThan(gateAt);
+  it("never preconnects (lazyOnload makes early connection wasteful)", () => {
+    expect(bootstrap).not.toContain('rel="preconnect"');
+    expect(bootstrap).not.toContain("dns-prefetch");
   });
 
   it("keeps the receipt-route + single-transport contracts", () => {

@@ -161,8 +161,6 @@ export function GtmBootstrap() {
 
   return (
     <>
-      <link rel="preconnect" href="https://www.googletagmanager.com" crossOrigin="anonymous" />
-      <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
       <Script id={GTM_SCRIPT_ID} strategy="lazyOnload" src={buildGtmScriptUrl(gtmId)} />
       <noscript>
         <iframe

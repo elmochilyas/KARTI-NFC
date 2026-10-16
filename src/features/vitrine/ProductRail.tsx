@@ -34,10 +34,6 @@ function prefersReducedMotion() {
   );
 }
 
-function isRtlElement(el: HTMLElement) {
-  return getComputedStyle(el).direction === "rtl";
-}
-
 const RAIL_TRACK_ID = "home-product-rail";
 
 const HEADER_BUTTON_CLASS =
@@ -71,6 +67,11 @@ export function ProductRail({
   const [atEnd, setAtEnd] = useState(true);
 
   const m = dict.marketingHome;
+  // RTL comes from the localized dict (`dir`), never `getComputedStyle`:
+  // style queries force a style recalc + layout on every drag/scroll step
+  // (Lighthouse `forced-reflow`). The shell already sets `dir` on the
+  // wrapper, so the dict value always matches the rendered direction.
+  const isRtl = dict.dir === "rtl";
   const items = PRODUCT_CATEGORIES.filter(({ product }) => publishedFlags?.[product] !== false);
 
   const updateScrollState = useCallback(() => {
@@ -84,7 +85,10 @@ export function ProductRail({
   }, []);
 
   useEffect(() => {
-    updateScrollState();
+    // Defer the first measurement past hydration (rAF): scroll metrics
+    // force layout, so reading them synchronously during mount lands in
+    // the TBT critical path. Resize/scroll updates stay as-is.
+    const raf = requestAnimationFrame(() => updateScrollState());
     window.addEventListener("resize", updateScrollState);
     const el = railRef.current;
     const observer =
@@ -93,6 +97,7 @@ export function ProductRail({
         : null;
     if (el && observer) observer.observe(el);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("resize", updateScrollState);
       observer?.disconnect();
     };
@@ -117,7 +122,7 @@ export function ProductRail({
     const el = railRef.current;
     if (!el) return;
     const cards = cardRefs.current.filter((card): card is HTMLElement => card !== null);
-    const rtl = isRtlElement(el);
+    const rtl = isRtl;
     let step: number;
     if (cards.length > 0) {
       const first = cards[0];
@@ -139,7 +144,7 @@ export function ProductRail({
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    const rtl = getComputedStyle(event.currentTarget).direction === "rtl";
+    const rtl = isRtl;
     if (event.key === "ArrowRight") {
       event.preventDefault();
       stepCard(rtl ? -1 : 1);
@@ -167,7 +172,7 @@ export function ProductRail({
       setDragging(true);
     }
     if (drag.moved) {
-      el.scrollLeft = drag.startScrollLeft - dx * (isRtlElement(el) ? -1 : 1);
+      el.scrollLeft = drag.startScrollLeft - dx * (isRtl ? -1 : 1);
     }
   }
 
@@ -268,6 +273,7 @@ export function ProductRail({
                 <Link
                   href={localePath(locale, "products", productSlugFromType(product))}
                   draggable={false}
+                  prefetch={false}
                   className="group flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-background transition-shadow duration-200 hover:shadow-[var(--shadow-lift)] motion-safe:active:scale-[0.99]"
                 >
                   <CategoryMedia size="card" />
