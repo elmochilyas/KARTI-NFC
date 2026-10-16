@@ -138,6 +138,15 @@ export type VitrineDict = {
     whyTitle: string;
     finalTitle: string;
     finalSubtitle: string;
+    /** PDP buy-panel stock badges (truthful, from the configured catalog availability). */
+    availabilityInStock: string;
+    availabilityPreorder: string;
+    availabilityOutOfStock: string;
+    /** PDP gallery accessible label + empty state (operator has uploaded no photos yet). */
+    galleryLabel: string;
+    galleryEmpty: string;
+    /** PDP full-description section title. */
+    descriptionTitle: string;
   };
   order: {
     title: string;

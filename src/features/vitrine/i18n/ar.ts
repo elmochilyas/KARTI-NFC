@@ -516,6 +516,12 @@ export const arDict: VitrineBaseDict = {
     whyTitle: "لماذا Karti",
     finalTitle: "مستعد للمشاركة بلمسة واحدة؟",
     finalSubtitle: "اطلب في دقائق، دون إنشاء حساب.",
+    availabilityInStock: "متوفر",
+    availabilityPreorder: "طلب مسبق",
+    availabilityOutOfStock: "نفد المخزون",
+    galleryLabel: "صور المنتج",
+    galleryEmpty: "صور المنتج قريبًا.",
+    descriptionTitle: "الوصف",
   },
   order: {
     title: "الطلب",
