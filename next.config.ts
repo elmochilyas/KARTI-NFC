@@ -45,6 +45,12 @@ const nextConfig: NextConfig = {
     // without this both libraries compile whole-package without tree-shaking
     // precision. Zero behavior change, smaller JS on every route.
     optimizePackageImports: ["react-icons", "lucide-react"],
+    // Catalog uploads are downscaled + re-encoded in the browser first
+    // (see features/catalog/preprocess.ts) so they stay well under the
+    // default 1 MB Server Action body limit. This modest 2 MB ceiling is
+    // only a safety margin for that flow, and it stays below Vercel's
+    // 4.5 MB Serverless Function request-body cap.
+    serverActions: { bodySizeLimit: "2mb" },
   },
   images: {
     formats: ["image/avif", "image/webp"],

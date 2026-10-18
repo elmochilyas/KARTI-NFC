@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { CatalogFormState } from "@/app/dashboard/catalog/actions";
+import {
+  CATALOG_UPLOAD_ACCEPT,
+  UPLOAD_PROCESSING_FAILED_MESSAGE,
+  preprocessCatalogImageFile,
+} from "../preprocess";
 import { catalogAssetUrl } from "../storagePaths";
 import type { CatalogMediaRow } from "../types";
 
@@ -142,28 +147,79 @@ export function MediaManager({
     uploadAction,
     INITIAL_STATE,
   );
+  const [preparing, setPreparing] = useState(false);
+  const [prepError, setPrepError] = useState<string | null>(null);
   const uploadMessage =
     uploadState.ok === false && uploadState.error.message !== "" ? uploadState.error.message : null;
+  const formError = prepError ?? uploadMessage;
+  const busy = preparing || uploadPending;
   const uploadSaved = uploadState.ok === true;
   const ordered = [...media].sort((a, b) => a.sort_order - b.sort_order);
 
+  /**
+   * Preprocess the picked file in the browser before invoking the Server
+   * Action, so uploads fit under the Server Action body limit. Server-side
+   * validation stays authoritative.
+   */
+  function handleUploadSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fileElement = form.elements.namedItem("image");
+    const file = fileElement instanceof HTMLInputElement ? (fileElement.files?.[0] ?? null) : null;
+    if (!file) {
+      setPrepError("Choose an image to upload.");
+      return;
+    }
+    const roleElement = form.elements.namedItem("role");
+    const role = roleElement instanceof HTMLSelectElement ? roleElement.value : "GALLERY";
+    setPrepError(null);
+    setPreparing(true);
+    void preprocessCatalogImageFile(file)
+      .then((result) => {
+        if (!result.ok) {
+          setPrepError(result.message);
+          return;
+        }
+        const formData = new FormData();
+        formData.set("image", result.file);
+        formData.set("role", role);
+        uploadFormAction(formData);
+      })
+      .catch(() => {
+        setPrepError(UPLOAD_PROCESSING_FAILED_MESSAGE);
+      })
+      .finally(() => {
+        setPreparing(false);
+      });
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <form action={uploadFormAction} className="flex flex-col gap-3" noValidate>
-        {uploadMessage ? (
+      <form
+        action={uploadFormAction}
+        onSubmit={handleUploadSubmit}
+        className="flex flex-col gap-3"
+        noValidate
+      >
+        {formError ? (
           <p
             role="alert"
             className="rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger"
           >
-            {uploadMessage}
+            {formError}
           </p>
         ) : null}
-        {uploadPending ? (
+        {preparing ? (
+          <p role="status" className="text-sm font-medium text-muted">
+            Preparing image…
+          </p>
+        ) : null}
+        {!preparing && uploadPending ? (
           <p role="status" className="text-sm font-medium text-muted">
             Uploading… Optimizing…
           </p>
         ) : null}
-        {!uploadPending && uploadSaved ? (
+        {!busy && uploadSaved ? (
           <p role="status" className="text-sm font-medium text-text">
             Saved.
           </p>
@@ -173,7 +229,7 @@ export function MediaManager({
           label="Product image"
           hint="4:3 · Recommended: 1600 × 1200 px · Minimum: 800 × 600 px · JPEG, PNG or WebP · Images are automatically optimized for the web."
         >
-          <Input name="image" type="file" accept="image/jpeg,image/png,image/webp" required />
+          <Input name="image" type="file" accept={CATALOG_UPLOAD_ACCEPT} required />
         </Field>
         <Field id="catalog-image-role" label="Image role">
           <Select name="role" defaultValue="GALLERY">
@@ -184,7 +240,7 @@ export function MediaManager({
           </Select>
         </Field>
         <div>
-          <Button type="submit" loading={uploadPending}>
+          <Button type="submit" loading={busy}>
             Upload image
           </Button>
         </div>
