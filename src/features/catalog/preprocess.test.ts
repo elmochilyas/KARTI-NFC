@@ -36,7 +36,9 @@ function canvasFactory(
       getContext: vi.fn(() => ({ drawImage: vi.fn() })),
       toBlob: vi.fn((cb, type, quality) => {
         record?.push({ width: canvas.width, height: canvas.height, quality: quality ?? 0 });
-        cb(new Blob([new Uint8Array(sizeFor(canvas.width, canvas.height, quality ?? 0))], { type }));
+        cb(
+          new Blob([new Uint8Array(sizeFor(canvas.width, canvas.height, quality ?? 0))], { type }),
+        );
       }),
     };
     return canvas;
