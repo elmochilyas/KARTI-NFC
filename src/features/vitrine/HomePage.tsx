@@ -15,6 +15,7 @@ import { allProducts, productSlugFromType } from "./products";
 import { localePath, orderPath } from "./site";
 import { FaqList } from "./marketing/Faq";
 import { PhoneFrame, TapVisual } from "./marketing/Mockups";
+import type { ProductImageMap } from "./marketing/ProductCategory";
 import { PageContainer, PrimaryCta, Section } from "./marketing/Section";
 import { FaqOpenTracker, PageView } from "./marketing/Trackers";
 import { ProductRail } from "./ProductRail";
@@ -24,6 +25,7 @@ export function HomePage({
   dict,
   publishedFlags = null,
   priceLines = null,
+  productImages = null,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
@@ -31,6 +33,8 @@ export function HomePage({
   publishedFlags?: Record<ProductType, boolean> | null;
   /** Visible fixed catalog price per product (absent = price not configured, no price shown). */
   priceLines?: Partial<Record<ProductType, string>> | null;
+  /** Real Catalog CMS primary images per product (absent = placeholder). */
+  productImages?: ProductImageMap | null;
 }) {
   const m = dict.marketingHome;
   const firstDemoTab = m.demoTabs[0];
@@ -89,6 +93,7 @@ export function HomePage({
         dict={dict}
         publishedFlags={publishedFlags}
         priceLines={priceLines}
+        productImages={productImages}
       />
 
       {/* 3 — HOW IT WORKS */}

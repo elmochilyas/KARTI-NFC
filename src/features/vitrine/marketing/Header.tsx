@@ -26,7 +26,12 @@ import type { VitrineDict, VitrineLocale } from "../i18n/dict";
 import { productSlugFromType } from "../products";
 import { localePath, orderPath } from "../site";
 import { LanguageMenu } from "./LanguageMenu";
-import { CategoryMedia, PRODUCT_CATEGORIES, type ProductCategoryKey } from "./ProductCategory";
+import {
+  CategoryMedia,
+  PRODUCT_CATEGORIES,
+  type ProductCategoryKey,
+  type ProductImageMap,
+} from "./ProductCategory";
 import {
   MOBILE_DRAWER_CLASS,
   MOBILE_DRAWER_STYLE,
@@ -85,7 +90,16 @@ function focusableWithin(root: HTMLElement | null): HTMLElement[] {
   );
 }
 
-export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: VitrineDict }) {
+export function SiteHeader({
+  locale,
+  dict,
+  productImages = null,
+}: {
+  locale: VitrineLocale;
+  dict: VitrineDict;
+  /** Real Catalog CMS primary images per product (absent = placeholder). */
+  productImages?: ProductImageMap | null;
+}) {
   const [menu, dispatchMenu] = useReducer(mobileNavReducer, MOBILE_NAV_INITIAL);
   const [productsOpen, setProductsOpen] = useState(false);
 
@@ -335,7 +349,7 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
           >
             <div className="mx-auto max-w-6xl px-4 py-7 md:px-8">
               <ul className="grid gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-                {PRODUCT_CATEGORIES.map(({ key }) => {
+                {PRODUCT_CATEGORIES.map(({ key, product }) => {
                   const item = categoriesFor(key);
                   return (
                     <li key={key}>
@@ -344,7 +358,7 @@ export function SiteHeader({ locale, dict }: { locale: VitrineLocale; dict: Vitr
                         onClick={() => setProductsOpen(false)}
                         className="group flex flex-col gap-3"
                       >
-                        <CategoryMedia size="card" />
+                        <CategoryMedia size="card" image={productImages?.[product] ?? null} />
                         <span>
                           <span className="font-display flex items-center gap-1.5 text-[15px] font-bold text-text">
                             {item.title}

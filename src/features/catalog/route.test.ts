@@ -16,7 +16,13 @@ vi.mock("./cache", () => ({
 import { getDict } from "@/features/vitrine/i18n";
 import { getCachedCatalogProduct, getCachedPublishedFlags } from "./cache";
 import type { PublicCatalogProduct } from "./public";
-import { getHomeCatalogData, getProductRoute, getRelatedCards, productRouteJsonLd } from "./route";
+import {
+  getCategoryImages,
+  getHomeCatalogData,
+  getProductRoute,
+  getRelatedCards,
+  productRouteJsonLd,
+} from "./route";
 
 const ALL_PUBLISHED = {
   PERSONAL_CARD: true,
@@ -37,6 +43,9 @@ function fixedCatalog(): PublicCatalogProduct {
     currency: "MAD",
     availability: "IN_STOCK",
     primaryImageUrl: "https://cdn.example/primary.jpg",
+    primaryImageAlt: null,
+    cardPreviewImage: null,
+    gallery: [],
     ogImageUrl: "https://cdn.example/og.jpg",
     galleryImages: [],
     displayName: null,
@@ -153,6 +162,124 @@ describe("homepage catalog data", () => {
     expect(flags.CAREER_CARD).toBe(false);
     expect(priceLines.PERSONAL_CARD).toBe("199.00 MAD");
     expect(priceLines.CAREER_CARD).toBeUndefined();
+  });
+
+  it("exposes the real primary image per published product (absent while none is set)", async () => {
+    vi.mocked(getCachedCatalogProduct).mockImplementation(async (product) =>
+      product === "PERSONAL_CARD"
+        ? {
+            ...fixedCatalog(),
+            primaryImageUrl: "https://cdn.example/real.jpg",
+            primaryImageAlt: "Carte réelle",
+          }
+        : null,
+    );
+    const { images } = await getHomeCatalogData("fr");
+    expect(images.PERSONAL_CARD).toEqual({
+      src: "https://cdn.example/real.jpg",
+      alt: "Carte réelle",
+    });
+    expect(images.BUSINESS_CARD).toBeUndefined();
+  });
+
+  it("skips unpublished products in the image map", async () => {
+    vi.mocked(getCachedPublishedFlags).mockResolvedValue({
+      ...ALL_PUBLISHED,
+      PERSONAL_CARD: false,
+    });
+    vi.mocked(getCachedCatalogProduct).mockResolvedValue({
+      ...fixedCatalog(),
+      primaryImageUrl: "https://cdn.example/real.jpg",
+    });
+    const { images } = await getHomeCatalogData("fr");
+    expect(images.PERSONAL_CARD).toBeUndefined();
+  });
+
+  it("falls back to the CMS CARD_PREVIEW image when no primary is set", async () => {
+    vi.mocked(getCachedCatalogProduct).mockImplementation(async (product) =>
+      product === "PERSONAL_CARD"
+        ? {
+            ...fixedCatalog(),
+            primaryImageUrl: null,
+            primaryImageAlt: null,
+            cardPreviewImage: { url: "https://cdn.example/preview.jpg", alt: "Aperçu" },
+          }
+        : null,
+    );
+    const { images } = await getHomeCatalogData("fr");
+    expect(images.PERSONAL_CARD).toEqual({
+      src: "https://cdn.example/preview.jpg",
+      alt: "Aperçu",
+    });
+  });
+
+  it("prefers PRIMARY over CARD_PREVIEW and keeps the placeholder when neither exists", async () => {
+    vi.mocked(getCachedCatalogProduct).mockImplementation(async (product) => {
+      if (product === "PERSONAL_CARD") {
+        return {
+          ...fixedCatalog(),
+          primaryImageUrl: "https://cdn.example/real.jpg",
+          cardPreviewImage: { url: "https://cdn.example/preview.jpg", alt: "Aperçu" },
+        };
+      }
+      if (product === "BUSINESS_CARD") {
+        return { ...fixedCatalog(), primaryImageUrl: null, cardPreviewImage: null };
+      }
+      return null;
+    });
+    const { images } = await getHomeCatalogData("fr");
+    expect(images.PERSONAL_CARD?.src).toBe("https://cdn.example/real.jpg");
+    expect(images.BUSINESS_CARD).toBeUndefined();
+  });
+});
+
+describe("category image lookup (header panel)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getCachedPublishedFlags).mockResolvedValue({ ...ALL_PUBLISHED });
+    vi.mocked(getCachedCatalogProduct).mockResolvedValue(null);
+  });
+
+  it("returns only categories that have a published primary image", async () => {
+    vi.mocked(getCachedCatalogProduct).mockImplementation(async (product) =>
+      product === "PERSONAL_CARD"
+        ? {
+            ...fixedCatalog(),
+            primaryImageUrl: "https://cdn.example/real.jpg",
+            primaryImageAlt: "Carte",
+          }
+        : null,
+    );
+    const images = await getCategoryImages("fr");
+    expect(images.PERSONAL_CARD).toEqual({
+      src: "https://cdn.example/real.jpg",
+      alt: "Carte",
+    });
+    expect(images.BUSINESS_CARD).toBeUndefined();
+  });
+
+  it("is empty (placeholder fallback) when the catalog is unreachable", async () => {
+    const images = await getCategoryImages("fr");
+    expect(images).toEqual({});
+  });
+
+  it("uses the CARD_PREVIEW fallback when a category has no primary image", async () => {
+    vi.mocked(getCachedCatalogProduct).mockImplementation(async (product) =>
+      product === "BUSINESS_CARD"
+        ? {
+            ...fixedCatalog(),
+            productType: "BUSINESS_CARD",
+            primaryImageUrl: null,
+            primaryImageAlt: null,
+            cardPreviewImage: { url: "https://cdn.example/business-preview.jpg", alt: null },
+          }
+        : null,
+    );
+    const images = await getCategoryImages("ar");
+    expect(images.BUSINESS_CARD).toEqual({
+      src: "https://cdn.example/business-preview.jpg",
+      alt: null,
+    });
   });
 });
 

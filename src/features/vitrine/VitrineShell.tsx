@@ -14,15 +14,19 @@ import { GtmBootstrap } from "./GtmBootstrap";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { SiteFooter } from "./marketing/Footer";
 import { SiteHeader } from "./marketing/Header";
+import type { ProductImageMap } from "./marketing/ProductCategory";
 import { PageViewTracker } from "./PageViewTracker";
 
 export function VitrineShell({
   locale,
   dict,
+  productImages = null,
   children,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
+  /** Real Catalog CMS primary images for the header category panel (absent = placeholder). */
+  productImages?: ProductImageMap | null;
   children: ReactNode;
 }) {
   return (
@@ -38,7 +42,7 @@ export function VitrineShell({
       >
         {dict.common.skipToContent}
       </a>
-      <SiteHeader locale={locale} dict={dict} />
+      <SiteHeader locale={locale} dict={dict} productImages={productImages} />
       <main id="main-content">{children}</main>
       <SiteFooter locale={locale} dict={dict} />
       {/* Deferred island: banner chunk loads after first paint (see ConsentBannerLazy). */}

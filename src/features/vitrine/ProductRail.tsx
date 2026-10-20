@@ -20,7 +20,11 @@ import type { ProductType } from "@/domain/orders/productTypes";
 import type { VitrineDict, VitrineLocale } from "./i18n";
 import { productSlugFromType } from "./products";
 import { localePath } from "./site";
-import { CategoryMedia, PRODUCT_CATEGORIES } from "./marketing/ProductCategory";
+import {
+  CategoryMedia,
+  PRODUCT_CATEGORIES,
+  type ProductImageMap,
+} from "./marketing/ProductCategory";
 import {
   railEdgeState,
   railScrollDelta,
@@ -47,6 +51,7 @@ export function ProductRail({
   dict,
   publishedFlags = null,
   priceLines = null,
+  productImages = null,
 }: {
   locale: VitrineLocale;
   dict: VitrineDict;
@@ -54,6 +59,8 @@ export function ProductRail({
   publishedFlags?: Record<ProductType, boolean> | null;
   /** Visible fixed catalog price per product (absent = price not configured). */
   priceLines?: Partial<Record<ProductType, string>> | null;
+  /** Real Catalog CMS primary images per product (absent = placeholder). */
+  productImages?: ProductImageMap | null;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLElement | null)[]>([]);
@@ -276,7 +283,7 @@ export function ProductRail({
                   prefetch={false}
                   className="group flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-background transition-shadow duration-200 hover:shadow-[var(--shadow-lift)] motion-safe:active:scale-[0.99]"
                 >
-                  <CategoryMedia size="card" />
+                  <CategoryMedia size="card" image={productImages?.[product] ?? null} />
                   <div className="flex flex-1 flex-col px-4 pt-4 pb-4">
                     <h3 className="font-display text-lg font-bold tracking-[-0.01em] text-text">
                       {category.title}
