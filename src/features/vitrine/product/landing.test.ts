@@ -27,6 +27,9 @@ function fixedCatalog(overrides?: Partial<PublicCatalogProduct>): PublicCatalogP
     currency: "MAD",
     availability: "IN_STOCK",
     primaryImageUrl: "https://cdn.example/primary.jpg",
+    primaryImageAlt: null,
+    cardPreviewImage: null,
+    gallery: [],
     ogImageUrl: null,
     galleryImages: [
       { url: "https://cdn.example/primary.jpg", alt: "" },

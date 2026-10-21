@@ -11,11 +11,15 @@ import {
 import { localePath } from "@/features/vitrine/site";
 import { productTypeFromSlug } from "@/features/vitrine/products";
 import { RELATED_PRODUCTS, type RelatedCard } from "@/features/vitrine/product/related";
+import {
+  PRODUCT_CATEGORIES,
+  type ProductImageMap,
+  type ProductImageSlot,
+} from "@/features/vitrine/marketing/ProductCategory";
 import { getAppUrl } from "@/lib/env";
 import { getCachedCatalogProduct, getCachedPublishedFlags } from "./cache";
 import { catalogOfferForJsonLd, catalogPriceLine, resolveProductCopy } from "./copy";
 import type { PublicCatalogProduct } from "./public";
-
 /**
  * Shared loader + metadata/JSON-LD builders for the three locale product
  * routes (`/{fr,en,ar}/products/[productSlug]`). Keeps the locale pages
@@ -33,6 +37,22 @@ export type ProductRouteData = {
   catalog: PublicCatalogProduct | null;
   published: boolean;
 };
+
+/**
+ * Marketing image slot for one product: the published PRIMARY image, or
+ * the CARD_PREVIEW fallback when no primary is set (both CMS-managed),
+ * or null so the caller keeps the neutral placeholder. Never invents
+ * image paths.
+ */
+function marketingImageSlot(catalog: PublicCatalogProduct | null): ProductImageSlot | null {
+  if (!catalog) return null;
+  if (catalog.primaryImageUrl)
+    return { src: catalog.primaryImageUrl, alt: catalog.primaryImageAlt };
+  if (catalog.cardPreviewImage) {
+    return { src: catalog.cardPreviewImage.url, alt: catalog.cardPreviewImage.alt };
+  }
+  return null;
+}
 
 export async function getProductRoute(
   productSlug: string,
@@ -111,26 +131,51 @@ export async function getRelatedCards(
 
 /**
  * Homepage data: published flags + one visible fixed price line per
- * published priced product (absent while "Price not configured").
- * Fail-safe: empty lines on catalog errors — the homepage never shows a
- * guessed price.
+ * published priced product (absent while "Price not configured") + the
+ * real Catalog CMS image per product — PRIMARY, falling back to
+ * CARD_PREVIEW (absent while neither is set → placeholder). Fail-safe:
+ * empty lines/images on catalog errors — the homepage never shows a
+ * guessed price or an invented image.
  */
 export async function getHomeCatalogData(locale: VitrineLocale): Promise<{
   flags: Record<ProductType, boolean>;
   priceLines: Partial<Record<ProductType, string>>;
+  images: ProductImageMap;
 }> {
   const { allProducts } = await import("@/features/vitrine/products");
   const flags = await getCachedPublishedFlags();
   const priceLines: Partial<Record<ProductType, string>> = {};
+  const images: ProductImageMap = {};
   await Promise.all(
     allProducts().map(async (productType) => {
       if (flags[productType] === false) return;
       const catalog = await getCachedCatalogProduct(productType, locale);
       const line = catalogPriceLine(catalog);
       if (line) priceLines[productType] = line;
+      const slot = marketingImageSlot(catalog);
+      if (slot) images[productType] = slot;
     }),
   );
-  return { flags, priceLines };
+  return { flags, priceLines, images };
+}
+
+/**
+ * Real CMS images for the five categories shown in the desktop mega
+ * panel / mobile menu / home rail (PRIMARY, CARD_PREVIEW fallback).
+ * Unpublished products are already excluded by `getCachedCatalogProduct`
+ * (null); anything without either image stays absent so the caller keeps
+ * the placeholder.
+ */
+export async function getCategoryImages(locale: VitrineLocale): Promise<ProductImageMap> {
+  const images: ProductImageMap = {};
+  await Promise.all(
+    PRODUCT_CATEGORIES.map(async ({ product }) => {
+      const catalog = await getCachedCatalogProduct(product, locale);
+      const slot = marketingImageSlot(catalog);
+      if (slot) images[product] = slot;
+    }),
+  );
+  return images;
 }
 
 /**

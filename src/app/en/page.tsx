@@ -24,14 +24,20 @@ export const revalidate = 3600;
 
 export default async function EnHomePage() {
   const dict = getDict("en");
-  const { flags, priceLines } = await getHomeCatalogData("en");
+  const { flags, priceLines, images } = await getHomeCatalogData("en");
   return (
     <>
       <JsonLd
         id="karti-jsonld-organization"
         data={organizationJsonLd(getAppUrl(), "Karti", dict.meta.home.description)}
       />
-      <HomePage locale="en" dict={dict} publishedFlags={flags} priceLines={priceLines} />
+      <HomePage
+        locale="en"
+        dict={dict}
+        publishedFlags={flags}
+        priceLines={priceLines}
+        productImages={images}
+      />
     </>
   );
 }

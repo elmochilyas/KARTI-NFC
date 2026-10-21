@@ -27,6 +27,17 @@ export type PublicCatalogGalleryImage = {
   alt: string;
 };
 
+/**
+ * CMS media row projected for the marketing/compact slots (rail, header
+ * category panel). Alt is localized with an fr → en → ar fallback and may
+ * be null when the operator set none (the caller then keeps the neutral
+ * placeholder / decorative frame).
+ */
+export type PublicCatalogImage = {
+  url: string;
+  alt: string | null;
+};
+
 export type PublicCatalogProduct = {
   productType: ProductType;
   published: boolean;
@@ -35,6 +46,15 @@ export type PublicCatalogProduct = {
   currency: "MAD";
   availability: CatalogAvailability | null;
   primaryImageUrl: string | null;
+  /** Localized alt of the primary image (its media row), or null. */
+  primaryImageAlt: string | null;
+  /**
+   * First CARD_PREVIEW image (sort_order), or null. Compact marketing
+   * slots (home rail) fall back to it when no primary image is set.
+   */
+  cardPreviewImage: PublicCatalogImage | null;
+  /** Extra GALLERY images for the product page (primary image excluded). */
+  gallery: PublicCatalogImage[];
   ogImageUrl: string | null;
   /** PRIMARY first, then GALLERY in operator sort order (dashboard CMS, unlimited up to the 30-row schema bound). */
   galleryImages: PublicCatalogGalleryImage[];
@@ -68,8 +88,8 @@ function cleanList(value: unknown, maxItem: number, maxItems: number): string[] 
 }
 
 function cleanFaqs(value: unknown): PublicCatalogFaq[] {
-  if (!Array.isArray(value)) return [];
   const out: PublicCatalogFaq[] = [];
+  if (!Array.isArray(value)) return out;
   for (const item of value) {
     if (typeof item !== "object" || item === null) continue;
     const record = item as Record<string, unknown>;
@@ -82,6 +102,56 @@ function cleanFaqs(value: unknown): PublicCatalogFaq[] {
     if (out.length >= 20) break;
   }
   return out;
+}
+
+type CatalogMediaRow = {
+  storage_path: string;
+  media_role: string;
+  sort_order: number;
+  alt_fr: string | null;
+  alt_en: string | null;
+  alt_ar: string | null;
+};
+
+/** Gallery cap for the public product page (extra images beyond the primary). */
+const MAX_GALLERY_IMAGES = 6;
+
+function cleanAlt(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed === "" ? null : trimmed;
+}
+
+/** Requested locale → fr → en → first available. Never invents alt text. */
+function mediaAlt(row: CatalogMediaRow | undefined, locale: VitrineLocale): string | null {
+  if (!row) return null;
+  const chain = [row.alt_fr, row.alt_en, row.alt_ar];
+  const preferred = chain[["fr", "en", "ar"].indexOf(locale)] ?? null;
+  for (const candidate of [preferred, ...chain]) {
+    const alt = cleanAlt(candidate);
+    if (alt) return alt;
+  }
+  return null;
+}
+
+/**
+ * Media rows for one product. Fail-safe: empty list (the page then falls
+ * back to the primary image pointer / decorative placeholder).
+ */
+async function getCatalogMedia(
+  supabase: AdminDb,
+  productType: ProductType,
+): Promise<CatalogMediaRow[]> {
+  try {
+    const res = await supabase
+      .from("catalog_product_media")
+      .select("storage_path,media_role,sort_order,alt_fr,alt_en,alt_ar")
+      .eq("product_type", productType)
+      .order("sort_order");
+    if (res.error || !res.data) return [];
+    return res.data;
+  } catch {
+    return [];
+  }
 }
 
 /** Published catalog product for public rendering, or null (unpublished/unknown/error). */
@@ -158,10 +228,6 @@ export async function getPublishedCatalogProduct(
     locRow = null;
   }
 
-  // PDP gallery: PRIMARY + GALLERY media rows in operator order, with the
-  // configured primary image first. Alt text prefers the page locale, then
-  // any available locale — the PDP falls back to the product name when all
-  // are empty. A media failure never blocks the product: empty gallery.
   let galleryImages: PublicCatalogGalleryImage[] = [];
   try {
     const res = await supabase
@@ -193,19 +259,42 @@ export async function getPublishedCatalogProduct(
     galleryImages = [];
   }
 
+  // Marketing/compact media: the admin-set primary pointer is authoritative
+  // for the URL; a PRIMARY media row heals the orphaned-row case (pointer
+  // lost, row still present). CARD_PREVIEW supplies the compact-slot
+  // fallback. Additive to the PDP gallery above — never replaces it.
+  const mediaRows = await getCatalogMedia(supabase, productType);
+  const pointerPath = productRow.primary_image_path;
+  const primaryRow =
+    mediaRows.find((row) => row.storage_path === pointerPath) ??
+    mediaRows.find((row) => row.media_role === "PRIMARY");
+  const marketingPrimaryPath = pointerPath ?? primaryRow?.storage_path ?? null;
+  const gallery: PublicCatalogImage[] = mediaRows
+    .filter((row) => row.media_role === "GALLERY" && row.storage_path !== marketingPrimaryPath)
+    .slice(0, MAX_GALLERY_IMAGES)
+    .map((row) => ({ url: catalogAssetUrl(row.storage_path), alt: mediaAlt(row, locale) }));
+  const cardPreviewRow = mediaRows.find((row) => row.media_role === "CARD_PREVIEW");
+
   return {
     productType,
     published: true,
     priceMinor,
     currency: "MAD",
     availability,
-    primaryImageUrl: productRow.primary_image_path
-      ? catalogAssetUrl(productRow.primary_image_path)
+    // The CMS primary pointer is authoritative; a PRIMARY media row heals
+    // the orphaned-row case (pointer lost, row still present). Keeps the
+    // PDP `primaryImageUrl` contract (related cards, metadata images) and
+    // the marketing slot resolution aligned on the same primary.
+    primaryImageUrl: marketingPrimaryPath ? catalogAssetUrl(marketingPrimaryPath) : null,
+    primaryImageAlt: mediaAlt(primaryRow, locale),
+    cardPreviewImage: cardPreviewRow
+      ? { url: catalogAssetUrl(cardPreviewRow.storage_path), alt: mediaAlt(cardPreviewRow, locale) }
       : null,
+    gallery,
     ogImageUrl: productRow.og_image_path
       ? catalogAssetUrl(productRow.og_image_path)
-      : productRow.primary_image_path
-        ? catalogAssetUrl(productRow.primary_image_path)
+      : marketingPrimaryPath
+        ? catalogAssetUrl(marketingPrimaryPath)
         : null,
     displayName: locRow?.display_name ?? null,
     shortName: locRow?.short_name ?? null,
